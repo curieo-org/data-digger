@@ -12,8 +12,9 @@ Requirements:
 1. Setup a virtual environment using `python -m venv venv`. (Optional)
 2. Install the required python packages using `pip install -r requirements.txt`.
 3. Make the `run.sh` file executable using `chmod +x run.sh`.
-4. Run the `run.sh` file using `./run.sh`.
-5. After the process is complete, the database will be deployed using Docker. You can access the database using the following credentials:
+4. Provide Docker Hub credentials and configuration in end the `run.sh` file.
+5. Run the `run.sh` file using `./run.sh`.
+6. After the process is complete, the database will be deployed using Docker. You can access the database using the following credentials:
     - Username: `postgress`
     - Password: `P@ssword1`
     - Database: `aact`
