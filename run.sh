@@ -1,10 +1,12 @@
 #!/bin/bash
 
 # Download and Unzip the data
-python scraper.py
+docker build -t aact_scraper . -f Dockerfile_Scraper
+docker run --name aact_scraper -d aact_scraper
+docker cp aact_scraper:/usr/src/app/postgres.dmp postgres.dmp
 
 # Create the database docker image
-docker build -t aact_db .
+docker build -t aact_db . -f Dockerfile_DB
 docker run -p 5430:5432 --name aact_db -d aact_db
 
 # Populate the database with the downloaded data
