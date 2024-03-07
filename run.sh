@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eo pipefail
 
 # Download and Unzip the data
 docker build -t aact_scraper . -f Dockerfile_Scraper
@@ -33,9 +34,8 @@ pushing_image_name=''
 pushing_image_name+=$USER_NAME && pushing_image_name+='/'
 pushing_image_name+=$IMAGE_NAME && pushing_image_name+=':'
 pushing_image_name+=$TAG_NAME
-ECHO $pushing_image_name
 docker tag aact_db $pushing_image_name
 
 # Push the database image to Docker Hub
-docker login -u $DOCKER_USER -p $DOCKER_PASS
+echo $DOCKER_PASSWORD | docker login -u $DOCKER_USER --password-stdin
 docker push $pushing_image_name
