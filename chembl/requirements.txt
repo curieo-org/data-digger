@@ -1,0 +1,2 @@
+psycopg2==2.9.9
+nebula3-python==3.5.0
