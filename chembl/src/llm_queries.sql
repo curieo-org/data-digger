@@ -1,5 +1,5 @@
 MATCH
-    p=(similar_compound:compound_details)<-[similarity:similar_to]-(compound:compound_details)<-[parent_edge:has_parent]-(input:molecule_name)
+    p=(similar_compound:compound_details)<-[similarity:similar_to]-(compound:compound_details)<-[parent_edge:has_parent]-(input)
 WHERE
     id(input) == 'aspirin'
 RETURN
@@ -8,7 +8,7 @@ RETURN
     similarity.similarity as percentage_of_similarity;
 
 MATCH
-    p=(drug_ind:drug_indication)<-[drug_ind_edge:compound_of]-(compound:compound_details)<-[]-(input:molecule_name)
+    p=(drug_ind:drug_indication)<-[drug_ind_edge:compound_of]-(compound:compound_details)<-[]-(input)
 WHERE
     id(input) == 'aspirin'
 RETURN
@@ -20,7 +20,7 @@ RETURN
 
 
 MATCH
-    p=(target_compound:target_details)-[tar_edge:target_of]->(drug_mec:drug_mechanism)<-[drug_mec_edge:compound_of]-(compound:compound_details)<-[]-(input:molecule_name)
+    p=(target_compound:target_details)-[tar_edge:target_of]->(drug_mec:drug_mechanism)<-[drug_mec_edge:compound_of]-(compound:compound_details)<-[]-(input)
 WHERE
     id(input) == 'aspirin'
 RETURN
@@ -34,14 +34,14 @@ RETURN
 
 
 MATCH
-    p=(synonym:molecule_synonym)-[syn_edge:synonym_of]->(compound:compound_details)<-[parent_edge:has_parent]-(input:molecule_name)
+    p=(synonym:molecule_synonym)-[syn_edge:synonym_of]->(compound:compound_details)<-[parent_edge:has_parent]-(input)
 WHERE
     id(input) == 'aspirin'
 RETURN
     synonym.molecule_synonym.value;
 
 MATCH
-    p=(compound:compound_details)<-[parent_edge:has_parent]-(input:molecule_name)
+    p=(compound:compound_details)<-[parent_edge:has_parent]-(input)
 WHERE
     id(input) == 'aspirin'
 RETURN

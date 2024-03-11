@@ -2,4 +2,3 @@ beautifulsoup4==4.12.3
 FPSim2==0.5.1
 psycopg2==2.9.9
 Requests==2.31.0
-nebula3-python==3.5.0

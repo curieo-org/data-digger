@@ -3,7 +3,7 @@ from FPSim2 import FPSim2Engine
 
 class ChemblSimilarity:
     def __init__(self):
-        fpsim_file_path = 'chembl_33.h5'
+        fpsim_file_path = 'chembl.h5'
         self.fpsim2 = FPSim2Engine(fpsim_file_path, in_memory_fps=False)
 
     def compound_similarity(self, canonical_smiles, threshold = 0.85) -> list[dict[str, str]]:

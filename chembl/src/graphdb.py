@@ -1,15 +1,20 @@
 from nebula3.gclient.net import ConnectionPool
 from nebula3.Config import Config
 
+HOST = 'localhost'
+PORT = 9669
+USER = 'root'
+PASSWORD = 'nebula'
+
 class GraphDB:
     def __init__(self):
         config = Config()
         config.max_connection_pool_size = 10
 
         self.pool = ConnectionPool()
-        self.pool.init([('127.0.0.1', 9669)], config)
+        self.pool.init([(HOST, PORT)], config)
 
-        self.session = self.pool.get_session('root', 'nebula')
+        self.session = self.pool.get_session(USER, PASSWORD)
 
         self.session.execute('CREATE SPACE IF NOT EXISTS chembl(partition_num=10, replica_factor=1, vid_type=fixed_string(64));')
         self.session.execute('USE chembl')

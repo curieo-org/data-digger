@@ -1,11 +1,17 @@
 import psycopg2
 
+DATABASE = 'chembl'
+USER = 'postgres'
+HOST = 'localhost'
+PORT = 5431
+
 
 def connect() -> psycopg2._psycopg.connection:
     connection = psycopg2.connect(
-        database='chembl33',
-        user='rathijitpaul',
-        host='localhost',
+        database=DATABASE,
+        user=USER,
+        host=HOST,
+        port=PORT
     )
 
     return connection
