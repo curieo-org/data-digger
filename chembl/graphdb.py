@@ -59,13 +59,15 @@ class GraphDB:
 
     def show_tags(self) -> list[str]:
         result = self.session.execute('SHOW TAGS')
-        return list(result)
+        result_in_list = [str(value).replace('"', '') for value in list(result)]
+        return result_in_list
     
 
     def show_edges(self) -> list[str]:
         result = self.session.execute('SHOW EDGES')
-        return list(result)
-    
+        result_in_list = [str(value).replace('"', '') for value in list(result)]
+        return result_in_list
+
 
     def close(self):
         self.session.release()

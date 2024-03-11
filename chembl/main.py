@@ -143,11 +143,11 @@ def populate_compound_info():
             continue
         
         # Extracting the values from the dictionary
-        molecular_uid = compound['molecular_uid'] + '_compound'
-        molecule_name = compound['molecule_name']
-        chembl_id = compound['chembl_id']
-        molecule_type = compound['molecule_type']
-        full_molecular_formula = compound['full_molecular_formula']
+        molecular_uid = compound['molecular_uid'].lower() + '_compound'
+        molecule_name = compound['molecule_name'].lower()
+        chembl_id = compound['chembl_id'].lower()
+        molecule_type = compound['molecule_type'].lower()
+        full_molecular_formula = compound['full_molecular_formula'].lower()
         
 
         # Inserting the root vertex
@@ -180,7 +180,7 @@ def populate_compound_info():
 
         if full_molecular_formula != '':
             graphdb.insert_vertex('full_molecular_formula', full_molecular_formula, {
-                'value': full_molecular_formula
+                'value': compound['full_molecular_formula']
             })
             graphdb.insert_edge('has_parent', full_molecular_formula, molecular_uid, {
                 'value': 'has_parent'
@@ -202,11 +202,11 @@ def populate_target_info():
             continue
 
         # Extracting the values from the dictionary
-        target_uid = target['target_uid'] + '_target'
-        target_type = target['target_type']
-        target_name = target['target_name']
-        organism = target['organism']
-        chembl_id = target['chembl_id']
+        target_uid = target['target_uid'].lower() + '_target'
+        target_type = target['target_type'].lower()
+        target_name = target['target_name'].lower()
+        organism = target['organism'].lower()
+        chembl_id = target['chembl_id'].lower()
 
         # Inserting the root vertex
         graphdb.insert_vertex('target_details', target_uid, target)
@@ -260,27 +260,29 @@ def populate_compound_similarity():
             continue
         
         # Extracting the values from the dictionary
-        molecular_uid = compound['molecular_uid'] + '_compound'
+        molecular_uid = compound['molecular_uid'].lower() + '_compound'
         canonical_smiles = compound['canonical_smiles']
 
         # Find similar compounds
-        similar_compounds = chembl_similarity.compound_similarity(canonical_smiles)
+        try:
+            similar_compounds = chembl_similarity.compound_similarity(canonical_smiles)
 
 
-        # Inserting the child vertexes and edges
-        for similar_compound in similar_compounds:
-            molregno = similar_compound['molregno'] + '_compound'
-            similarity = similar_compound['similarity']
-            similarity_key = canonical_smiles
+            # Inserting the child vertexes and edges
+            for similar_compound in similar_compounds:
+                molregno = similar_compound['molregno'] + '_compound'
+                similarity = similar_compound['similarity']
+                similarity_key = canonical_smiles
 
-            try:
                 graphdb.insert_edge('similar_to', molecular_uid, molregno, {
                     'value': 'similar_to',
                     'similarity': similarity,
                     'similarity_key': similarity_key
                 })
-            except:
-                print('Error:', molecular_uid, molregno, similarity, similarity_key)
+        except:
+            print('Error in finding similar compounds for:', molecular_uid, canonical_smiles)
+
+    graphdb.close()
 
 
 
@@ -296,8 +298,8 @@ def populate_compound_synonyms():
             continue
 
         # Extracting the values from the dictionary
-        molecular_uid = compound['molecular_uid'] + '_compound'
-        molecule_synonym = compound['molecule_synonym']
+        molecular_uid = compound['molecular_uid'].lower() + '_compound'
+        molecule_synonym = compound['molecule_synonym'].lower()
 
         # Inserting the child vertexes and edges
         if molecule_synonym != '':
@@ -324,15 +326,15 @@ def populate_drug_mechanism():
             continue
 
         # Extracting the values from the dictionary
-        molecular_uid = drug['molecular_uid'] + '_compound'
-        action_type = drug['action_type']
-        mechanism_of_action = drug['mechanism_of_action']
-        target_uid = drug['target_uid'] + '_target'
-        reference_type = drug['reference_type']
-        compound_name = drug['compound_name']
-        compound_key = drug['compound_key']
-        source_name = drug['source_name']
-        source_description = drug['source_description']
+        molecular_uid = drug['molecular_uid'].lower() + '_compound'
+        action_type = drug['action_type'].lower()
+        mechanism_of_action = drug['mechanism_of_action'].lower()
+        target_uid = drug['target_uid'].lower() + '_target'
+        reference_type = drug['reference_type'].lower()
+        compound_name = drug['compound_name'].lower()
+        compound_key = drug['compound_key'].lower()
+        source_name = drug['source_name'].lower()
+        source_description = drug['source_description'].lower()
 
         # Inserting the root vertex
         new_uuid = str(uuid4())
@@ -420,13 +422,13 @@ def populate_drug_indication():
             continue
 
         # Extracting the values from the dictionary
-        molecular_uid = drug['molecular_uid'] + '_compound'
-        mesh_heading = drug['mesh_heading']
-        reference_type = drug['reference_type']
-        compound_name = drug['compound_name']
-        compound_key = drug['compound_key']
-        source_name = drug['source_name']
-        source_description = drug['source_description']
+        molecular_uid = drug['molecular_uid'].lower() + '_compound'
+        mesh_heading = drug['mesh_heading'].lower()
+        reference_type = drug['reference_type'].lower()
+        compound_name = drug['compound_name'].lower()
+        compound_key = drug['compound_key'].lower()
+        source_name = drug['source_name'].lower()
+        source_description = drug['source_description'].lower()
 
         # Inserting the root vertex
         new_uuid = str(uuid4())
