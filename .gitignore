@@ -1,5 +1,6 @@
 *.zip
 *.dmp
+*.h5
 
 # py cache
 __pycache__/
