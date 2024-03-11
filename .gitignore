@@ -1,2 +1,5 @@
 *.zip
 *.dmp
+
+# py cache
+__pycache__/
