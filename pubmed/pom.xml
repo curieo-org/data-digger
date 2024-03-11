@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>data-digger</groupId>
+	<artifactId>data-digger</artifactId>
+	<description>data digger java</description>
+	<packaging>pom</packaging>
+	<version>0.0.1-SNAPSHOT</version>
+
+	<properties>
+		<jdk.version>11</jdk.version>
+		<java.version>11</java.version>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		
+		<maven-compiler-target>11</maven-compiler-target>
+		<maven-compiler-source>11</maven-compiler-source>
+		
+		<maven-compiler-plugin.version>3.8.0</maven-compiler-plugin.version>
+		<maven-assembly-plugin.version>3.4.2</maven-assembly-plugin.version>
+		<maven-source-plugin.version>3.0.1</maven-source-plugin.version>
+		<maven-release-plugin.version>2.5.3</maven-release-plugin.version>
+		<maven.surefire.plugin.version>2.22.0</maven.surefire.plugin.version>
+		<maven-jar-plugin.version>3.1.0</maven-jar-plugin.version>
+		
+		<data-digger.version>0.0.1</data-digger.version>
+		<jsonassert.version>1.5.0</jsonassert.version>
+		<assertj.version>3.4.1</assertj.version>
+		<commons-csv.version>1.5</commons-csv.version>
+		<commons-text.version>1.11.0</commons-text.version>
+		<commons-io.version>2.15.1</commons-io.version>
+		<commons-lang3.version>3.14</commons-lang3.version>
+		<commons-collections.version>4.4</commons-collections.version>
+		<commons-cli.version>1.6.0</commons-cli.version>
+		<commons-net.version>3.10.0</commons-net.version>
+		<mockito.version>2.24.5</mockito.version>
+		<jsonld-java.version>0.13.5</jsonld-java.version>
+		<junit.jupiter.version>5.4.0</junit.jupiter.version>
+		<junit.platform.version>1.2.0</junit.platform.version>
+		<lombok.version>1.18.10</lombok.version>
+		<jackson.version>2.12.3</jackson.version>
+		<jewelcli.version>0.8.3</jewelcli.version>
+		<jfasttext.version>0.2</jfasttext.version>
+		<postgresql.version>42.7.2</postgresql.version>
+		<log4j.version>2.7</log4j.version>
+		<slf4j.version>2.7</slf4j.version>
+		<opennlp.version>2.3.2</opennlp.version>
+		<jacoco-maven-plugin.version>0.8.5</jacoco-maven-plugin.version>
+	</properties>
+
+	<modules>
+		<module>data-digger-etl</module>
+		<module>data-mapper</module>
+    </modules>
+
+	<dependencyManagement>
+		<dependencies>
+			<!-- Curieo Dependencies -->
+			<dependency>
+				<groupId>data-digger</groupId>
+				<artifactId>data-digger-etl</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>data-digger</groupId>
+				<artifactId>data-mapper</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			
+		</dependencies>
+	</dependencyManagement>
+
+	<!-- Dependencies for all sub modules - cross cutting concerns -->
+	<dependencies>
+
+		<!--Common test dependencies-->
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-api</artifactId>
+			<scope>test</scope>
+			<version>${junit.jupiter.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-engine</artifactId>
+			<scope>test</scope>
+			<version>${junit.jupiter.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-params</artifactId>
+			<scope>test</scope>
+			<version>${junit.jupiter.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.assertj</groupId>
+			<artifactId>assertj-core</artifactId>
+			<scope>test</scope>
+			<version>${assertj.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<version>${lombok.version}</version>
+			<scope>provided</scope>
+		</dependency>
+			
+		<dependency>
+		    <groupId>org.apache.opennlp</groupId>
+		    <artifactId>opennlp-tools</artifactId>
+		    <version>${opennlp.version}</version>
+		</dependency>
+	</dependencies>
+
+	<profiles>
+		<profile>
+			<id>slowTests</id>
+			<properties>
+				<includedTestTags>slow,behaviour</includedTestTags>
+				<excludedTestTags />
+			</properties>
+		</profile>
+		<profile>
+			<id>owasp</id>
+			<properties>
+				<version.plugin.owasp.check>7.4.1</version.plugin.owasp.check>
+			</properties>
+			<build>
+				<pluginManagement>
+					<plugins>
+						<plugin>
+							<groupId>org.owasp</groupId>
+							<artifactId>dependency-check-maven</artifactId>
+							<version>${version.plugin.owasp.check}</version>
+							<configuration>
+								<autoUpdate>true</autoUpdate>
+								<format>CSV</format>
+								<failOnError>false</failOnError>
+							</configuration>
+							<executions>
+								<execution>
+									<goals>
+										<goal>check</goal>
+									</goals>
+								</execution>
+							</executions>
+						</plugin>
+					</plugins>
+				</pluginManagement>
+				<plugins>
+					<plugin>
+						<groupId>org.owasp</groupId>
+						<artifactId>dependency-check-maven</artifactId>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-surefire-plugin</artifactId>
+					<version>${maven.surefire.plugin.version}</version>
+					<configuration>
+						<groups>${includedTestTags}</groups>
+						<excludedGroups>${excludedTestTags}</excludedGroups>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-compiler-plugin</artifactId>
+					<version>${maven-compiler-plugin.version}</version>
+					<configuration>
+						<source>${jdk.version}</source>
+						<target>${jdk.version}</target>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-source-plugin</artifactId>
+					<version>${maven-source-plugin.version}</version>
+					<executions>
+						<execution>
+							<id>attach-sources</id>
+							<goals>
+								<goal>jar</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-jar-plugin</artifactId>
+					<version>${maven-jar-plugin.version}</version>
+					<executions>
+						<execution>
+							<goals>
+								<goal>test-jar</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
+					<groupId>org.codehaus.mojo</groupId>
+					<artifactId>buildnumber-maven-plugin</artifactId>
+					<version>${buildnumber-maven-plugin.version}</version>
+					<executions>
+						<execution>
+							<phase>validate</phase>
+							<goals>
+								<goal>create</goal>
+							</goals>
+						</execution>
+					</executions>
+					<configuration>
+						<!-- Disable check for any non-committed local file since this will
+							cause pain when building locally and is not going to happen on Jenkins -->
+						<doCheck>false</doCheck>
+						<!-- Disable GIT PULL since Jenkins would have already done one prior
+							to building -->
+						<doUpdate>false</doUpdate>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.codehaus.mojo</groupId>
+					<artifactId>templating-maven-plugin</artifactId>
+					<version>${templating-maven-plugin.version}</version>
+					<executions>
+						<execution>
+							<id>generate-version-class</id>
+							<goals>
+								<goal>filter-sources</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-release-plugin</artifactId>
+					<version>${maven-release-plugin.version}</version>
+					<configuration>
+						<tagNameFormat>@{project.version}</tagNameFormat>
+					</configuration>
+				</plugin>
+				<!-- Apparently, required at main project level as well as in spark-annotations
+				and spark-classifications. -->
+				<plugin>
+					<artifactId>maven-assembly-plugin</artifactId>
+					<version>3.1.1</version>
+					<executions>
+						<execution>
+							<phase>package</phase>
+							<goals>
+								<goal>single</goal>
+							</goals>
+						</execution>
+					</executions>
+					<configuration>
+						<descriptorRefs>
+							<descriptorRef>jar-with-dependencies</descriptorRef>
+						</descriptorRefs>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.jacoco</groupId>
+					<artifactId>jacoco-maven-plugin</artifactId>
+					<version>${jacoco-maven-plugin.version}</version>
+					<configuration>
+						<append>true</append>
+					</configuration>
+					<executions>
+						<execution>
+							<id>agent-for-ut</id>
+							<goals>
+								<goal>prepare-agent</goal>
+							</goals>
+						</execution>
+						<execution>
+							<id>jacoco-site</id>
+							<phase>verify</phase>
+							<goals>
+								<goal>report</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-release-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+
+	<repositories>
+	</repositories>
+
+	<distributionManagement>
+	</distributionManagement>
+
+	<pluginRepositories>
+	</pluginRepositories>
+
+	<scm>
+		<connection>scm:git:ssh://git@github.com/curieo-org/data-digger-java.git</connection>
+		<tag>HEAD</tag>
+	</scm>
+</project>
