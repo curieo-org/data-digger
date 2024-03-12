@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the source code
 COPY ./src .
+COPY chembl.h5 .
 
 # Set ENV variables
 ENV POSTGRES_USER postgres
