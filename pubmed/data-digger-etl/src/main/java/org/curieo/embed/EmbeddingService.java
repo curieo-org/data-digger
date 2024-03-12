@@ -5,14 +5,17 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
@@ -30,32 +33,27 @@ public class EmbeddingService {
 	int embeddingsLength;
 
 	static {
-		TypeReference<HashMap<String, String>> typeRef 
-		  	= new TypeReference<HashMap<String, String>>() {};
-		TypeReference<HashMap<String, List<Double>>> embeddingType 
-		  	= new TypeReference<HashMap<String, List<Double>>>() {};
+		TypeReference<HashMap<String, List<String>>> typeRef = new TypeReference<>() {};
+		TypeReference<List<List<Double>>> embeddingType      = new TypeReference<>() {};
 	  	OBJECT_WRITER = new ObjectMapper().writerFor(typeRef);
 	  	OBJECT_READER = new ObjectMapper().readerFor(embeddingType);
 	}
 	
 	public double[] embed(String text) {
-		
 		try {
-			HttpClient client = HttpClient.newHttpClient();
-			Map<String, String> map = new HashMap<>();
-			map.put("text", text);
+			HttpClient client = HttpClient.newHttpClient();			
 			HttpRequest request = HttpRequest.newBuilder()
 					  .uri(URI.create(serviceUrl))
 					  .header("Content-Type", "application/json")
-					  .POST(HttpRequest.BodyPublishers.ofString(OBJECT_WRITER.writeValueAsString(map)))
+					  .POST(HttpRequest.BodyPublishers.ofString(serializeTextEmbeddingsRouter(text)))
 					  .build();
 			
 			HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 			if (response.statusCode() == 200) {
 				try {
 					int i =0;
-					double[] e = new double[embeddingsLength];
-					for (JsonNode value : OBJECT_READER.readTree(response.body()).get("data")) {
+					double[] e = new double[embeddingsLength];					
+					for (JsonNode value : deserializeTextEmbeddingsRouter(response.body())) {
 						if (i == embeddingsLength) {
 							throw new RuntimeException("Embeddings are too long");
 						}
@@ -80,8 +78,17 @@ public class EmbeddingService {
 			LOGGER.error(String.format("Not connected to service %s", serviceUrl), e);
 			Thread.currentThread().interrupt();
 		}
-
 		LOGGER.warn("Failure to embed text.");
 		return null;
+	}
+
+	private static String serializeTextEmbeddingsRouter(String text) throws JsonProcessingException {
+		Map<String, List<String>> map = new HashMap<>();
+		map.put("inputs", Collections.singletonList(text));
+		return OBJECT_WRITER.writeValueAsString(map);
+	}
+	
+	private static JsonNode deserializeTextEmbeddingsRouter(String response) throws JsonMappingException, JsonProcessingException {
+		return OBJECT_READER.readTree(response).get(0);
 	}
 }

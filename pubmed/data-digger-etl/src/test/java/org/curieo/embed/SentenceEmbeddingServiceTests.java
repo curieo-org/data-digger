@@ -10,7 +10,7 @@ class SentenceEmbeddingServiceTests {
 	 */
 	@Test @Disabled
 	void testOnce() {
-		EmbeddingService ses = new EmbeddingService("http://127.0.0.1:5000/embed", 768);
+		EmbeddingService ses = new EmbeddingService("http://127.0.0.1:3000/embed", 768);
 		System.out.printf("%d\n", ses.embed("The quick brown fox jumped over the lazy dog").length);
 	}
 }

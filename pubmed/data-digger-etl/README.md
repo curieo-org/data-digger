@@ -40,7 +40,9 @@ Currently only pubmed parsing is supported. All records are supposedly implement
 
 ### Mapping
 We map `PubmedRecord` to `StandardRecord` for serialization purposes.
+
 We map `PubmedRecord` to `Authorship` to be able to store authorships per record.
+
 We map `StandardRecord` to `Embeddings` through an embeddingsservice to store embeddings.
 
 ### Storage
@@ -86,6 +88,54 @@ See the [load-pubmed.sh](./scripts/load-pubmed.sh) script for the example.
 The script maintains a status file that records progress on the overall scraping process.
 
 
+## Embeddings service
+The embeddings service needs to be live when you start running the process. The URL location of the Embeddings service must be specified through the `-e` parameter on the command line of the `data-digger-etl` process.
+
+There are two alternatives for bringing an embeddings service to life.
+
+### embeddings_server.py (script)
+For running embeddings that are _not_ covered by huggingface embeddings inference server, you can use a home-made flask app (make sure to have flask installed). This server app is in path `./data-digger-etl/scripts/embeddings_server.py`, and run like so:
+
+```sh
+python3 -m flask --app pubmed/data-digger-etl/scripts/embeddings_server.py run
+```
+
+It can support, eg. the `all-mpnet-base-v2` embeddings that HF currently does not support.
+
+### text-embeddings-inference (local)
+Clone [text-embeddings-inference](https://github.com/huggingface/text-embeddings-inference). Also build locally on Mac, like so.
+
+
+```sh
+git clone https://github.com/huggingface/text-embeddings-inference
+# To build locally on Mac, do this:
+cargo install --path router -F candle -F meta
+```
+
+The download your model of choice, and run the text router locally; pointing the model to the folder that contains the local model; 
+e.g. like so:
+
+```sh
+git clone https://huggingface.co/avsolatorio/GIST-Embedding-v0
+text-embeddings-router --model-id GIST-Embedding-v0
+```
+This works like a charm.
+
+### text-embeddings-inference (hugging face API)
+Pick one of your liking. As long as the interface is compliant; which means that:
+
+_input_ must be one or more sentences after "inputs";
+
+```json
+{ "inputs": [ "text1", "text2" ] }
+```
+
+_output_ must be one vector per sentence;
+
+```json
+[[0.001, -0.38, ... ], [ 0.234, ... 0.782 ]]
+```
+
 
 ## Content Sources
 Now represented are:
@@ -109,5 +159,12 @@ This process needs daily runs to stay up-to-date.
 ### USPTO
 Data from [https://bulkdata.uspto.gov/](https://bulkdata.uspto.gov/).
 
-# Data Feed
-Into Elastic - currently.
+# Data Storage
+Into Elastic and PostgreSQL currently.
+
+## Elastic Storage
+You can set up elastic storage remotely or locally.
+
+## PostgreSQL
+
+
