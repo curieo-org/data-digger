@@ -1,10 +1,11 @@
 from nebula3.gclient.net import ConnectionPool
 from nebula3.Config import Config
+import os
 
-HOST = 'localhost'
-PORT = 9669
-USER = 'root'
-PASSWORD = 'nebula'
+HOST = os.getenv('GRAPH_DB_HOST', '')
+PORT = os.getenv('GRAPH_DB_PORT', '')
+USER = os.getenv('GRAPH_DB_USER', '')
+PASSWORD = os.getenv('GRAPH_DB_PASSWORD', '')
 
 class GraphDB:
     def __init__(self):

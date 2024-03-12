@@ -1,0 +1,30 @@
+# Description: Dockerfile for the backend service
+FROM python:3.12
+
+# Set the working directory
+WORKDIR /usr/src/app
+
+# Install the required packages
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the source code
+COPY ./src .
+
+# Set ENV variables
+ENV POSTGRES_USER postgres
+ENV POSTGRES_DB chembl
+ENV POSTGRES_HOST chembl_db
+ENV POSTGRES_PORT 5432
+ENV GRAPH_DB_HOST graphd
+ENV GRAPH_DB_PORT 9669
+ENV GRAPH_DB_USER root
+ENV GRAPH_DB_PASSWORD nebula
+ENV BACKEND_PORT 8080
+ENV BACKEND_HOST 0.0.0.0
+
+# Expose the port
+EXPOSE 5000
+
+# Run the app
+CMD [ "python", "main.py" ]

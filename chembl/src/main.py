@@ -2,6 +2,13 @@ from chembl_query import ChemblQuery
 from graphdb import GraphDB
 from chembl_similarity import ChemblSimilarity
 from uuid import uuid4
+from flask import Flask
+import os
+
+BACKEND_HOST = os.getenv('BACKEND_HOST', '')
+BACKEND_PORT = os.getenv('BACKEND_PORT', '')
+app = Flask(__name__)
+
 
 # Create the necessary graph properties
 def create_necessary_graph_properties():
@@ -501,5 +508,9 @@ def main():
     populate_drug_indication()
 
 
-if __name__ == "__main__":
+@app.route('/start-transfer-database')
+def start_transfer_database():
     main()
+
+if __name__ == "__main__":
+    app.run(host=BACKEND_HOST, port=BACKEND_PORT)
