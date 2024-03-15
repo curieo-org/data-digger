@@ -6,6 +6,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
+
 import lombok.Builder;
 import lombok.Data;
 import lombok.Generated;
@@ -18,6 +22,7 @@ import lombok.Generated;
 @Generated @Data @Builder
 public class StandardRecord implements Record {
 	static final SimpleDateFormat FORMATTER = new SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH);
+	static final ObjectWriter OBJECT_WRITER = new ObjectMapper().writerFor(StandardRecord.class);
 	List<Text> abstractText;
 	List<Text> titles;
 	List<String> authors;
@@ -52,5 +57,13 @@ public class StandardRecord implements Record {
 	
 	public static String formatDate(Date date) {
 		return FORMATTER.format(date);
+	}
+	
+	public String toJson() {
+		try {
+			return OBJECT_WRITER.writeValueAsString(this);
+		} catch (JsonProcessingException e) {
+			throw new RuntimeException(e);
+		}
 	}
 }

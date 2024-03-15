@@ -13,6 +13,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.curieo.model.Authorship;
+import org.curieo.model.StandardRecord;
 import org.curieo.utils.ListUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +32,8 @@ public class PostgreSQLSink {
 		List("VARCHAR"),
 		String("VARCHAR"), 
 		Integer("INT"),
-		SmallInt("SMALLINT");
+		SmallInt("SMALLINT"),
+		Text("TEXT");
 		
 		final String sqlType;
 		ExtractType(String s) {
@@ -99,6 +101,38 @@ public class PostgreSQLSink {
 		extracts.add(new Extract<>(storageSpecs.get(5).type, null, null, Authorship::getYearActive));
 		extracts.add(storageSpecs.get(6).trim(Authorship::getEmailAddress));
 		extracts.add(storageSpecs.get(7).trim(Authorship::getPublicationId));
+		
+		return new GenericSink<>(extracts, p);
+	}
+
+	/**
+	 * Create a sink of full records into a JDBC SQL table.
+	 * Once the connection is closed, the sink is invalidated.
+	 * PostgreSQL dialect is assumed.
+	 * 
+	 * @param connection
+	 * @return a consumer.
+	 * @throws SQLException
+	 */
+	public static Sink<StandardRecord> createRecordSink(Connection connection) throws SQLException {
+		List<StorageSpec> storageSpecs = Arrays.asList(
+				new StorageSpec("Identifier", ExtractType.String, 20),
+				new StorageSpec("Record", ExtractType.Text, 0)
+		);
+		
+		String creation = String.format("CREATE TABLE IF NOT EXISTS Records (%s)",
+				 storageSpecs.stream().map(Object::toString).collect(Collectors.joining(", ")));
+		Statement statement = connection.createStatement();
+		statement.execute(creation);
+
+		String insert = String.format("INSERT INTO Records (%s) VALUES (%s)",
+				 storageSpecs.stream().map(StorageSpec::getField).collect(Collectors.joining(", ")),
+				 storageSpecs.stream().map(s -> "?").collect(Collectors.joining(", ")));
+		PreparedStatement p = connection.prepareStatement(insert);
+		List<Extract<StandardRecord>> extracts = new ArrayList<>();
+		//StandardRecord sr = new StandardRecord();
+		extracts.add(new Extract<>(storageSpecs.get(0).type, null, StandardRecord::getIdentifier, null));
+		extracts.add(new Extract<>(storageSpecs.get(1).type, null, StandardRecord::toJson, null));
 		
 		return new GenericSink<>(extracts, p);
 	}
