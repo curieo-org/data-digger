@@ -23,6 +23,22 @@ case $1 in
         echo "Pubmed updates to Elastic"
     ;;
 
+    pubmed-baseline-2-postgres)
+        echo "Pubmed updates (full records) to postgres"
+        STATUS=~/Documents/corpora/pubmed/updates-status.json
+        POSTGRESUSER=datadigger
+        ARGS="-c $CREDS -d pubmed -t $STATUS -p $POSTGRESUSER --full-records"
+        $CMD $ARGS
+    ;;
+
+    pubmed-updates-2-postgres)
+        echo "Pubmed updates (full records) to postgres"
+        STATUS=~/Documents/corpora/pubmed/updates-status.json
+        POSTGRESUSER=datadigger
+        ARGS="-c $CREDS -d pubmed-updates -t $STATUS -p $POSTGRESUSER --full-records"
+        $CMD $ARGS
+    ;;
+
     pubmed-updates-2-both)
         echo "Pubmed updates to Elastic and postgres"
         STATUS=~/Documents/corpora/pubmed/updates-status.json

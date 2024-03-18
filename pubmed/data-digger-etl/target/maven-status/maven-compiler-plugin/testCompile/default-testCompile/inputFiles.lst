@@ -1,0 +1,6 @@
+/Users/rahuldutta/Documents/Code/data-digger/pubmed/data-digger-etl/src/test/java/org/curieo/utils/CredentialsTest.java
+/Users/rahuldutta/Documents/Code/data-digger/pubmed/data-digger-etl/src/test/java/org/curieo/embed/SentenceEmbeddingServiceTests.java
+/Users/rahuldutta/Documents/Code/data-digger/pubmed/data-digger-etl/src/test/java/org/curieo/driver/DataLoaderTests.java
+/Users/rahuldutta/Documents/Code/data-digger/pubmed/data-digger-etl/src/test/java/org/curieo/sources/PubmedTests.java
+/Users/rahuldutta/Documents/Code/data-digger/pubmed/data-digger-etl/src/test/java/org/curieo/consumer/TestPostgres.java
+/Users/rahuldutta/Documents/Code/data-digger/pubmed/data-digger-etl/src/test/java/org/curieo/driver/FTPTests.java

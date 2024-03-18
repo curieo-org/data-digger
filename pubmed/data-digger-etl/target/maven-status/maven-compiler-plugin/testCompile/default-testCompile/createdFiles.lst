@@ -1,0 +1,6 @@
+org/curieo/embed/SentenceEmbeddingServiceTests.class
+org/curieo/utils/CredentialsTest.class
+org/curieo/sources/PubmedTests.class
+org/curieo/consumer/TestPostgres.class
+org/curieo/driver/FTPTests.class
+org/curieo/driver/DataLoaderTests.class
