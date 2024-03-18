@@ -45,9 +45,9 @@ SELECT
 	tsi.description as description,
 	tse.eligibility as eligibility_details
 INTO
-	ctgov.tbl_studies_eligibilities
+	public.tbl_studies_eligibilities
 FROM 
-	ctgov.tbl_studies_info tsi
+	public.tbl_studies_info tsi
 LEFT JOIN temp_studies_eligibilities tse ON tsi.nct_id = tse.nct_id;
 
 
