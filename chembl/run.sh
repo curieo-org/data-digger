@@ -12,7 +12,7 @@ docker network create chembl_network
 
 # Create the database docker image
 docker build -t chembl_db . -f Dockerfile_DB
-docker run --network chembl_network --network-alias chembl_db --name chembl_db -d chembl_db
+docker run -p 5431:5432 --network chembl_network --network-alias chembl_db --name chembl_db -d chembl_db
 
 # Populate the database with the downloaded data
 docker cp chembl_postgres.dmp chembl_db:/usr/local/bin/chembl_postgres.dmp
@@ -33,5 +33,5 @@ docker start chembl_backend
 
 # Pause for 5 seconds to allow the backend to start 
 # converting the PostgreSQL database to Nebula Graph database
-sleep 5
+sleep 60
 CURL http://localhost:8080/start-transfer-database
