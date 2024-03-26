@@ -110,7 +110,7 @@ LEFT JOIN tmp_adverse_details tad ON tsi.nct_id = tad.nct_id;
 
 
 
--- ============= tbl_studies_pubmued_links ===============================
+-- ============= tbl_studies_pubmed_links ===============================
 with tmp_study_details as (
 	SELECT 
 		studies.nct_id as nct_id,
@@ -126,7 +126,7 @@ SELECT
 	tsi.description as description,
 	tsd.PubmedCitation as PubmedCitation
 INTO
-	public.tbl_studies_pubmued_links
+	public.tbl_studies_pubmed_links
 FROM 
 	public.tbl_studies_info tsi
 LEFT JOIN tmp_study_details tsd ON tsi.nct_id = tsd.nct_id;
