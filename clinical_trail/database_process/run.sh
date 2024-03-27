@@ -23,19 +23,19 @@ docker cp roles.sql aact_db:/usr/local/bin/roles.sql
 docker exec -it aact_db bash -c 'psql -U postgres -d aact -f /usr/local/bin/roles.sql'
 
 # Setup Docker Credentials
-DOCKER_USER=<DOCKER_HUB_EMAIL>
-DOCKER_PASSWORD=<DOCKER_HUB_PASSWORD>
-TAG_NAME=$(date +"%Y%m%d")
-USER_NAME=<DOCKER_HUB_USERNAME>
-IMAGE_NAME=<DOCKER_HUB_IMAGE_NAME>
+# DOCKER_USER=<DOCKER_HUB_EMAIL>
+# DOCKER_PASSWORD=<DOCKER_HUB_PASSWORD>
+# TAG_NAME=$(date +"%Y%m%d")
+# USER_NAME=<DOCKER_HUB_USERNAME>
+# IMAGE_NAME=<DOCKER_HUB_IMAGE_NAME>
 
 # Setup Image Config
-pushing_image_name=''
-pushing_image_name+=$USER_NAME && pushing_image_name+='/'
-pushing_image_name+=$IMAGE_NAME && pushing_image_name+=':'
-pushing_image_name+=$TAG_NAME
-docker tag aact_db $pushing_image_name
+# pushing_image_name=''
+# pushing_image_name+=$USER_NAME && pushing_image_name+='/'
+# pushing_image_name+=$IMAGE_NAME && pushing_image_name+=':'
+# pushing_image_name+=$TAG_NAME
+# docker tag aact_db $pushing_image_name
 
-# Push the database image to Docker Hub
-echo $DOCKER_PASSWORD | docker login -u $DOCKER_USER --password-stdin
-docker push $pushing_image_name
+# # Push the database image to Docker Hub
+# echo $DOCKER_PASSWORD | docker login -u $DOCKER_USER --password-stdin
+# docker push $pushing_image_name
