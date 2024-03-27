@@ -62,6 +62,7 @@ class ChemblQuery:
                 public.compound_properties as com_pro on mol_dic.molregno = com_pro.molregno full join
                 public.compound_structures as com_struc on mol_dic.molregno = com_struc.molregno
             where
+                mol_dic.pref_name is not null;
         '''
 
         if filter_type == 'molregno':
