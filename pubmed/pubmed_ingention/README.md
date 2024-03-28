@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The DFramework is a powerful tool designed for extracting information from a Pubmed database, processing it, and storing the processed data in a vector format using Qdrant. It utilizes advanced NLP techniques to parse, index, and store large volumes of text data efficiently. This system is built to facilitate easy search and retrieval of complex document-based datasets for research and analysis.
+The Framework is a powerful tool designed for extracting information from a Pubmed database, processing it, and storing the processed data in a vector format using Qdrant. It utilizes advanced NLP techniques to parse, index, and store large volumes of text data efficiently. This system is built to facilitate easy search and retrieval of complex document-based datasets for research and analysis.
 
 ## Installation
 
