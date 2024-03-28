@@ -52,8 +52,9 @@ class ClinicalTrailsDatabaseReader(DatabaseReader):
                     # Custom processing of each item
                     # Example: Append a suffix to each column value
                     id = str(item[0])
+                    title = str(item[1])
                     row = " ".join(s if s is not None else "" for s in [item[1], item[2]])
-                    documents.append(Document(text=row, metadata={"nct_id" : id}))
+                    documents.append(Document(text=row, metadata={"nct_id": id, "title": title}))
             yield documents
             offset += batch_size
 
@@ -85,7 +86,7 @@ class ClinicalTrailVectorDbEngine:
 
         self.node_parser = SimpleNodeParser.from_defaults(chunk_size=1024, chunk_overlap=32)
         self.service_context = ServiceContext.from_defaults(
-            embed_model=TextEmbeddingsInference(model_name="", timeout=60, embed_batch_size=4),
+            embed_model=TextEmbeddingsInference(model_name="", timeout=60, embed_batch_size=2),
             llm=None,
             node_parser=self.node_parser
         )
