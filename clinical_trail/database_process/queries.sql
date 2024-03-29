@@ -171,7 +171,7 @@ INTO
 	public.tbl_primary_outcome_measurement	
 FROM 
 	public.tbl_studies_info tsi
-LEFT JOIN tmp_tbl_primary_measurements ttpm ON tsi.nct_id = ttpm.nct_id
+LEFT JOIN tmp_tbl_primary_measurements ttpm ON tsi.nct_id = ttpm.nct_id;
 
 
 -- ============ tbl_secondary_outcome_measurement ==================
@@ -203,7 +203,7 @@ INTO
 	public.tbl_secondary_outcome_measurement	
 FROM 
 	public.tbl_studies_info tsi
-LEFT JOIN tmp_tbl_secondary_measurements ttsm ON tsi.nct_id = ttsm.nct_id
+LEFT JOIN tmp_tbl_secondary_measurements ttsm ON tsi.nct_id = ttsm.nct_id;
 
 
 -- ============ tbl_baseline_details ==========================
@@ -238,7 +238,7 @@ INTO
 	public.tbl_baseline_details	
 FROM 
 	public.tbl_studies_info tsi
-LEFT JOIN tmp_tbl_baseline_details ttbd ON tsi.nct_id = ttbd.nct_id
+LEFT JOIN tmp_tbl_baseline_details ttbd ON tsi.nct_id = ttbd.nct_id;
 
 
 -- ============ tbl_studies_interventions ============================
@@ -269,7 +269,7 @@ INTO
 	public.tbl_studies_interventions	
 FROM 
 	public.tbl_studies_info tsi
-LEFT JOIN tmp_tbl_studies_interventions ttsi ON tsi.nct_id = ttsi.nct_id
+LEFT JOIN tmp_tbl_studies_interventions ttsi ON tsi.nct_id = ttsi.nct_id;
 
 
 -- ============ tbl_studies_arms_details =====================
@@ -292,7 +292,7 @@ INTO
 	public.tbl_studies_arms_details	
 FROM 
 	public.tbl_studies_info tsi
-LEFT JOIN tmp_tbl_studies_arms_details ttsad ON tsi.nct_id = ttsad.nct_id
+LEFT JOIN tmp_tbl_studies_arms_details ttsad ON tsi.nct_id = ttsad.nct_id;
 
 
 -- ============ tbl_studies_design_outcomes ====================
@@ -316,7 +316,7 @@ INTO
 	public.tbl_studies_design_outcomes
 FROM 
 	public.tbl_studies_info tsi
-LEFT JOIN tmp_tbl_studies_design_outcomes ttsdo ON tsi.nct_id = ttsdo.nct_id
+LEFT JOIN tmp_tbl_studies_design_outcomes ttsdo ON tsi.nct_id = ttsdo.nct_id;
 
 
 -- ============= tbl_studies_designs =================================
@@ -340,6 +340,6 @@ INTO
 	public.tbl_studies_designs
 FROM 
 	public.tbl_studies_info tsi
-LEFT JOIN tmp_tbl_studies_designs ttsd ON tsi.nct_id = ttsd.nct_id
+LEFT JOIN tmp_tbl_studies_designs ttsd ON tsi.nct_id = ttsd.nct_id;
 
 -- ================================================================
