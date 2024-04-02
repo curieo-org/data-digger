@@ -1,0 +1,1 @@
+from .main import transfer_all_tables # noqa
