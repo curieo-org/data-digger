@@ -1,6 +1,8 @@
 from sqlalchemy import create_engine, text
 from typing import List, Tuple
 import json
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
 
 
 class PGEngine():
@@ -46,3 +48,48 @@ def transfer_data_batch(
     prod_pg_engine.execute_query_with_params(insert_query, params)
 
     print('Batch transfer completed: offset:', offset, 'batch_size:', batch_size)
+
+
+def transfer_table_data(
+    local_pg_engine: PGEngine,
+    prod_pg_engine: PGEngine,
+    table_name: str,
+    columns: List[str]
+) -> None:
+    select_query = 'SELECT ' + ', '.join(columns) + ' FROM ' + table_name + ' ORDER BY ' + columns[0] + ' ASC LIMIT {batch_size} OFFSET {offset};'
+
+    insert_query = 'INSERT INTO ' + table_name + ' (' + ', '.join(columns) + ') VALUES (' + ', '.join([f':{column}' for column in columns]) + ') ON CONFLICT (' + columns[0] + ') DO UPDATE SET ' + ', '.join([f'{column} = EXCLUDED.{column}' for column in columns[1:]]) + ';'
+
+    count_query = f'SELECT count(*) FROM {table_name}'
+
+    row_count = local_pg_engine.execute_query(count_query)[0][0]
+    print(f'Number of rows in the local {table_name}: {row_count}')
+    
+    batch_size = 100
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        event_loop = asyncio.get_event_loop()
+        tasks = []
+
+        for offset in range(0, row_count, batch_size):
+            tasks.append(event_loop.run_in_executor(
+                executor,
+                transfer_data_batch,
+                local_pg_engine,
+                prod_pg_engine,
+                select_query,
+                insert_query,
+                columns,
+                batch_size,
+                offset
+            ))
+
+        asyncio.gather(*tasks)
+
+    result = prod_pg_engine.execute_query(count_query)
+    print(f'Number of rows in the production {table_name}: {result[0][0]}')
+
+    if result[0][0] == row_count:
+        print(f'Data transfer completed for {table_name}')
+    else:
+        print(f'Data transfer partially completed for {table_name}')
