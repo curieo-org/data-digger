@@ -66,7 +66,10 @@ def transfer_table_data(
 
     count_query = f'SELECT count(*) FROM {table_name}'
 
-    row_count = local_pg_engine.execute_query(count_query)[0][0]
+    try:
+        row_count = local_pg_engine.execute_query(count_query)[0][0]
+    except:
+        raise Exception(f'Error in getting the row count for the table: {table_name}')
     print(f'Number of rows in the local {table_name}: {row_count}')
     
     batch_size = 100
@@ -90,10 +93,13 @@ def transfer_table_data(
 
         asyncio.gather(*tasks)
 
-    result = prod_pg_engine.execute_query(count_query)
-    print(f'Number of rows in the production {table_name}: {result[0][0]}')
+    try:
+        result = prod_pg_engine.execute_query(count_query)[0][0]
+    except:
+        raise Exception(f'Error in getting the row count for the table: {table_name}')
+    print(f'Number of rows in the production {table_name}: {result}')
 
-    if result[0][0] == row_count:
+    if result == row_count:
         print(f'Data transfer completed for {table_name}')
     else:
         print(f'Data transfer partially completed for {table_name}')
