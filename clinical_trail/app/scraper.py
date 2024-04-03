@@ -8,7 +8,6 @@ import os
 import shutil
 from bs4 import BeautifulSoup
 
-
 def scrape_clinical_trial_database():
     # Download the latest AACT database HTML page
     BASE_URL = 'https://aact.ctti-clinicaltrials.org/snapshots'
@@ -54,7 +53,6 @@ def scrape_clinical_trial_database():
     os.remove(download_file_name)
     shutil.rmtree(unzipped_folder_name)
 
-
 def setup_local_database():
     # Set up the database
     print('Setting up the database in docker postgres container')
@@ -65,7 +63,6 @@ def setup_local_database():
     if exit_code != 0:
         raise Exception('Local database setup failed')
     print('Database setup completed')
-
 
 def remove_local_database():
     # Remove the database

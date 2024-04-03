@@ -1,14 +1,22 @@
-from sqlalchemy import create_engine, text
-from typing import List, Tuple
+from sqlalchemy import (
+    create_engine,
+    text
+)
+from typing import (
+    List,
+    Tuple
+)
 import json
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
-
+from app.config import (
+    PG_POOL_SIZE,
+    PG_MAX_OVERFLOW
+)
 
 class PGEngine():
     def __init__(self, database_url) -> None:
-        self.engine = create_engine(database_url, pool_size=10, max_overflow=0)
-
+        self.engine = create_engine(database_url, pool_size=PG_POOL_SIZE, max_overflow=PG_MAX_OVERFLOW)
     
     def execute_query(self, query: str) -> List[Tuple]:
         with self.engine.connect() as connection:
@@ -16,18 +24,15 @@ class PGEngine():
 
         return result.fetchall()
     
-    
     def execute_query_with_params(self, query: str, params: dict) -> List[Tuple]:
         with self.engine.connect() as connection:
             connection.execute(text(query), params)
             connection.commit()
     
-    
     def execute_query_without_return(self, query: str) -> None:
         with self.engine.connect() as connection:
             connection.execute(text(query))
             connection.commit()
-    
 
 def transfer_data_batch(
     local_pg_engine: PGEngine,
@@ -48,7 +53,6 @@ def transfer_data_batch(
     prod_pg_engine.execute_query_with_params(insert_query, params)
 
     print('Batch transfer completed: offset:', offset, 'batch_size:', batch_size)
-
 
 def transfer_table_data(
     local_pg_engine: PGEngine,

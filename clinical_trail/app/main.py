@@ -1,8 +1,18 @@
 import asyncio
 from app.database_transfer import transfer_all_tables
-from app.scraper import scrape_clinical_trial_database, setup_local_database, remove_local_database
+from app.scraper import (
+    scrape_clinical_trial_database,
+    setup_local_database,
+    remove_local_database
+)
 from app.vector_transfer import ClinicalTrailVectorDbEngine
-from app.config import PG_LOCAL_DATABASE, QDRANT_HOST, QDRANT_PORT, QDRANT_COLLECTION_NAME, QDRANT_API_KEY
+from app.config import (
+    PG_LOCAL_DATABASE,
+    QDRANT_HOST,
+    QDRANT_PORT,
+    QDRANT_COLLECTION_NAME,
+    QDRANT_API_KEY
+)
 
 async def async_main():
     print('Starting the scraping process and setting up the local database')

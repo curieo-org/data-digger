@@ -1,5 +1,12 @@
-from .utils import PGEngine, transfer_table_data
-from app.config import PG_LOCAL_DATABASE, PG_PROD_DATABASE, PG_PROD_SETUP_FILE
+from .utils import (
+    PGEngine,
+    transfer_table_data
+)
+from app.config import (
+    PG_LOCAL_DATABASE,
+    PG_PROD_DATABASE,
+    PG_PROD_SETUP_FILE
+)
 
 def transfer_tbl_studies_info(
     local_pg_engine: PGEngine,
@@ -143,7 +150,6 @@ def transfer_tbl_studies_sponsors(
         'tbl_studies_sponsors',
         ['id', 'title', 'collaboratordetails']
     )
-
 
 async def transfer_all_tables() -> None:
     local_pg_engine = PGEngine(PG_LOCAL_DATABASE)
