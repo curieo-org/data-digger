@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "app"
+version = "0.1.0"
+description = "This is a data pipelining server for clinical trials data"
+authors = ["Rathijit Paul <rathijit.paul@curieo.org>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+sqlalchemy = "^2.0.29"
+asyncio = "^3.4.3"
+requests = "^2.31.0"
+bs4 = "^0.0.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+main = "app.main:main"
