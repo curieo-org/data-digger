@@ -33,3 +33,6 @@ replay_pid*
 *.dmp
 *.h5
 *__pycache__/
+*.ipynb_checkpoints/
+
+*.env

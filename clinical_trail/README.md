@@ -37,7 +37,14 @@ revision=refs/pr/5
 text-embeddings-router --model-id $model --revision $revision --port 8081
 ```
 
-Setup QDrant vector database for local development by running the following command:
+### Production
+Create a `.env` file in the root directory of the project and copy the contents of the `.env.template` file into it. Update the values of the variables in the `.env` file as needed.
+```
+cp .env.template .env
+```
+
+### Local Development
+Setup Qdrant vector database for local development by running the following command:
 ```
 docker run -p 6333:6333 --name aact_vectordb -d qdrant/qdrant
 ```
