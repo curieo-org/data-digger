@@ -6,8 +6,8 @@ from app.config import PG_LOCAL_DATABASE, QDRANT_HOST, QDRANT_PORT, QDRANT_COLLE
 
 async def async_main():
     print('Starting the scraping process and setting up the local database')
-    await scrape_clinical_trial_database()
-    await setup_local_database()
+    scrape_clinical_trial_database()
+    setup_local_database()
 
     print('Starting the data transfer process')
     await transfer_all_tables()
@@ -22,7 +22,7 @@ async def async_main():
     ctve.database_to_vectors(database_engine=PG_LOCAL_DATABASE)
 
     print('Removing the local database')
-    await remove_local_database()
+    remove_local_database()
 
 def main():
     asyncio.run(async_main())

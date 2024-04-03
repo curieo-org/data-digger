@@ -2,7 +2,7 @@
 name = "app"
 version = "0.1.0"
 description = "This is a data pipelining server for clinical trials data"
-authors = ["Rathijit Paul <alienpapon009@gmail.com>"]
+authors = ["Rathijit Paul <rathijit.paul@curieo.org>"]
 license = "MIT"
 readme = "README.md"
 
