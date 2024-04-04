@@ -72,6 +72,11 @@ public class DataLoader {
 				.hasArg().desc("last year (inclusive)").type(Integer.class).build();
 		Option batchSizeOption = Option.builder().option("b").longOpt("batch-size")
 				.hasArg().desc("the size of batches to be submitted to the SQL database").type(Integer.class).build();
+		Option references = Option.builder().option("r").longOpt("references")
+				.desc("references to sql database (specify types, e.g. \"pubmed\")")
+				.required(false)
+				.hasArgs()
+				.build();
 		Options options = new Options()
 				.addOption(new Option("c", "credentials", true, "Path to credentials file"))
 				.addOption(firstYearOption)
@@ -82,9 +87,10 @@ public class DataLoader {
 				.addOption(new Option("y", "source type", true, "source type - can currently only be \"pubmed\""))
 				.addOption(new Option("d", "data-set", true, "data set to load (defined in credentials)"))
 				.addOption(new Option("p", "postgres-user", true, "postgresql user"))
-				.addOption(new Option("f", "full-records", false, "full records to sql database"))
 				.addOption(maxFiles)
+				.addOption(new Option("f", "full-records", false, "full records to sql database"))
 				.addOption(new Option("a", "authors", false, "authors to sql database"))
+				.addOption(references)
 				.addOption(new Option("t", "status-tracker", true, "path to file that tracks status"));
 		CommandLineParser parser = new DefaultParser();
 		CommandLine parse = parser.parse(options, args);
@@ -126,6 +132,11 @@ public class DataLoader {
 		// store authorships
 		if (parse.hasOption('a')) {
 			Sink<Record> asink = new MultiSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
+			tsink = tsink == null ? asink : tsink.concatenate(asink);
+		}
+		// store references
+		if (parse.hasOption(references)) {			
+			Sink<Record> asink = new MultiSink<>(Record::toReferences, sqlSinkFactory.createReferenceSink(parse.getOptionValues(references)));
 			tsink = tsink == null ? asink : tsink.concatenate(asink);
 		}
 		// store full records

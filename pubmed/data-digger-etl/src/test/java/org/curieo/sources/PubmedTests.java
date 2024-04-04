@@ -42,11 +42,11 @@ class PubmedTests {
 			if (count%1000 == 0) {
 				System.out.printf("%s: %s\n", pmid, title);
 			}
-			if (pr.getPubmedReferences() != null) {
+			if (pr.getReferences() != null) {
 				haveReferences++;
-				referenceCount += pr.getPubmedReferences().size();
-				resolvedReferenceCount += pr.getPubmedReferences().stream()
-						.mapToInt(ref -> (int)ListUtils.emptyIfNull(ref.getArticleIds()).stream().filter(a -> a.getKey().equals("pubmed")).count()).sum();
+				referenceCount += pr.getReferences().size();
+				resolvedReferenceCount += pr.getReferences().stream()
+						.mapToInt(ref -> (int)ListUtils.emptyIfNull(ref.getIdentifiers()).stream().filter(a -> a.getKey().equals("pubmed")).count()).sum();
 			}
 			count++;
 		}

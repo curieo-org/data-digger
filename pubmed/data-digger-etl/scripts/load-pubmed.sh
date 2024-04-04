@@ -33,7 +33,7 @@ case $1 in
         echo "Pubmed baseline (full records) to postgres"
         STATUS=~/Documents/corpora/pubmed/baseline-status.json
         POSTGRESUSER=datadigger
-        ARGS="-c $CREDS -d pubmed -t $STATUS -p $POSTGRESUSER --full-records"
+        ARGS="-c $CREDS -d pubmed -t $STATUS -p $POSTGRESUSER --full-records --references pubmed"
         $CMD $ARGS
     ;;
 

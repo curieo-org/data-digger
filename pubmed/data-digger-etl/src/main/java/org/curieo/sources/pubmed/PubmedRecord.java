@@ -15,8 +15,11 @@ import javax.xml.stream.events.XMLEvent;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.ListUtils;
 import org.curieo.model.Authorship;
+import org.curieo.model.LinkedField;
 import org.curieo.model.Metadata;
 import org.curieo.model.Record;
+import org.curieo.model.Reference;
+import org.curieo.model.Reference.ReferenceBuilder;
 import org.curieo.model.Text;
 import org.curieo.sources.IdProvider;
 import org.curieo.sources.Source;
@@ -34,6 +37,7 @@ public class PubmedRecord implements Record {
 	public static final String ABSTRACT_TAG = "AbstractText";
 	public static final String ARTICLEIDLIST_TAG = "ArticleIdList";
 	public static final String REFERENCELIST_TAG = "ReferenceList";
+	public static final String REFERENCE_TAG = "Reference";
 	public static final String ARTICLEID_TAG = "ArticleId";
 	public static final String AUTHORLIST_TAG = "AuthorList";
 	public static final String MESHHEADINGLIST_TAG = "MeshHeadingList";
@@ -54,21 +58,17 @@ public class PubmedRecord implements Record {
 	
 	Journal journal;
 	List<PubmedAuthor> pubmedAuthors;
-	List<PubmedReference> pubmedReferences;
+	List<Reference> references;
 	Date publicationDate;
 
 	@Override
 	public List<String> getAuthors() {
 		return CollectionUtils.emptyIfNull(getPubmedAuthors()).stream().map(PubmedAuthor::toString).toList();
 	}
-	@Override
-	public List<String> getReferences() {
-		return CollectionUtils.emptyIfNull(getPubmedReferences()).stream().map(PubmedReference::toString).toList();
-	}
 
 	@Override
-	public List<Authorship> toAuthorships() {
-		List<Authorship> list = new ArrayList<>();
+	public List<LinkedField<Authorship>> toAuthorships() {
+		List<LinkedField<Authorship>> list = new ArrayList<>();
 		int year;
 		if (publicationDate == null) {
 			year = 0;
@@ -80,7 +80,7 @@ public class PubmedRecord implements Record {
 		}
 		
 		for (int ordinal = 0; ordinal < ListUtils.emptyIfNull(pubmedAuthors).size(); ordinal++) {
-			list.add(pubmedAuthors.get(ordinal).toAuthorship(ordinal, year, getIdentifier()));
+			list.add(new LinkedField<>(ordinal, getIdentifier(), pubmedAuthors.get(ordinal).toAuthorship(year)));
 		}
 		return list;
 	}
@@ -124,7 +124,7 @@ public class PubmedRecord implements Record {
 	            	builder = builder.journal(journal).source(journal.toSource()).publicationDate(journal.getPublicationDate());
 	                break;
 	            case REFERENCELIST_TAG:
-	            	builder = builder.pubmedReferences(PubmedReference.readReferenceList(reader));
+	            	builder = builder.references(readReferenceList(reader));
 	                break;
                 case ARTICLEID_TAG:
 	                builder = builder.identifier(readArticleId(reader, startElement));
@@ -167,5 +167,39 @@ public class PubmedRecord implements Record {
 	        	text.append(nextEvent.asCharacters().getData());
 		}
 		return text.toString();
+	}
+
+	public static List<Reference> readReferenceList(XMLEventReader reader) throws XMLStreamException {
+		// read the record
+		List<Reference> references = new ArrayList<>();
+		ReferenceBuilder builder = Reference.builder();
+		while (reader.hasNext()) {
+		    XMLEvent event = reader.nextEvent();
+		    if (event.isStartElement()) {
+		        StartElement startElement = event.asStartElement();
+		        switch (startElement.getName().getLocalPart()) {
+	            case "Citation":
+	               builder = builder.citation(readText(reader, "Citation"));
+	               break;
+	            case PubmedRecord.ARTICLEID_TAG:
+	                builder = builder.identifier(PubmedRecord.readArticleId(reader, startElement));
+	               break;
+	            default:
+	            	break;
+		        }
+		    }
+		    if (event.isEndElement()) {
+		        EndElement endElement = event.asEndElement();
+		        switch (endElement.getName().getLocalPart()) {
+		        case REFERENCE_TAG:
+		        	references.add(builder.build());
+		        	builder = Reference.builder();
+		        	break;
+		        case PubmedRecord.REFERENCELIST_TAG:
+		            return references;
+		        }
+		    }
+		}
+		return references;
 	}
 }
