@@ -26,7 +26,7 @@ public class StandardRecord implements Record {
 	List<Text> abstractText;
 	List<Text> titles;
 	List<String> authors;
-	List<String> references;
+	List<Reference> references;
 	List<Metadata> metadata;
 	String identifier;
 	String publicationDate;

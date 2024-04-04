@@ -86,7 +86,7 @@ public class PubmedAuthor {
 		return authors;
 	}
 
-	public Authorship toAuthorship(int ordinal, int year, String publicationId) {
+	public Authorship toAuthorship(int year) {
 		List<String> affiliationProcessed = new ArrayList<>();
 		String email = null;
 		for (String affiliation : affiliations) {
@@ -97,8 +97,8 @@ public class PubmedAuthor {
 			}
 		}
 		
-		return Authorship.builder().ordinal(ordinal).foreName(foreName).lastName(lastName).initials(initials)
+		return Authorship.builder().foreName(foreName).lastName(lastName).initials(initials)
 				.affiliations(affiliationProcessed).yearActive(year)
-				.emailAddress(email).publicationId(publicationId).build();
+				.emailAddress(email).build();
 	}
 }

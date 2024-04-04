@@ -13,6 +13,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.curieo.model.Authorship;
+import org.curieo.model.LinkedField;
+import org.curieo.model.Metadata;
+import org.curieo.model.Reference;
 import org.curieo.model.StandardRecord;
 import org.curieo.utils.ListUtils;
 import org.slf4j.Logger;
@@ -79,7 +82,7 @@ public class SQLSinkFactory {
 	 * @return a consumer.
 	 * @throws SQLException
 	 */
-	public Sink<Authorship> createAuthorshipSink() throws SQLException {
+	public Sink<LinkedField<Authorship>> createAuthorshipSink() throws SQLException {
 		List<StorageSpec> storageSpecs = Arrays.asList(
 				new StorageSpec("Ordinal", ExtractType.SmallInt, 0),
 				new StorageSpec("foreName", ExtractType.String, 40),
@@ -99,15 +102,58 @@ public class SQLSinkFactory {
 				storageSpecs.stream().map(StorageSpec::getField).collect(Collectors.joining(", ")),
 				storageSpecs.stream().map(s -> "?").collect(Collectors.joining(", ")));
 		PreparedStatement p = connection.prepareStatement(insert);
-		List<Extract<Authorship>> extracts = new ArrayList<>();
-		extracts.add(new Extract<>(storageSpecs.get(0).type, null, null, Authorship::getOrdinal));
-		extracts.add(storageSpecs.get(1).trim(Authorship::getForeName));
-		extracts.add(storageSpecs.get(2).trim(Authorship::getLastName));
-		extracts.add(storageSpecs.get(3).trim(Authorship::getInitials));
-		extracts.add(storageSpecs.get(4).trimAll(Authorship::getAffiliations));
-		extracts.add(new Extract<>(storageSpecs.get(5).type, null, null, Authorship::getYearActive));
-		extracts.add(storageSpecs.get(6).trim(Authorship::getEmailAddress));
-		extracts.add(storageSpecs.get(7).trim(Authorship::getPublicationId));
+		List<Extract<LinkedField<Authorship>>> extracts = new ArrayList<>();
+		extracts.add(new Extract<>(storageSpecs.get(0).type, null, null, LinkedField::getOrdinal));
+		extracts.add(storageSpecs.get(1).trim(l -> l.getField().getForeName()));
+		extracts.add(storageSpecs.get(2).trim(l -> l.getField().getLastName()));
+		extracts.add(storageSpecs.get(3).trim(l -> l.getField().getInitials()));
+		extracts.add(storageSpecs.get(4).trimAll(l -> l.getField().getAffiliations()));
+		extracts.add(new Extract<>(storageSpecs.get(5).type, null, null, l -> l.getField().getYearActive()));
+		extracts.add(storageSpecs.get(6).trim(l -> l.getField().getEmailAddress()));
+		extracts.add(storageSpecs.get(7).trim(LinkedField::getPublicationId));
+
+		return new GenericSink<>(extracts, p, batchSize);
+	}
+
+	/**
+	 * Create a sink of references into a JDBC SQL table.
+	 * Once the connection is closed, the sink is invalidated.
+	 * PostgreSQL dialect is assumed.
+	 * 
+	 * @return a consumer.
+	 * @throws SQLException
+	 */
+	public Sink<LinkedField<Reference>> createReferenceSink(String... ids) throws SQLException {
+		List<StorageSpec> storageSpecs = new ArrayList<>();
+		storageSpecs.addAll(Arrays.asList(
+				new StorageSpec("ordinal", ExtractType.Integer, 0),
+				new StorageSpec("articleId", ExtractType.String, 20),
+				new StorageSpec("citation", ExtractType.String, 500)));
+		// a variable number of identifiers
+		for (String id : ids) {
+			storageSpecs.add(new StorageSpec(id, ExtractType.String, 30));
+		}
+
+		String creation = String.format("CREATE TABLE IF NOT EXISTS ReferenceTable (%s)",
+				storageSpecs.stream().map(Object::toString).collect(Collectors.joining(", ")));
+		Statement statement = connection.createStatement();
+		statement.execute(creation);
+
+		String insert = String.format("INSERT INTO ReferenceTable (%s) VALUES (%s)",
+				storageSpecs.stream().map(StorageSpec::getField).collect(Collectors.joining(", ")),
+				storageSpecs.stream().map(s -> "?").collect(Collectors.joining(", ")));
+		PreparedStatement p = connection.prepareStatement(insert);
+		List<Extract<LinkedField<Reference>>> extracts = new ArrayList<>();
+		
+		extracts.add(new Extract<>(storageSpecs.get(0).type, null, null, LinkedField::getOrdinal));
+		extracts.add(storageSpecs.get(1).trim(LinkedField::getPublicationId));
+		extracts.add(storageSpecs.get(2).trim(l -> l.getField().getCitation()));
+
+		// a variable number of identifiers
+		for (String id : ids) {
+			extracts.add(storageSpecs.get(3).trim(l -> l.getField().getIdentifiers().stream()
+							.filter(m -> m.getKey().equals(id)).map(Metadata::getValue).findFirst().orElse(null)));
+		}
 
 		return new GenericSink<>(extracts, p, batchSize);
 	}
