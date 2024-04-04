@@ -30,8 +30,8 @@ case $1 in
     ;;
 
     pubmed-baseline-2-postgres)
-        echo "Pubmed updates (full records) to postgres"
-        STATUS=~/Documents/corpora/pubmed/updates-status.json
+        echo "Pubmed baseline (full records) to postgres"
+        STATUS=~/Documents/corpora/pubmed/baseline-status.json
         POSTGRESUSER=datadigger
         ARGS="-c $CREDS -d pubmed -t $STATUS -p $POSTGRESUSER --full-records"
         $CMD $ARGS
