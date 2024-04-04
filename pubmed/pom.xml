@@ -37,12 +37,12 @@
 		<jsonld-java.version>0.13.5</jsonld-java.version>
 		<junit.jupiter.version>5.4.0</junit.jupiter.version>
 		<junit.platform.version>1.2.0</junit.platform.version>
-		<lombok.version>1.18.10</lombok.version>
+		<lombok.version>1.18.30</lombok.version>
 		<jackson.version>2.12.3</jackson.version>
 		<jewelcli.version>0.8.3</jewelcli.version>
 		<jfasttext.version>0.2</jfasttext.version>
 		<postgresql.version>42.7.2</postgresql.version>
-		<log4j.version>2.7</log4j.version>
+		<log4j.version>2.17.2</log4j.version>
 		<slf4j.version>2.7</slf4j.version>
 		<opennlp.version>2.3.2</opennlp.version>
 		<jacoco-maven-plugin.version>0.8.5</jacoco-maven-plugin.version>

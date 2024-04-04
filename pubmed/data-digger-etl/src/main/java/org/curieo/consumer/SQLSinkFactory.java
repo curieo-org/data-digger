@@ -23,11 +23,16 @@ import lombok.Generated;
 import lombok.Value;
 
 /**
- * Class to store records into PostgreSQL database.
+ * Class to create record consumers into an SQL database.
  */
-public class PostgreSQLSink {
-	private static final Logger LOGGER = LoggerFactory.getLogger(PostgreSQLSink.class);
+@Generated @Value
+public class SQLSinkFactory {
+	private static final Logger LOGGER = LoggerFactory.getLogger(SQLSinkFactory.class);
+	public static final int DEFAULT_BATCH_SIZE = 100;
 
+	Connection connection;
+	int batchSize;
+	
 	private static enum ExtractType {
 		List("VARCHAR"),
 		String("VARCHAR"),
@@ -71,11 +76,10 @@ public class PostgreSQLSink {
 	 * Once the connection is closed, the sink is invalidated.
 	 * PostgreSQL dialect is assumed.
 	 * 
-	 * @param connection
 	 * @return a consumer.
 	 * @throws SQLException
 	 */
-	public static Sink<Authorship> createAuthorshipSink(Connection connection) throws SQLException {
+	public Sink<Authorship> createAuthorshipSink() throws SQLException {
 		List<StorageSpec> storageSpecs = Arrays.asList(
 				new StorageSpec("Ordinal", ExtractType.SmallInt, 0),
 				new StorageSpec("foreName", ExtractType.String, 40),
@@ -105,7 +109,7 @@ public class PostgreSQLSink {
 		extracts.add(storageSpecs.get(6).trim(Authorship::getEmailAddress));
 		extracts.add(storageSpecs.get(7).trim(Authorship::getPublicationId));
 
-		return new GenericSink<>(extracts, p);
+		return new GenericSink<>(extracts, p, batchSize);
 	}
 
 	/**
@@ -114,10 +118,11 @@ public class PostgreSQLSink {
 	 * PostgreSQL dialect is assumed.
 	 * 
 	 * @param connection
+	 * @param batchSize the size of batches
 	 * @return a consumer.
 	 * @throws SQLException
 	 */
-	public static Sink<StandardRecord> createRecordSink(Connection connection) throws SQLException {
+	public Sink<StandardRecord> createRecordSink() throws SQLException {
 		List<StorageSpec> storageSpecs = Arrays.asList(
 				new StorageSpec("Identifier", ExtractType.String, 20),
 				new StorageSpec("Record", ExtractType.Text, 0));
@@ -138,7 +143,7 @@ public class PostgreSQLSink {
 		extracts.add(new Extract<>(storageSpecs.get(0).type, null, StandardRecord::getIdentifier, null));
 		extracts.add(new Extract<>(storageSpecs.get(1).type, null, StandardRecord::toJson, null));
 
-		return new GenericSink<>(extracts, p);
+		return new GenericSink<>(extracts, p, batchSize);
 	}
 
 	@Generated
@@ -194,9 +199,10 @@ public class PostgreSQLSink {
 		List<Extract<T>> extracts;
 		PreparedStatement p;
 		AtomicInteger count;
+		int batchSize;
 
-		GenericSink(List<Extract<T>> extracts, PreparedStatement p) {
-			this(extracts, p, new AtomicInteger());
+		GenericSink(List<Extract<T>> extracts, PreparedStatement p, int batchSize) {
+			this(extracts, p, new AtomicInteger(), batchSize);
 		}
 
 		@Override
@@ -238,7 +244,11 @@ public class PostgreSQLSink {
 								break;
 						}
 					}
-					count.getAndAdd(p.executeUpdate());
+					p.addBatch();
+				}
+				int currentCount = count.incrementAndGet();
+				if (currentCount%batchSize == 0) {
+					p.executeBatch();
 				}
 			} catch (SQLException e) {
 				throw new RuntimeException(e);
@@ -246,7 +256,14 @@ public class PostgreSQLSink {
 		}
 
 		public void finalCall() {
-
+			int currentCount = count.get();
+			if (currentCount%batchSize != 0) {
+				try {
+					p.executeBatch();
+				} catch (SQLException e) {
+					throw new RuntimeException(e);
+				}
+			}
 		}
 
 		public int getTotalCount() {

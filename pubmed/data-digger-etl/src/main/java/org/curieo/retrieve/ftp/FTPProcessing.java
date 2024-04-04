@@ -125,19 +125,22 @@ public class FTPProcessing implements AutoCloseable {
 	public static void synchronize(String remoteDirectory, File localDirectory) {
 		throw new UnsupportedOperationException();
 	}
-	
+
 	/**
 	 * Synchronize a remote directory and a local directory.
-	 * @param ftp
 	 * @param remoteDirectory
-	 * @param processingStatus
-	 * @throws IOException 
-	 * @throws JsonProcessingException 
+	 * @param processingStatus the file to track the status of each remote/local file. If the file does not exist, it will be created
+	 * @param initialStatus function to decide initial status of each incoming file (Seen/Open)
+	 * @param processor
+	 * @param maximumNumberOfFiles maximum number of files to put through the processor
+	 * @throws JsonProcessingException
+	 * @throws IOException
 	 */
 	public void processRemoteDirectory(String remoteDirectory, 
 									  File processingStatus,
-									  Function<FTPFile, Status> unseenFilter,
-									  Function<File, Status> processor) throws JsonProcessingException, IOException {
+									  Function<FTPFile, Status> initialStatus,
+									  Function<File, Status> processor,
+									  int maximumNumberOfFiles) throws JsonProcessingException, IOException {
 		Map<String, Status> statusMap = readProcessingStatus(processingStatus);
 		// update the status map
 		int newFiles = 0;
@@ -145,13 +148,14 @@ public class FTPProcessing implements AutoCloseable {
 		for (FTPFile file : ftp.listFiles(remoteDirectory)) {
 			Status status = statusMap.get(file.getName());
 			if (status == null) {
-				statusMap.put(file.getName(), unseenFilter.apply(file));
+				statusMap.put(file.getName(), initialStatus.apply(file));
 				newFiles ++;
 			}
 		}
 		if (newFiles != 0) {
 			writeProcessingStatus(statusMap, processingStatus);
 		}
+		int filesSeen = 0;
 		for (Map.Entry<String, Status> status : statusMap.entrySet()) {
 			if (status.getValue() == Status.Open || status.getValue() == Status.Error) {
 				// retrieve the remote file, and submit.
@@ -171,12 +175,16 @@ public class FTPProcessing implements AutoCloseable {
 				else {
 					status.setValue(processor.apply(tmp));
 					LOGGER.info("Processed {}: status = {}", status.getKey(), status.getValue());
+					filesSeen++;
 				}
 				
 				if (!tmp.delete()) {
 					LOGGER.error("Could not delete temp file {}", tmp.getAbsolutePath());
 				}
 				writeProcessingStatus(statusMap, processingStatus);
+				if (filesSeen == maximumNumberOfFiles) {
+					break;
+				}
 			}
 		}
 	}

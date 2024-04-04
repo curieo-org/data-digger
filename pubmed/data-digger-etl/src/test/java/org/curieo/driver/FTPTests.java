@@ -26,7 +26,7 @@ class FTPTests {
 					file -> {
 						System.out.printf("File %s\n", file.getName());
 						return FTPProcessing.Status.Seen;
-					});
+					}, Integer.MAX_VALUE);
 		}
 	}
 }
