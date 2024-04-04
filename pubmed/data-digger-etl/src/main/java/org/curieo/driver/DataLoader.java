@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -24,7 +25,7 @@ import org.apache.commons.cli.DefaultParser;
 import org.curieo.consumer.CountingConsumer;
 import org.curieo.consumer.MultiSink;
 import org.curieo.consumer.PostgreSQLClient;
-import org.curieo.consumer.PostgreSQLSink;
+import org.curieo.consumer.SQLSinkFactory;
 import org.curieo.consumer.Sink;
 import org.curieo.elastic.Client;
 import org.curieo.elastic.ElasticConsumer;
@@ -38,9 +39,6 @@ import static org.curieo.retrieve.ftp.FTPProcessing.skipExtensions;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.Result;
-import lombok.Builder;
-import lombok.Generated;
-import lombok.Value;
 
 /**
  * We need to:
@@ -48,9 +46,6 @@ import lombok.Value;
  * - download some more
  * - and then upload into the search
  */
-@Generated
-@Value
-@Builder
 public class DataLoader {
 	public static final int LOGGING_INTERVAL = 1000;
 	private static final Logger LOGGER = LoggerFactory.getLogger(DataLoader.class);
@@ -59,23 +54,36 @@ public class DataLoader {
 	Integer firstYear;
 	Integer lastYear;
 
+	public DataLoader(Integer fy, Integer ly) {
+		firstYear = fy;
+		lastYear = ly;
+	}
+	
+	public DataLoader() {
+		this(null, null);
+	}
+	
 	public static void main(String[] args) throws ParseException, JsonProcessingException, IOException, SQLException {
+		Option maxFiles = Option.builder().option("m").longOpt("maximum-files").hasArg()
+								.desc("maximum number of records to process").type(Integer.class).build();
+		Option firstYearOption = Option.builder().option("f").longOpt("first-year")
+				.hasArg().desc("first year (inclusive)").type(Integer.class).build();
+		Option lastYearOption = Option.builder().option("l").longOpt("last-year")
+				.hasArg().desc("last year (inclusive)").type(Integer.class).build();
+		Option batchSizeOption = Option.builder().option("b").longOpt("batch-size")
+				.hasArg().desc("the size of batches to be submitted to the SQL database").type(Integer.class).build();
 		Options options = new Options()
 				.addOption(new Option("c", "credentials", true, "Path to credentials file"))
-				.addOption(Option.builder().option("f")
-						.longOpt("first-year")
-						.hasArg().desc("first year (inclusive)")
-						.type(Integer.class).build())
-				.addOption(Option.builder().option("l")
-						.longOpt("last-year")
-						.hasArg().desc("last year (inclusive)")
-						.type(Integer.class).build())
+				.addOption(firstYearOption)
+				.addOption(lastYearOption)
+				.addOption(batchSizeOption)
 				.addOption(new Option("i", "index", true, "index in elastic"))
 				.addOption(new Option("e", "embeddings", true, "embeddings server URL"))
 				.addOption(new Option("y", "source type", true, "source type - can currently only be \"pubmed\""))
 				.addOption(new Option("d", "data-set", true, "data set to load (defined in credentials)"))
 				.addOption(new Option("p", "postgres-user", true, "postgresql user"))
 				.addOption(new Option("f", "full-records", false, "full records to sql database"))
+				.addOption(maxFiles)
 				.addOption(new Option("a", "authors", false, "authors to sql database"))
 				.addOption(new Option("t", "status-tracker", true, "path to file that tracks status"));
 		CommandLineParser parser = new DefaultParser();
@@ -85,6 +93,8 @@ public class DataLoader {
 		String application = parse.getOptionValue('d', "pubmed");
 		String sourceType = parse.getOptionValue('y', SourceReader.PUBMED);
 		String index = parse.getOptionValue('i');
+		int maximumNumberOfRecords = parse.hasOption(maxFiles) ? getIntOption(parse, maxFiles): Integer.MAX_VALUE;
+		int batchSize = parse.hasOption(batchSizeOption) ? getIntOption(parse, batchSizeOption): SQLSinkFactory.DEFAULT_BATCH_SIZE;
 
 		SentenceEmbeddingService sentenceEmbeddingService = null;
 		String embeddingsServiceUrl = parse.getOptionValue('e');
@@ -107,26 +117,25 @@ public class DataLoader {
 		String postgresuser = parse.getOptionValue('p', "datadigger");
 
 		PostgreSQLClient postgreSQLClient = null;
+		SQLSinkFactory sqlSinkFactory = null;
 		if (postgresuser != null) {
 			postgreSQLClient = getPostgreSQLClient(credentials, postgresuser);
+			sqlSinkFactory = new SQLSinkFactory(postgreSQLClient.getConnection(), batchSize);
 		}
 
 		// store authorships
 		if (parse.hasOption('a')) {
-			Sink<Record> asink = new MultiSink<>(Record::toAuthorships,
-					PostgreSQLSink.createAuthorshipSink(postgreSQLClient.getConnection()));
+			Sink<Record> asink = new MultiSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
 			tsink = tsink == null ? asink : tsink.concatenate(asink);
 		}
 		// store full records
 		if (parse.hasOption("full-records")) {
 			Sink<Record> asink = new MultiSink<>(r -> Collections.singletonList(StandardRecord.copy(r)),
-					PostgreSQLSink.createRecordSink(postgreSQLClient.getConnection()));
+										sqlSinkFactory.createRecordSink());
 			tsink = tsink == null ? asink : tsink.concatenate(asink);
 		}
 
-		DataLoader loader = DataLoader.builder()
-				.firstYear(getIntOption(parse, "first-year"))
-				.lastYear(getIntOption(parse, "last-year")).build();
+		DataLoader loader = new DataLoader(getIntOption(parse, firstYearOption), getIntOption(parse, lastYearOption));
 
 		if (!credentials.hasApplication(application)) {
 			LOGGER.error("Cannot find application {} in {}", application, credpath);
@@ -148,8 +157,14 @@ public class DataLoader {
 						if (path.toLowerCase().endsWith(".xml.gz")) {
 							int count = 0;
 							try {
+								long startTimeInMillis = System.currentTimeMillis();
 								count = loader.loadData(path, sourceType, sink);
-								LOGGER.info("Processed file {}, {} records", path, count);
+								long endTimeInMillis = System.currentTimeMillis();
+								LOGGER.info("Processed file {}, {} records; in {} seconds averaging {} milliseconds/record", 
+										path, 
+										count,
+										String.format(Locale.US, "%.1f", (float)(endTimeInMillis-startTimeInMillis)/1000),
+										String.format(Locale.US, "%.2f", (float)(endTimeInMillis-startTimeInMillis)/count));
 								return FTPProcessing.Status.Success;
 							} catch (Exception e) {
 								LOGGER.error(String.format("Processed file %s", path), e);
@@ -158,7 +173,7 @@ public class DataLoader {
 						} else {
 							return FTPProcessing.Status.Seen;
 						}
-					});
+					}, maximumNumberOfRecords);
 		}
 
 		if (postgreSQLClient != null) {
@@ -225,7 +240,7 @@ public class DataLoader {
 				(lastYear != null && year > lastYear));
 	}
 
-	private static Integer getIntOption(CommandLine cmd, String option) {
+	private static Integer getIntOption(CommandLine cmd, Option option) {
 		if (!cmd.hasOption(option))
 			return null;
 		return Integer.parseInt(cmd.getOptionValue(option));

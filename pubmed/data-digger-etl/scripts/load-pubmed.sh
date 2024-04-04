@@ -13,6 +13,12 @@ STATUS=~/Documents/corpora/pubmed/status.json
 ARGS="-c $CREDS -f 2018 -i search-curieo -d pubmed -t $STATUS -e http://127.0.0.1:5000/embed"
 
 
+# This is a very serious hack that will fix the logger.
+# what happens is that an out-of-date logging configuration creeps into the jar and 
+# is mistaken for the actual configuration
+# if we remove it, it is fixed.
+zip -d $JAR META-INF/org/apache/logging/log4j/core/config/plugins/Log4j2Plugins.dat
+
 case $1 in
 	pubmed-2-elastic)
         # execute
@@ -36,6 +42,24 @@ case $1 in
         STATUS=~/Documents/corpora/pubmed/updates-status.json
         POSTGRESUSER=datadigger
         ARGS="-c $CREDS -d pubmed-updates -t $STATUS -p $POSTGRESUSER --full-records"
+        $CMD $ARGS
+    ;;
+
+    # testing with different batch sizes
+    pubmed-updates-2-postgres-20-100)
+        echo "Pubmed updates (full records) to postgres"
+        STATUS=~/Documents/corpora/pubmed/updates-status.json
+        POSTGRESUSER=datadigger
+        ARGS="-c $CREDS -d pubmed-updates -t $STATUS -p $POSTGRESUSER --full-records --maximum-files 20 --batch-size 100"
+        $CMD $ARGS
+    ;;
+
+    # testing with different batch sizes
+    pubmed-updates-2-postgres-20-1000)
+        echo "Pubmed updates (full records) to postgres"
+        STATUS=~/Documents/corpora/pubmed/updates-status.json
+        POSTGRESUSER=datadigger
+        ARGS="-c $CREDS -d pubmed-updates -t $STATUS -p $POSTGRESUSER --full-records --maximum-files 20 --batch-size 1000"
         $CMD $ARGS
     ;;
 

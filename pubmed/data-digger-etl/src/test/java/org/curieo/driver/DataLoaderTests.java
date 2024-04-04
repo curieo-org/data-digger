@@ -8,7 +8,7 @@ import javax.xml.stream.XMLStreamException;
 
 import org.curieo.consumer.MultiSink;
 import org.curieo.consumer.PostgreSQLClient;
-import org.curieo.consumer.PostgreSQLSink;
+import org.curieo.consumer.SQLSinkFactory;
 import org.curieo.consumer.Sink;
 import org.curieo.model.Record;
 import org.curieo.utils.Credentials;
@@ -24,7 +24,7 @@ class DataLoaderTests {
 		Credentials credentials = Credentials.read(new File(System.getenv("HOME") + "/.credentials.json"));
 		String path = System.getenv("HOME") + "/Documents/corpora/pubmed/pubmed24n0003.xml.gz";
 		Sink<Record> esink = DataLoader.getElasticConsumer(credentials, "search-curieo", null);
-		DataLoader dataLoader = DataLoader.builder().build();
+		DataLoader dataLoader = new DataLoader();
 		int loaded = dataLoader.loadData(path, "pubmed", esink);
 		System.out.printf("Loaded: %d items", loaded);
 	}
@@ -38,8 +38,8 @@ class DataLoaderTests {
 		String path = System.getenv("HOME") + "/Documents/corpora/pubmed/pubmed24n1223.xml";
 		PostgreSQLClient client = DataLoader.getPostgreSQLClient(credentials, "datadigger");
 		Sink<Record> sink = new MultiSink<>(Record::toAuthorships, 
-				PostgreSQLSink.createAuthorshipSink(client.getConnection()));
-		DataLoader dataLoader = DataLoader.builder().build();
+				SQLSinkFactory.createAuthorshipSink(client.getConnection()));
+		DataLoader dataLoader = new DataLoader();
 		int loaded = dataLoader.loadData(path, "pubmed", sink);
 		System.out.printf("Loaded: %d items", loaded);
 	}
