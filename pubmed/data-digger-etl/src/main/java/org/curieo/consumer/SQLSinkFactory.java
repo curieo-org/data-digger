@@ -249,6 +249,7 @@ public class SQLSinkFactory {
 				int currentCount = count.incrementAndGet();
 				if (currentCount%batchSize == 0) {
 					p.executeBatch();
+					p.clearBatch();
 				}
 			} catch (SQLException e) {
 				throw new RuntimeException(e);
@@ -260,6 +261,7 @@ public class SQLSinkFactory {
 			if (currentCount%batchSize != 0) {
 				try {
 					p.executeBatch();
+					p.clearBatch();
 				} catch (SQLException e) {
 					throw new RuntimeException(e);
 				}

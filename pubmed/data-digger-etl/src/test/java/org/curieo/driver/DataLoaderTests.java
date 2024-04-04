@@ -33,12 +33,11 @@ class DataLoaderTests {
 	void testPostgres() throws JsonProcessingException, IOException, XMLStreamException, SQLException {
 		// CREATE DATABASE pubmed
 		// CREATE SCHEMA IF NOT EXISTS datadigger AUTHORIZATION datadigger;
-		
 		Credentials credentials = Credentials.read(new File(System.getenv("HOME") + "/.credentials.json"));
 		String path = System.getenv("HOME") + "/Documents/corpora/pubmed/pubmed24n1223.xml";
 		PostgreSQLClient client = DataLoader.getPostgreSQLClient(credentials, "datadigger");
-		Sink<Record> sink = new MultiSink<>(Record::toAuthorships, 
-				SQLSinkFactory.createAuthorshipSink(client.getConnection()));
+		SQLSinkFactory sqlSinkFactory = new SQLSinkFactory(client.getConnection(), 100);
+		Sink<Record> sink = new MultiSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
 		DataLoader dataLoader = new DataLoader();
 		int loaded = dataLoader.loadData(path, "pubmed", sink);
 		System.out.printf("Loaded: %d items", loaded);
