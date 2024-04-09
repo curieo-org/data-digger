@@ -7,6 +7,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 
+import org.curieo.utils.Credentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
  
@@ -45,6 +46,15 @@ public class PostgreSQLClient implements AutoCloseable {
         connectionString = dbUrl;
     }
 
+	public static PostgreSQLClient getPostgreSQLClient(Credentials credentials, String postgresuser)
+			throws SQLException {
+		postgresuser = "postgres-" + postgresuser;
+		String user = credentials.need(postgresuser, "user");
+		String database = credentials.need(postgresuser, "database");
+		String password = credentials.need(postgresuser, "password");
+		return new PostgreSQLClient(database, user, password);
+	}
+	
     /**
      * Create a database. 
      * @param statement

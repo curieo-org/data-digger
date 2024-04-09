@@ -2,7 +2,9 @@ package org.curieo.sources;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import javax.xml.stream.XMLStreamException;
 
@@ -36,7 +38,13 @@ class PubmedTests {
 			if (!pr.getAbstractText().isEmpty()) {
 				haveAbstract++;
 			}
-			if (pr.getPublicationDate() != null) {
+			if (pr.getPublicationDate() == null) {
+				System.out.printf("Publication %s has no year?!%n", pmid);
+			}
+			else {
+
+				//SimpleDateFormat FORMATTER = new SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH);
+				//System.out.println(FORMATTER.format(pr.getPublicationDate()));
 				yearCount.merge(pr.getYear(), 1, (a, b) -> a + b);
 			}
 			if (count%1000 == 0) {

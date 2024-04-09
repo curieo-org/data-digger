@@ -48,4 +48,7 @@ public class CountingConsumer<T, Y> implements Sink<T> {
 	public int getTotalCount() {
 		return count.get();
 	}
+	public int getUpdatedCount() {
+		return 0;
+	}
 }

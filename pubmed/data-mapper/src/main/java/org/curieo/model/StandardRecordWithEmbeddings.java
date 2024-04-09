@@ -1,7 +1,5 @@
 package org.curieo.model;
 
-import java.text.ParseException;
-import java.util.Date;
 import java.util.List;
 
 import lombok.Builder;
@@ -21,6 +19,7 @@ public class StandardRecordWithEmbeddings implements Record {
 	List<Reference> references;
 	List<Metadata> metadata;
 	String identifier;
+	List<Metadata> identifiers;
 	String publicationDate;
 	double[] embeddings;
 	
@@ -30,22 +29,11 @@ public class StandardRecordWithEmbeddings implements Record {
 				.titles(record.getTitles())
 				.authors(record.getAuthors())
 				.metadata(record.getMetadata())
-				.publicationDate(StandardRecord.formatDate(record.getPublicationDate()))
+				.publicationDate(record.getPublicationDate())
 				.references(record.getReferences())
+				.identifiers(record.getIdentifiers())
 				.identifier(record.getIdentifier())
 				.embeddings(embeddings)
 				.build();
-	}
-
-	@Override
-	public Date getPublicationDate() {
-		if (publicationDate == null) {
-			return null;
-		}
-		try {
-			return StandardRecord.FORMATTER.parse(publicationDate);
-		} catch (ParseException e) {
-			throw new RuntimeException(e);
-		}
 	}
 }

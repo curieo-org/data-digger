@@ -1,11 +1,6 @@
 package org.curieo.model;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -21,13 +16,13 @@ import lombok.Generated;
  */
 @Generated @Data @Builder
 public class StandardRecord implements Record {
-	static final SimpleDateFormat FORMATTER = new SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH);
 	static final ObjectWriter OBJECT_WRITER = new ObjectMapper().writerFor(StandardRecord.class);
 	List<Text> abstractText;
 	List<Text> titles;
 	List<String> authors;
 	List<Reference> references;
 	List<Metadata> metadata;
+	List<Metadata> identifiers;
 	String identifier;
 	String publicationDate;
 	
@@ -37,26 +32,11 @@ public class StandardRecord implements Record {
 				.titles(record.getTitles())
 				.authors(record.getAuthors())
 				.metadata(record.getMetadata())
-				.publicationDate(record.getPublicationDate() == null ? null : formatDate(record.getPublicationDate()))
+				.publicationDate(record.getPublicationDate())
 				.references(record.getReferences())
+				.identifiers(record.getIdentifiers())
 				.identifier(record.getIdentifier())
 				.build();
-	}
-	
-	@Override
-	public Date getPublicationDate() {
-		if (publicationDate == null) {
-			return null;
-		}
-		try {
-			return FORMATTER.parse(publicationDate);
-		} catch (ParseException e) {
-			throw new RuntimeException(e);
-		}
-	}
-	
-	public static String formatDate(Date date) {
-		return FORMATTER.format(date);
 	}
 	
 	public String toJson() {

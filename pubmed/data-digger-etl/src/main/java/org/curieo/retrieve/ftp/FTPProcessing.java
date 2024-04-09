@@ -156,6 +156,7 @@ public class FTPProcessing implements AutoCloseable {
 			writeProcessingStatus(statusMap, processingStatus);
 		}
 		int filesSeen = 0;
+		int done = (int)statusMap.values().stream().filter(status -> status == Status.Seen || status == Status.Success).count();
 		for (Map.Entry<String, Status> status : statusMap.entrySet()) {
 			if (status.getValue() == Status.Open || status.getValue() == Status.Error) {
 				// retrieve the remote file, and submit.
@@ -185,6 +186,8 @@ public class FTPProcessing implements AutoCloseable {
 				if (filesSeen == maximumNumberOfFiles) {
 					break;
 				}
+				done++;
+				LOGGER.info(String.format("Done %d/%d, at %.1f%%", done, statusMap.size(), (float)100*done/statusMap.size()));
 			}
 		}
 	}
@@ -196,11 +199,13 @@ public class FTPProcessing implements AutoCloseable {
 			LOGGER.error(String.format("Retrieving remote file %s ended in null", remoteFile));
 			System.exit(1);
 		}
-		IOUtils.copy(inputStream, fos);
-		fos.flush();
-		fos.close();
-		inputStream.close();
-		ftp.disconnect();
+		else {
+			IOUtils.copy(inputStream, fos);
+			fos.flush();
+			fos.close();
+			inputStream.close();
+			ftp.disconnect();
+		}
 		return true;
 	}
 	

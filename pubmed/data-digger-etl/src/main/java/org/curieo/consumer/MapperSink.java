@@ -1,15 +1,14 @@
 package org.curieo.consumer;
 
-import java.util.List;
 import java.util.function.Function;
 
 import lombok.Generated;
 import lombok.Value;
 
 @Generated @Value
-public class MultiSink<T, Y> implements Sink<T> {
-	Function<T, List<Y>> mapper;
-	Sink<List<Y>> embedded;
+public class MapperSink<T, Y> implements Sink<T> {
+	Function<T, Y> mapper;
+	Sink<Y> embedded;
 	
 	@Override
 	public void accept(T t) {

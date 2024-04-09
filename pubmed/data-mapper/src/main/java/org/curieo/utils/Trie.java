@@ -29,6 +29,9 @@ public class Trie<T> {
 		return current.value;
 	}
 
+	public boolean containsKey(String s) {
+		return get(s) != null;
+	}
 
 	public TrieHit findLongestUpTo(String s, int pos, int length) {
 		Trie<T> longest = this;
