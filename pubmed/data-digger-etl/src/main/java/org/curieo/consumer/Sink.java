@@ -9,6 +9,7 @@ public interface Sink<T> extends Consumer<T> {
 	void finalCall();
 
 	int getTotalCount();
+	int getUpdatedCount();
 	
 	default Sink<T> concatenate(Sink<T> other) {
 		if (other == null) return this;
@@ -35,6 +36,11 @@ public interface Sink<T> extends Consumer<T> {
 		@Override
 		public int getTotalCount() {
 			return s1.getTotalCount() + s2.getTotalCount();
+		}
+		
+		@Override
+		public int getUpdatedCount() {
+			return s1.getUpdatedCount() + s2.getUpdatedCount();
 		}	
 	}
 }

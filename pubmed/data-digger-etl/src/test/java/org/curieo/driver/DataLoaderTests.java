@@ -24,9 +24,8 @@ class DataLoaderTests {
 		Credentials credentials = Credentials.read(new File(System.getenv("HOME") + "/.credentials.json"));
 		String path = System.getenv("HOME") + "/Documents/corpora/pubmed/pubmed24n0003.xml.gz";
 		Sink<Record> esink = DataLoader.getElasticConsumer(credentials, "search-curieo", null);
-		DataLoader dataLoader = new DataLoader();
-		int loaded = dataLoader.loadData(path, "pubmed", esink);
-		System.out.printf("Loaded: %d items", loaded);
+		DataLoader dataLoader = new DataLoader(0, 3000, "pubmed", esink);
+		dataLoader.processFile(new File(path));
 	}
 	
 	@Test
@@ -35,11 +34,10 @@ class DataLoaderTests {
 		// CREATE SCHEMA IF NOT EXISTS datadigger AUTHORIZATION datadigger;
 		Credentials credentials = Credentials.read(new File(System.getenv("HOME") + "/.credentials.json"));
 		String path = System.getenv("HOME") + "/Documents/corpora/pubmed/pubmed24n1223.xml";
-		PostgreSQLClient client = DataLoader.getPostgreSQLClient(credentials, "datadigger");
-		SQLSinkFactory sqlSinkFactory = new SQLSinkFactory(client.getConnection(), 100);
+		PostgreSQLClient client = PostgreSQLClient.getPostgreSQLClient(credentials, "datadigger");
+		SQLSinkFactory sqlSinkFactory = new SQLSinkFactory(client.getConnection(), 100, false);
 		Sink<Record> sink = new MultiSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
-		DataLoader dataLoader = new DataLoader();
-		int loaded = dataLoader.loadData(path, "pubmed", sink);
-		System.out.printf("Loaded: %d items", loaded);
+		DataLoader dataLoader = new DataLoader(0, 3000, "pubmed", sink);
+		dataLoader.processFile(new File(path));
 	}
 }

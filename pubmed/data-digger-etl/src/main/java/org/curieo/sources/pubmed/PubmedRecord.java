@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLStreamException;
@@ -24,14 +23,13 @@ import org.curieo.model.Text;
 import org.curieo.sources.IdProvider;
 import org.curieo.sources.Source;
 import org.curieo.sources.SourceReader;
-
 import lombok.Builder;
 import lombok.Generated;
 import lombok.Singular;
 import lombok.Value;
 
 @Generated @Value @Builder
-public class PubmedRecord implements Record {
+public class PubmedRecord implements Record {	
 	public static final String RECORD_TAG = "PubmedArticle";
 	public static final String TITLE_TAG = "ArticleTitle";
 	public static final String ABSTRACT_TAG = "AbstractText";
@@ -39,9 +37,15 @@ public class PubmedRecord implements Record {
 	public static final String REFERENCELIST_TAG = "ReferenceList";
 	public static final String REFERENCE_TAG = "Reference";
 	public static final String ARTICLEID_TAG = "ArticleId";
+	public static final String DATECOMPLETED_TAG = "DateCompleted";
+	public static final String ARTICLEDATE_TAG = "ArticleDate";
 	public static final String AUTHORLIST_TAG = "AuthorList";
 	public static final String MESHHEADINGLIST_TAG = "MeshHeadingList";
 	private static final QName IDTYPE = new QName("IdType");
+
+	public static final String MONTH_TAG = "Month";
+	public static final String DAY_TAG = "Day";
+	public static final String YEAR_TAG = "Year";
 	
 	@Singular("abstractTex")
 	List<Text> abstractText;
@@ -55,12 +59,24 @@ public class PubmedRecord implements Record {
 	List<Source> sources;
 	
 	List<MeshHeading> meshHeadings;
-	
+
 	Journal journal;
 	List<PubmedAuthor> pubmedAuthors;
 	List<Reference> references;
-	Date publicationDate;
+	Date dateCompleted;
+	Date articleDate;
 
+	@Override
+	public Date getPublicationDate() {
+		if (articleDate != null) 
+			return articleDate;
+		if (dateCompleted != null) 
+			return dateCompleted;
+		if (journal != null) 
+			return journal.getPublicationDate();
+		return null;
+	}
+	
 	@Override
 	public List<String> getAuthors() {
 		return CollectionUtils.emptyIfNull(getPubmedAuthors()).stream().map(PubmedAuthor::toString).toList();
@@ -69,18 +85,9 @@ public class PubmedRecord implements Record {
 	@Override
 	public List<LinkedField<Authorship>> toAuthorships() {
 		List<LinkedField<Authorship>> list = new ArrayList<>();
-		int year;
-		if (publicationDate == null) {
-			year = 0;
-		}
-		else {
-			Calendar calendar = Calendar.getInstance();
-			calendar.setTime(publicationDate);
-			year = calendar.get(Calendar.YEAR);
-		}
-		
+		Integer year = getYear();
 		for (int ordinal = 0; ordinal < ListUtils.emptyIfNull(pubmedAuthors).size(); ordinal++) {
-			list.add(new LinkedField<>(ordinal, getIdentifier(), pubmedAuthors.get(ordinal).toAuthorship(year)));
+			list.add(new LinkedField<>(ordinal, getIdentifier(), pubmedAuthors.get(ordinal).toAuthorship(year == null ? 0 : year)));
 		}
 		return list;
 	}
@@ -119,9 +126,15 @@ public class PubmedRecord implements Record {
 	            case ABSTRACT_TAG:
 	            	builder = builder.abstractTex(new Text(readText(reader, ABSTRACT_TAG), null));
 	                break;
+	            case ARTICLEDATE_TAG:
+	            	builder = builder.articleDate(readPublicationDate(reader, ARTICLEDATE_TAG));
+	                break;
+	            case DATECOMPLETED_TAG:
+	            	builder = builder.dateCompleted(readPublicationDate(reader, DATECOMPLETED_TAG));
+	                break;
 	            case Journal.JOURNAL_TAG:
 	            	Journal journal = Journal.read(reader, current);
-	            	builder = builder.journal(journal).source(journal.toSource()).publicationDate(journal.getPublicationDate());
+	            	builder = builder.journal(journal).source(journal.toSource());
 	                break;
 	            case REFERENCELIST_TAG:
 	            	builder = builder.references(readReferenceList(reader));
@@ -149,6 +162,51 @@ public class PubmedRecord implements Record {
 		return builder.build();
 	}
 
+	static Date readPublicationDate(XMLEventReader reader, String endTag) throws XMLStreamException {
+		// read the date
+		Calendar calendar = Calendar.getInstance();
+		int dateData = 0;
+		while (reader.hasNext()) {
+		    XMLEvent event = reader.nextEvent();
+		    if (event.isStartElement()) {
+		        StartElement startElement = event.asStartElement();
+		        switch (startElement.getName().getLocalPart()) {
+		            case DAY_TAG:
+		            	String day = readText(reader, startElement.getName().getLocalPart());
+		            	if (day.length() <= 2 && day.chars().allMatch(Character::isDigit)) {
+		            		calendar.set(Calendar.DAY_OF_MONTH, Integer.parseInt(day));
+		            		dateData++;
+		            	}
+		            	break;
+		            case MONTH_TAG:
+		            	Integer month = org.curieo.utils.Months.get(readText(reader, startElement.getName().getLocalPart()).toLowerCase());
+		            	if (month != null) {
+		            		calendar.set(Calendar.MONTH, month);
+		            		dateData++;
+		            	}
+		                break;
+		            case YEAR_TAG:
+		            	String year = readText(reader, startElement.getName().getLocalPart());
+		            	if (year.length() <= 5 && year.chars().allMatch(Character::isDigit)) {
+			            	calendar.set(Calendar.YEAR, Integer.parseInt(year));
+		            		dateData++;
+		            	}
+		                break;
+		            default:
+		            	break;
+		        }
+		    }
+		    if (event.isEndElement() &&
+		        event.asEndElement().getName().getLocalPart().equals(endTag)) {
+	        	if (dateData != 0) {
+	        		return calendar.getTime();
+	        	}
+	        	return null;
+	        }
+		}
+		return null;
+	}
+	
 	static Metadata readArticleId(XMLEventReader reader, StartElement startElement) throws XMLStreamException {
         String type = startElement.getAttributeByName(IDTYPE).getValue();
         return new Metadata(type, readText(reader, ARTICLEID_TAG));

@@ -36,7 +36,10 @@ class PubmedTests {
 			if (!pr.getAbstractText().isEmpty()) {
 				haveAbstract++;
 			}
-			if (pr.getPublicationDate() != null) {
+			if (pr.getPublicationDate() == null) {
+				System.out.printf("Publication %s has no year?!%n", pmid);
+			}
+			else {
 				yearCount.merge(pr.getYear(), 1, (a, b) -> a + b);
 			}
 			if (count%1000 == 0) {
