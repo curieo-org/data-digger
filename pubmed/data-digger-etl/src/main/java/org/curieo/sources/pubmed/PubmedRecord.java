@@ -67,13 +67,13 @@ public class PubmedRecord implements Record {
 	Date articleDate;
 
 	@Override
-	public Date getPublicationDate() {
+	public String getPublicationDate() {
 		if (articleDate != null) 
-			return articleDate;
+			return FORMATTER.format(articleDate);
 		if (dateCompleted != null) 
-			return dateCompleted;
+			return FORMATTER.format(dateCompleted);
 		if (journal != null) 
-			return journal.getPublicationDate();
+			return FORMATTER.format(journal.getPublicationDate());
 		return null;
 	}
 	

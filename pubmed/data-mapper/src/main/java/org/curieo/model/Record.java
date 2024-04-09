@@ -1,13 +1,15 @@
 package org.curieo.model;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.commons.collections4.ListUtils;
 
 public interface Record {
+	static final SimpleDateFormat FORMATTER = new SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH);
 	List<Text> getAbstractText();
 
 	List<Text> getTitles();
@@ -18,12 +20,16 @@ public interface Record {
 
 	List<Metadata> getMetadata();
 
-	Date getPublicationDate();
+	/**
+	 * @return publication date formatted as YYYY-MM-DD
+	 */
+	String getPublicationDate();
 
 	/**
 	 * This identifier must be unique *across* sources
 	 */
 	String getIdentifier();
+	List<Metadata> getIdentifiers();
 
 	default List<LinkedField<Authorship>> toAuthorships() {
 		throw new UnsupportedOperationException("Not defined for standard records.");
@@ -33,9 +39,7 @@ public interface Record {
 		if (getPublicationDate() == null) {
 			return null;
 		}
-		Calendar calendar = Calendar.getInstance();
-		calendar.setTime(getPublicationDate());
-		return calendar.get(Calendar.YEAR);
+		return Integer.parseInt(getPublicationDate().substring(0, 4));
 	}
 
 	default List<LinkedField<Reference>> toReferences() {
@@ -45,5 +49,9 @@ public interface Record {
 			list.add(new LinkedField<>(ordinal, getIdentifier(), getReferences().get(ordinal)));
 		}
 		return list;
+	}
+	
+	static String formatDate(Date date) {
+		return FORMATTER.format(date);
 	}
 }
