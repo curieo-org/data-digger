@@ -18,7 +18,7 @@ There is a number of readers here, all of which must be run in live mode to keep
 # in the root folder (data-digger-java)
 mvn clean install -DskipTests
 # in the ETL folder (data-digger-java/data-digger-etl)
-mvn package assembly:single
+mvn package assembly:single -DskipTests
 ```
 
 The last step will build a 50MB jar that is referenced in the `load-pubmed.sh` script.
