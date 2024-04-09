@@ -39,7 +39,7 @@ class AbstractSink<T> implements Sink<T> {
 					delete.setString(1, key);
 					delete.execute();
 					count.decrementAndGet();
-					updated.decrementAndGet();
+					updated.incrementAndGet();
 				}
 				keys.add(key);
 			}
