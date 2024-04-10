@@ -2,9 +2,7 @@ package org.curieo.sources;
 
 import java.io.File;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import javax.xml.stream.XMLStreamException;
 

@@ -7,7 +7,7 @@ LOGJAR=$DIR/slf4j-simple-2.0.11.jar
 JAR="$(ls $DIR/../target/data-digger-*-jar-with-dependencies.jar)"
 
 # compose the command for pubmed loading
-CMD="java -cp $JAR:$LOGJAR -Xmx32G org.curieo.driver.DataLoader"
+CMD="java -cp $JAR:$LOGJAR -Xmx64G org.curieo.driver.DataLoader"
 CREDS=~/.credentials.json
 STATUS=~/Documents/corpora/pubmed/status.json
 ARGS="-c $CREDS -f 2018 -i search-curieo -d pubmed -t $STATUS -e http://127.0.0.1:5000/embed"
