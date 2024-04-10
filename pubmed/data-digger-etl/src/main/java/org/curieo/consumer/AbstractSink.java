@@ -6,40 +6,42 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
-import org.curieo.rdf.HashSet;
 import org.curieo.utils.ListUtils;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.Generated;
-import lombok.Value;
 
-@Generated @Value
+@Generated @Data @AllArgsConstructor
 class AbstractSink<T> implements Sink<T> {
 	final List<Extract<T>> extracts;
 	final PreparedStatement insert;
 	final PreparedStatement delete;
-	final AtomicInteger count;
-	final AtomicInteger updated;
+	int insertions;
+	int deletions;
+	int deletesInBatch;
 	int batchSize;
-	final HashSet<String> keys;
+	final Set<String> keys;
 	final Extract<T> keyExtractor;
 
+	public AbstractSink(List<Extract<T>> extracts, PreparedStatement insert, PreparedStatement deleteStatement,
+			int batchSize, Set<String> keys, Extract<T> keyExtractor) {
+		this(extracts, insert, deleteStatement, 0, 0, 0, batchSize, keys, keyExtractor);
+	}
+	
 	// guarantee uniqueness of keys.
 	// we are assuming a linear read: later update overrides previous
 	void guaranteeUniqueKeys(Set<String> keysFound) {
 		try {
 			for (String key : keysFound) {
 				if (keys.contains(key)) {
-					// execute batch
-					insert.executeBatch();
-					insert.clearBatch();
 					
 					// issue delete
 					delete.setString(1, key);
-					delete.execute();
-					count.decrementAndGet();
-					updated.incrementAndGet();
+					delete.addBatch();
+					deletions++;
+					deletesInBatch++;
 				}
 				keys.add(key);
 			}
@@ -88,11 +90,10 @@ class AbstractSink<T> implements Sink<T> {
 					}
 				}
 				insert.addBatch();
-			}
-			int currentCount = count.incrementAndGet();
-			if (currentCount%batchSize == 0) {
-				insert.executeBatch();
-				insert.clearBatch();
+				insertions++;
+				if (insertions%batchSize == 0) {
+					executeAndClearBatch();
+				}
 			}
 		} catch (SQLException e) {
 			throw new RuntimeException(e);
@@ -100,21 +101,29 @@ class AbstractSink<T> implements Sink<T> {
 	}
 	
 	public void finalCall() {
-		int currentCount = count.get();
-		if (currentCount%batchSize != 0) {
-			try {
-				insert.executeBatch();
-				insert.clearBatch();
-			} catch (SQLException e) {
-				throw new RuntimeException(e);
-			}
+		if (insertions%batchSize != 0) {
+			executeAndClearBatch();
 		}
 	}
 
 	public int getTotalCount() {
-		return count.get();
+		return insertions;
 	}
 	public int getUpdatedCount() {
-		return updated.get();
+		return deletions;
+	}
+	
+	private void executeAndClearBatch() {
+		try {
+			if (deletesInBatch != 0) {
+				delete.executeBatch();
+				delete.clearBatch();
+				deletesInBatch = 0;
+			}
+			insert.executeBatch();
+			insert.clearBatch();
+		} catch (SQLException e) {
+			throw new RuntimeException(e);
+		}
 	}
 }

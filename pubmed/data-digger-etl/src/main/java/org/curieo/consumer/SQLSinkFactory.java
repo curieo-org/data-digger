@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.curieo.model.Authorship;
@@ -150,23 +150,29 @@ public class SQLSinkFactory {
 
 	private static <T> AbstractSink<T> createAbstractSink(List<Extract<T>> extracts, 
 			PreparedStatement insert, int batchSize, Connection connection, String tableName) throws SQLException {
-		HashSet<String> keys = new HashSet<>();
+		Set<String> keys = new HashSet<>();//org.curieo.sources.IdentifierSet();
 		Optional<Extract<T>> uniqueOpt = extracts.stream().filter(extract -> extract.getSpec().isUnique()).findFirst();
 		Extract<T> keyExtractor = null;
 		PreparedStatement deleteStatement = null;
 		if (uniqueOpt.isPresent()) {
 			keyExtractor = uniqueOpt.get();
+			// https://jdbc.postgresql.org/documentation/query/#getting-results-based-on-a-cursor
+			boolean autocommit = connection.getAutoCommit();
+			connection.setAutoCommit(false);
 			String query = String.format("SELECT %s FROM %s", keyExtractor.getSpec().getField(), tableName);
-			Statement statement = connection.createStatement();
-			ResultSet resultSet = statement.executeQuery(query);
-			while (resultSet.next()) {
-				keys.add(resultSet.getString(1));
+			// give some hints as to how to read economically
+			Statement statement = connection.createStatement(ResultSet.CONCUR_READ_ONLY, ResultSet.TYPE_FORWARD_ONLY);
+			statement.setFetchSize(100);
+			try (ResultSet resultSet = statement.executeQuery(query)) {
+				while (resultSet.next()) {
+					keys.add(resultSet.getString(1));
+				}
 			}
+			connection.setAutoCommit(autocommit); // back to original value
 			LOGGER.info("Read {} keys from {}", keys.size(), tableName);
 			deleteStatement = connection.prepareStatement(
 					String.format("DELETE FROM %s WHERE %s = ?", tableName, keyExtractor.getSpec().getField()));
 		}
-		return new AbstractSink<T>(extracts, insert, deleteStatement, 
-				new AtomicInteger(), new AtomicInteger(), batchSize, keys, keyExtractor);
+		return new AbstractSink<T>(extracts, insert, deleteStatement, batchSize, keys, keyExtractor);
 	}
 }
