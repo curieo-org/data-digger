@@ -6,7 +6,7 @@
 .settings
 .classpath
 .project
-target/**
+target/
 
 .DS_Store
 
@@ -36,3 +36,4 @@ replay_pid*
 *.ipynb_checkpoints/
 
 *.env
+pubmed/config/
