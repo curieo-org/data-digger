@@ -45,7 +45,6 @@ case $1 in
         STATUS=$CONFIGDIR/updates-status.json
         POSTGRESUSER=datadigger
         STORE_LINKS="--link-table pubmed=pmc pubmed=doi"
-        ARGS="-c $CREDS -d pubmed-updates -t $STATUS -p $POSTGRESUSER --full-records --references pubmed  --batch-size 100 --use-keys $STORE_LINKS"
         $CMD $ARGS
     ;;
 
