@@ -83,8 +83,8 @@ public class SQLSinkFactory {
 		List<StorageSpec> storageSpecs = new ArrayList<>();
 		String tableName = "ReferenceTable";
 		storageSpecs.addAll(Arrays.asList(
-				new StorageSpec("ordinal", ExtractType.Integer),
 				new StorageSpec("articleId", ExtractType.String, 20, useKeys),
+				new StorageSpec("ordinal", ExtractType.Integer),
 				new StorageSpec("citation", ExtractType.String, 500)));
 		// a variable number of identifiers
 		for (String id : ids) {
@@ -103,6 +103,30 @@ public class SQLSinkFactory {
 			extracts.add(storageSpecs.get(3).extractString(l -> l.getField().getIdentifiers().stream()
 							.filter(m -> m.getKey().equals(id)).map(Metadata::getValue).findFirst().orElse(null)));
 		}
+
+		return new ListSink<>(createAbstractSink(extracts, insert, batchSize, connection, tableName));
+	}
+
+	/**
+	 * 
+	 * @param sourceIdentifier
+	 * @param targetIdentifier
+	 * @return
+	 * @throws SQLException
+	 */
+	public Sink<List<Metadata>> createLinkoutTable(String sourceIdentifier, String targetIdentifier) throws SQLException {
+		List<StorageSpec> storageSpecs = new ArrayList<>();
+		String tableName = "LinkTable";
+		storageSpecs.addAll(Arrays.asList(
+				new StorageSpec(sourceIdentifier, ExtractType.String, 20, useKeys),
+				new StorageSpec(targetIdentifier, ExtractType.String, 20)));
+		
+		createTable(tableName, storageSpecs);
+		PreparedStatement insert = insertStatement(tableName, storageSpecs);
+		
+		List<Extract<Metadata>> extracts = new ArrayList<>();
+		extracts.add(storageSpecs.get(0).extractString(Metadata::getKey));
+		extracts.add(storageSpecs.get(2).extractString(Metadata::getValue));
 
 		return new ListSink<>(createAbstractSink(extracts, insert, batchSize, connection, tableName));
 	}

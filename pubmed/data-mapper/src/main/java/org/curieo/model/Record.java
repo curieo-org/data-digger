@@ -2,9 +2,12 @@ package org.curieo.model;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Optional;
+
 import org.apache.commons.collections4.ListUtils;
 
 public interface Record {
@@ -47,6 +50,16 @@ public interface Record {
 			list.add(new LinkedField<>(ordinal, getIdentifier(), getReferences().get(ordinal)));
 		}
 		return list;
+	}
+
+	default List<Metadata> toLinks(String source, String target) {
+		Optional<String> sourceOpt = this.getIdentifiers().stream().filter(m -> m.getKey().equals(source)).map(Metadata::getValue).findFirst();
+		Optional<String> targetOpt = this.getIdentifiers().stream().filter(m -> m.getKey().equals(target)).map(Metadata::getValue).findFirst();
+		
+		if (sourceOpt.isPresent() && targetOpt.isPresent()) {
+			return Collections.singletonList(new Metadata(sourceOpt.get(), targetOpt.get()));
+		}
+		return Collections.emptyList();
 	}
 	
 	static String formatDate(Date date) {

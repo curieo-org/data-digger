@@ -1,18 +1,32 @@
 
 
-SELECT pubmed, count(pubmed) AS citationcount
-INTO datadigger.citationcounts
-FROM datadigger.referencetable
+/* 
+    datadigger.referencetable  has 366K records.
+    in order process these in a reasonable time, we're first grouping them by cited pubmed id
+*/
+SELECT pubmed AS PubmedId, COUNT(pubmed) AS citationcount
+INTO datadigger.citationcountswithoutyear
+FROM datadigger.referencetable 
 GROUP BY pubmed
-/* Query returned successfully in 10 min 17 secs. */
 
-SELECT SUBSTRING(r.identifier, 1, LENGTH(r.identifier)-1) AS PubmedId, COUNT(pubmed) AS citationcount, Year
+/* Query returned successfully in 6 min 26 secs. */
+SELECT SUBSTRING(r.identifier, 1, LENGTH(r.identifier)-2) AS PubmedId, 
+COALESCE(rt.citationcount, 0) citationcount, Year
 INTO datadigger.citationcounts
-FROM datadigger.records r LEFT JOIN datadigger.referencetable rt
-ON SUBSTRING(r.identifier, 1, LENGTH(r.identifier)-1)=rt.pubmed
-GROUP BY SUBSTRING(r.identifier, 1, LENGTH(r.identifier)-1), Year
+FROM datadigger.records r LEFT JOIN datadigger.citationcountswithoutyear rt
+ON SUBSTRING(r.identifier, 1, LENGTH(r.identifier)-2)=rt.pubmedid
+GROUP BY SUBSTRING(r.identifier, 1, LENGTH(r.identifier)-2), 
+COALESCE(rt.citationcount, 0), Year
 
-/* Query returned successfully in 40 min 16 secs. */
+/* Query returned successfully in 5 min 42 secs. */
+
+SELECT SUBSTRING(r.identifier, 1, LENGTH(r.identifier)-2) AS PubmedId, Year
+INTO datadigger.yeardata
+FROM datadigger.records r 
+
+CREATE INDEX idxYearData ON datadigger.yeardata (pubmedid)
+
+
 
 ALTER TABLE datadigger.citationcounts ADD COLUMN YearRank INT
 
