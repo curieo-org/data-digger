@@ -6,7 +6,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
+import java.util.Set;
 
+import org.curieo.rdf.HashSet;
 import org.curieo.utils.Credentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,7 +67,24 @@ public class PostgreSQLClient implements AutoCloseable {
     	Statement stmt = connection.createStatement();
     	return stmt.execute(statement);
     }
-    
+
+	public static Set<String> retrieveSetOfStrings(Connection connection, String query) throws SQLException {
+		Set<String> keys = new HashSet<>();
+		// https://jdbc.postgresql.org/documentation/query/#getting-results-based-on-a-cursor
+		boolean autocommit = connection.getAutoCommit();
+		connection.setAutoCommit(false);
+		// give some hints as to how to read economically
+		Statement statement = connection.createStatement(ResultSet.CONCUR_READ_ONLY, ResultSet.TYPE_FORWARD_ONLY);
+		statement.setFetchSize(100);
+		try (ResultSet resultSet = statement.executeQuery(query)) {
+			while (resultSet.next()) {
+				keys.add(resultSet.getString(1));
+			}
+		}
+		connection.setAutoCommit(autocommit); // back to original value
+		return keys;
+	}
+	
     /**
      * Create a database. 
      * @param databaseName

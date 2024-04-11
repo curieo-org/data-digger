@@ -2,7 +2,6 @@ package org.curieo.consumer;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -13,6 +12,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.curieo.model.Authorship;
+import org.curieo.model.FullTextRecord;
 import org.curieo.model.LinkedField;
 import org.curieo.model.Metadata;
 import org.curieo.model.Reference;
@@ -126,7 +126,7 @@ public class SQLSinkFactory {
 		
 		List<Extract<Metadata>> extracts = new ArrayList<>();
 		extracts.add(storageSpecs.get(0).extractString(Metadata::getKey));
-		extracts.add(storageSpecs.get(2).extractString(Metadata::getValue));
+		extracts.add(storageSpecs.get(1).extractString(Metadata::getValue));
 
 		return new ListSink<>(createAbstractSink(extracts, insert, batchSize, connection, tableName));
 	}
@@ -153,9 +153,23 @@ public class SQLSinkFactory {
 		extracts.add(storageSpecs.get(1).extractInt(StandardRecord::getYear));
 		extracts.add(storageSpecs.get(2).extractString(StandardRecord::toJson));
 
-		return new GenericSink<>(createAbstractSink(extracts, insert, batchSize, connection, tableName));
+		return new GenericSink<>(createAbstractSink(extracts, insert, batchSize, connection, tableName), false);
 	}
 
+	public Sink<FullTextRecord> createPMCSink(String tableName) throws SQLException {
+		List<StorageSpec> storageSpecs = Arrays.asList(
+				new StorageSpec("Identifier", ExtractType.String, 20, useKeys),
+				new StorageSpec("Record", ExtractType.Text, 0));
+		createTable(tableName, storageSpecs);
+		PreparedStatement insert = insertStatement(tableName, storageSpecs);
+		
+		List<Extract<FullTextRecord>> extracts = new ArrayList<>();
+		extracts.add(storageSpecs.get(0).extractString(FullTextRecord::getIdentifier));
+		extracts.add(storageSpecs.get(1).extractString(FullTextRecord::getContent));
+
+		return new GenericSink<>(createAbstractSink(extracts, insert, batchSize, connection, tableName), true);
+	}
+	
 	private void createTable(String tableName, List<StorageSpec> storageSpecs) throws SQLException {
 		String creation = String.format("CREATE TABLE IF NOT EXISTS %s (%s)",
 				tableName,
@@ -180,19 +194,8 @@ public class SQLSinkFactory {
 		PreparedStatement deleteStatement = null;
 		if (uniqueOpt.isPresent()) {
 			keyExtractor = uniqueOpt.get();
-			// https://jdbc.postgresql.org/documentation/query/#getting-results-based-on-a-cursor
-			boolean autocommit = connection.getAutoCommit();
-			connection.setAutoCommit(false);
 			String query = String.format("SELECT %s FROM %s", keyExtractor.getSpec().getField(), tableName);
-			// give some hints as to how to read economically
-			Statement statement = connection.createStatement(ResultSet.CONCUR_READ_ONLY, ResultSet.TYPE_FORWARD_ONLY);
-			statement.setFetchSize(100);
-			try (ResultSet resultSet = statement.executeQuery(query)) {
-				while (resultSet.next()) {
-					keys.add(resultSet.getString(1));
-				}
-			}
-			connection.setAutoCommit(autocommit); // back to original value
+			keys = PostgreSQLClient.retrieveSetOfStrings(connection, query);
 			LOGGER.info("Read {} keys from {}", keys.size(), tableName);
 			deleteStatement = connection.prepareStatement(
 					String.format("DELETE FROM %s WHERE %s = ?", tableName, keyExtractor.getSpec().getField()));

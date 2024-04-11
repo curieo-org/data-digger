@@ -46,16 +46,18 @@ case $1 in
         POSTGRESUSER=datadigger
         STORE_LINKS="--link-table pubmed=pmc pubmed=doi"
         STORE_LINKS="--link-table pubmed=pmc"
-        ARGS="-c $CREDS -d pubmed-updates -t $STATUS -p $POSTGRESUSER --full-records --references pubmed  --batch-size 100 --use-keys"
+        ARGS="-c $CREDS -d pubmed-updates -t $STATUS -p $POSTGRESUSER --full-records --references pubmed  --batch-size 100 --use-keys $STORE_LINKS"
         $CMD $ARGS
     ;;
 
-    # testing with different batch sizes
-    pubmed-updates-2-postgres-20-100)
-        echo "Pubmed updates (full records) to postgres"
+    # testing with full-text
+    pubmedcentral-test)
+        echo "Pubmed Central Test"
+        CMD="java -cp $JAR:$LOGJAR -Xmx64G org.curieo.driver.DataLoaderPMC"
         STATUS=$CONFIGDIR/updates-status.json
         POSTGRESUSER=datadigger
-        ARGS="-c $CREDS -d pubmed-updates -t $STATUS -p $POSTGRESUSER --full-records --maximum-files 20 --batch-size 100"
+        QUERY="--query SELECT PMC FROM datadigger.linktable LIMIT 10"
+        ARGS="-c $CREDS -p $POSTGRESUSER $QUERY --table-name PMCFullText --use-keys "
         $CMD $ARGS
     ;;
 
