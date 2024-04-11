@@ -30,11 +30,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import lombok.Generated;
-import lombok.Singular;
 import lombok.Value;
 
 @Generated @Value
 public class FullText {
+	public static final String GZIPPED_TAR_FORMAT = "tgz";
+	public static final String XML_EXTENSION = "xml";
+	
 	private static final Logger LOGGER = LoggerFactory.getLogger(FullText.class);
 	final String oaiService;
 	private static XMLInputFactory XMLINPUTFACTORY = XMLInputFactory.newInstance();
@@ -46,19 +48,35 @@ public class FullText {
 	private static final QName UPDATED_ATTRIBUTE = new QName("updated");
 	private static final QName HREF_ATTRIBUTE = new QName("href");
 
+	/**
+	 * Retrieve the contents of the first file with an extension ending in "xml" in a package
+	 * corresponding to a pubmed central identifier
+	 * @param pmcId
+	 * @return full file contents read into a UTF_8 string
+	 * @throws IOException
+	 * @throws XMLStreamException
+	 */
 	public String getJats(String pmcId) throws IOException, XMLStreamException {
-		File file = getFullText(pmcId, "tgz");
+		File file = getFullText(pmcId, GZIPPED_TAR_FORMAT);
 		if (file == null) {
 			LOGGER.warn("Cannot retrieve {}", pmcId);
 			return null;
 		}
-		File target = TarExtractor.getSingleFileOutOfTar(file, true, a -> a.getAbsolutePath().toLowerCase().endsWith("xml"));
+		File target = TarExtractor.getSingleFileOutOfTar(file, true, a -> a.getAbsolutePath().toLowerCase().endsWith(XML_EXTENSION));
 		file.delete();
 		String content = Files.readString(target.toPath());
 		target.delete();
 		return content;
 	}
 	
+	/**
+	 * Retrieve the file that corresponds to the link of the format requested ("tgz" or "pdf", mostly).
+	 * @param pmcId
+	 * @param format
+	 * @return a file object pointing to the downloaded file.
+	 * @throws IOException
+	 * @throws XMLStreamException
+	 */
 	public File getFullText(String pmcId, String format) throws IOException, XMLStreamException {
 		Record record = getRecord(pmcId);
 		if (record == null) {
@@ -100,6 +118,14 @@ public class FullText {
 		return file;
 	}
 	
+	/**
+	 * get the informational record on a certain Pubmed Central identifier through
+	 * the OAI API of the NIH.
+	 * @param pmcId
+	 * @return the information record (including links) about the PMC ID.
+	 * @throws IOException
+	 * @throws XMLStreamException
+	 */
 	public Record getRecord(String pmcId) throws IOException, XMLStreamException {
 		URL url = new URL(oaiService);// + "?id=" + pmcId);
 		
@@ -151,11 +177,6 @@ public class FullText {
 		return record;
 	}
 	
-    private static String getAttribute(StartElement startElement, QName attribute) {
-    	Attribute attr = startElement.getAttributeByName(attribute);
-    	return attr == null ? null : attr.getValue();
-	}
-
 	public static String getParamsString(Map<String, String> params) 
       throws UnsupportedEncodingException{
         StringBuilder result = new StringBuilder();
@@ -179,7 +200,6 @@ public class FullText {
 		String citation;
 		String license;
 		String retracted;
-		@Singular
 		List<Link> links;
 	}
 	
@@ -188,5 +208,10 @@ public class FullText {
 		String format;
 		String updated;
 		String href;
+	}
+
+    private static String getAttribute(StartElement startElement, QName attribute) {
+    	Attribute attr = startElement.getAttributeByName(attribute);
+    	return attr == null ? null : attr.getValue();
 	}
 }
