@@ -1,0 +1,107 @@
+use postgres::{Client, NoTls, Config};
+use serde_json::Value;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::iter;
+use postgres::fallible_iterator::FallibleIterator;
+
+
+pub fn get_postgres_client(credentials : Value) -> Client {
+    let mut config : Config = Config::new();
+    config.password(credentials["password"].as_str().expect("credentials not in right format"));
+    config.user(credentials["user"].as_str().expect("credentials not in right format"));
+    config.host(credentials["host"].as_str().expect("host not specified in credentials"));
+    match credentials["port"].as_str().expect("port not specified in credentials").parse::<u16>() {
+        Ok(value) => {
+            config.port(value);
+        }
+        Err(_) => {
+            println!("Cannot parse host name from credentials");
+        }
+    }
+    config.dbname(credentials["dbname"].as_str().expect("dbname not specified in credentials"));
+    config.connect(NoTls).expect("Cannot connect {database}")
+}
+
+
+/**
+ * read citation counts from a table in the postgres server.
+ * Make sure to give the user reading rights!
+ *  
+ *  [e.g. GRANT SELECT ON datadigger.citationcounts TO datadigger]
+ */
+pub fn read_citation_counts(client : &mut Client, table : &str) -> HashMap<i32, Vec<CitationCount>> {
+    let query = format!("SELECT pubmedid, citationcount, year FROM {table}");
+    println!("Issuing query {query}");
+    let mut it = client.query_raw(query.as_str(), iter::empty::<String>())
+                            .expect("Query somehow wrong");
+    let mut map : HashMap<i32, Vec<CitationCount>> = HashMap::new();
+    let mut record_count : u32 = 0;
+    loop {
+        match it.next() {
+            Ok(Some(row)) => {
+                let year : i32 = i32::from(row.get::<usize, i16>(2));
+                let citationcounts  = 
+                    match map.entry(year) {
+                        Entry::Occupied(o) => o.into_mut(),
+                        Entry::Vacant(v) => v.insert(Vec::new()),
+                    };
+                /* do something with row */
+                citationcounts.push(CitationCount { 
+                    id : row.get(0), 
+                    citation_count : i32::try_from(row.get::<usize, i64>(1)).unwrap() 
+                });
+            }
+            Ok(None) => break,
+            Err(_) => {break;}
+        };
+        record_count += 1;
+    }
+
+    println!("Read {} records from {table}.", record_count);
+    map
+}
+
+/**
+ * Compute the percentiles for each year
+ */
+pub fn compute_percentiles(data : HashMap<i32, Vec<CitationCount>>) -> Vec<Percentile> {
+    let mut percentiles : Vec<Percentile> = Vec::new();
+    // sort the vectors by citation count
+    for (year, mut citation_counts) in data {
+        citation_counts.sort_by(|a, b| b.citation_count.cmp(&a.citation_count));
+        let items_per_year = citation_counts.len();
+        let percent = items_per_year/100;
+        let mut offset = 0;
+        for percentile in 0..100 {
+            percentiles.push(Percentile { year : year, percentile : percentile, citation_count : citation_counts[offset].citation_count });
+            offset += percent;
+        }
+    }
+
+    percentiles
+}
+
+pub fn write_percentiles(mut client : Client, table : &str, percentiles : &Vec<Percentile>) {
+    let query = format!("INSERT INTO {table} (year, citationcount, percentile) VALUES ($1, $2, $3)");
+    let mut record_count : i32 = 0;
+    for percentile in percentiles {
+        client.execute(query.as_str(), &[&percentile.year, &percentile.citation_count, &percentile.percentile]).expect("Error writing");
+        record_count += 1;
+    }   
+
+    println!("Written {} records from to {table}.", record_count);
+}
+
+
+pub struct CitationCount {
+    pub id : String,
+    pub citation_count : i32
+}
+
+#[derive(Default)]
+pub struct Percentile {
+    pub year : i32,
+    pub citation_count : i32,
+    pub percentile : i16
+}

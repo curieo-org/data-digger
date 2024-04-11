@@ -70,6 +70,9 @@ public class DataLoader {
 		Option references = Option.builder().option("r").longOpt("references")
 				.desc("references to sql database (specify types, e.g. \"pubmed\")")
 				.required(false).hasArgs().build();
+		Option linkTable = Option.builder().option("l").longOpt("link-table")
+				.desc("create a link table for links between x=y")
+				.required(false).hasArgs().build();
 		Option useKeys = Option.builder().option("k").longOpt("use-keys").required(false).build();
 		Options options = new Options()
 				.addOption(new Option("c", "credentials", true, "Path to credentials file"))
@@ -85,6 +88,7 @@ public class DataLoader {
 				.addOption(new Option("f", "full-records", false, "full records to sql database"))
 				.addOption(new Option("a", "authors", false, "authors to sql database"))
 				.addOption(references)
+				.addOption(linkTable)
 				.addOption(useKeys)
 				.addOption(new Option("t", "status-tracker", true, "path to file that tracks status"));
 		CommandLineParser parser = new DefaultParser();
@@ -136,6 +140,20 @@ public class DataLoader {
 			if (parse.hasOption("full-records")) {
 				Sink<Record> asink = new MapperSink<>(StandardRecord::copy, sqlSinkFactory.createRecordSink());
 				tsink = tsink == null ? asink : tsink.concatenate(asink);
+			}
+			
+			// store link table
+			if (parse.hasOption(linkTable)) {
+				String[] sourceTargets = parse.getOptionValues(linkTable);
+				for (String sourceTarget : sourceTargets) {
+					String[] st = sourceTarget.split("=");
+					if (st.length!= 2) {
+						LOGGER.warn("Arguments to {} need to be of the shape A=B", linkTable.getLongOpt());
+						System.exit(1);
+					}
+					Sink<Record> asink = new MapperSink<>(r -> r.toLinks(st[0], st[1]), sqlSinkFactory.createLinkoutTable(st[0], st[1]));
+					tsink = tsink == null ? asink : tsink.concatenate(asink);
+				}
 			}
 		}
 
