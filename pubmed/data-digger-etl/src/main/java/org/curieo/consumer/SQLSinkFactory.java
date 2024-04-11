@@ -94,8 +94,8 @@ public class SQLSinkFactory {
 		PreparedStatement insert = insertStatement(tableName, storageSpecs);
 		
 		List<Extract<LinkedField<Reference>>> extracts = new ArrayList<>();
-		extracts.add(storageSpecs.get(0).extractInt(LinkedField::getOrdinal));
-		extracts.add(storageSpecs.get(1).extractString(LinkedField::getPublicationId));
+		extracts.add(storageSpecs.get(0).extractString(LinkedField::getPublicationId));
+		extracts.add(storageSpecs.get(1).extractInt(LinkedField::getOrdinal));
 		extracts.add(storageSpecs.get(2).extractString(l -> l.getField().getCitation()));
 
 		// a variable number of identifiers

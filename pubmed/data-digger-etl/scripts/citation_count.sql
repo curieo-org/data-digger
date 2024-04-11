@@ -26,7 +26,21 @@ FROM datadigger.records r
 
 CREATE INDEX idxYearData ON datadigger.yeardata (pubmedid)
 
+/* to allow for querying do this */
 
+ALTER TABLE datadigger.citationcounts ADD COLUMN identifier VARCHAR(20)
+UPDATE datadigger.citationcounts SET identifier = CONCAT(pubmedid, '00')
+
+CREATE INDEX idxCitationIdentifier ON datadigger.citationcounts (identifier)
+
+
+SELECT r.* FROM datadigger.Records r JOIN 
+    datadigger.citationcounts cc ON cc.identifier = r.identifier JOIN 
+    datadigger.pubmed_percentiles p ON p.citationcount <= cc.citationcount
+    WHERE p.percentile = 15
+	
+	
+/* ------- this is NOT done ------- */
 
 ALTER TABLE datadigger.citationcounts ADD COLUMN YearRank INT
 
@@ -47,4 +61,3 @@ UPDATE datadigger.citationcounts
 SET yearrank = rcc.percentile_rank
 FROM datadigger.citationcounts cc JOIN RankedCitationCounts rcc
 ON cc.pubmedid = rcc.pubmedid
-

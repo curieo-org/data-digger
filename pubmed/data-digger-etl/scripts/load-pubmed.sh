@@ -44,7 +44,8 @@ case $1 in
         echo "Pubmed updates (full records) to postgres"
         STATUS=$CONFIGDIR/updates-status.json
         POSTGRESUSER=datadigger
-        ARGS="-c $CREDS -d pubmed-updates -t $STATUS -p $POSTGRESUSER --full-records --references pubmed  --batch-size 100 --use-keys"
+        STORE_LINKS="--link-table pubmed=pmc pubmed=doi"
+        ARGS="-c $CREDS -d pubmed-updates -t $STATUS -p $POSTGRESUSER --full-records --references pubmed  --batch-size 100 --use-keys $STORE_LINKS"
         $CMD $ARGS
     ;;
 
