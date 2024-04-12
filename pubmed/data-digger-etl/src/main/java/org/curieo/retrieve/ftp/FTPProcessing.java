@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.SocketException;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -280,5 +281,18 @@ public class FTPProcessing implements AutoCloseable {
 		}
 		
 		ftp.login(getUser(), getPassword());
+	}
+
+	public static boolean retrieve(String href, File file) throws IOException {
+		URL url = new URL(href);
+		String path = url.getFile();
+		String server = url.getHost();
+		Credentials credentials = new Credentials();
+		credentials.add("dummy", "server", server);
+		credentials.add("dummy", "user", "anonymous");
+		credentials.add("dummy", "password", "anonymous");
+		try (FTPProcessing ftp = new FTPProcessing(credentials, "dummy")) {
+			return ftp.retrieveFile(path, file);
+		}
 	}
 }

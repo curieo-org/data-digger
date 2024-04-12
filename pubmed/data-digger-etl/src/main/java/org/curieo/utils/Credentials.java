@@ -19,7 +19,7 @@ public class Credentials {
 	private static final ObjectWriter OBJECT_WRITER;
 	HashMap<String, HashMap<String, String>> data;
 	
-	private Credentials() {
+	public Credentials() {
 	}
 	
 	static {

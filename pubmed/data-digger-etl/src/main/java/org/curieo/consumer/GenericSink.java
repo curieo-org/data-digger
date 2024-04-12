@@ -8,13 +8,23 @@ import lombok.Value;
 @Generated @Value
 class GenericSink<T> implements Sink<T> {
 	AbstractSink<T> sink;
+	boolean doNotDownloadDuplicates;
 
 	@Override
 	public void accept(T t) {
+		boolean skip = false;
 		if (sink.getKeyExtractor() != null) {
-			sink.guaranteeUniqueKeys(Collections.singleton(sink.getKeyExtractor().getAsString(t)));
+			String key = sink.getKeyExtractor().getAsString(t);
+			if (doNotDownloadDuplicates) {
+				skip = sink.isPresent(key);
+			}
+			else {
+				sink.guaranteeUniqueKeys(Collections.singleton(key));
+			}
 		}
-		sink.accept(t);
+		if (!skip) {
+			sink.accept(t);
+		}
 	}
 
 	@Override

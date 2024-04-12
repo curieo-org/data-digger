@@ -126,4 +126,8 @@ class AbstractSink<T> implements Sink<T> {
 			throw new RuntimeException(e);
 		}
 	}
+
+	public boolean isPresent(String key) {
+		return keys.contains(key);
+	}
 }
