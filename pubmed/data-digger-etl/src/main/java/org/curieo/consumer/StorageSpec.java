@@ -21,16 +21,29 @@ class StorageSpec {
 	int size;
 	// if the field must be kept unique
 	boolean unique;
+	String defaultValue;
 
 	StorageSpec(String field, ExtractType type) {
-		this(field, type, 0, false);
+		this(field, type, 0, false, "");
 		if (type == ExtractType.String || type == ExtractType.List)
 			throw new IllegalArgumentException("VARCHAR types must have a size specified");
 	}
 
+	StorageSpec(String field, ExtractType type, int size, boolean unique) {
+		this(field, type, size, unique, "");
+		if (type != ExtractType.String && type != ExtractType.List)
+			throw new IllegalArgumentException("Only VARCHAR types can have a size specified");
+	}
+
 	StorageSpec(String field, ExtractType type, int size) {
-		this(field, type, size, false);
-		if ((type == ExtractType.String || type == ExtractType.List) && size <= 0)
+		this(field, type, size, false, "");
+		if (type != ExtractType.String && type != ExtractType.List)
+			throw new IllegalArgumentException("Only VARCHAR types can have a size specified");
+	}
+
+	StorageSpec(String field, ExtractType type, String defaultValue) {
+		this(field, type, 0, false, defaultValue);
+		if (type == ExtractType.String || type == ExtractType.List)
 			throw new IllegalArgumentException("VARCHAR types must have a size specified");
 	}
 	
@@ -51,7 +64,7 @@ class StorageSpec {
 	}
 
 	public String toString() {
-		return String.format("%s %s%s", field, type.getSqlType(), size == 0 ? "" : String.format("(%d)", size));
+		return String.format("%s %s%s %s", field, type.getSqlType(), size == 0 ? "" : String.format("(%d)", size), defaultValue == "" ? "" : String.format("DEFAULT %s", defaultValue));
 	}
 
 
