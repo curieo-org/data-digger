@@ -142,8 +142,8 @@ public class SQLSinkFactory {
 	public Sink<StandardRecord> createRecordSink() throws SQLException {
 		List<StorageSpec> storageSpecs = Arrays.asList(
 				new StorageSpec("Identifier", ExtractType.String, 20, useKeys),
-				new StorageSpec("Year", ExtractType.SmallInt, 0),
-				new StorageSpec("Record", ExtractType.Text, 0));
+				new StorageSpec("Year", ExtractType.SmallInt),
+				new StorageSpec("Record", ExtractType.Text));
 		String tableName = "Records";
 		createTable(tableName, storageSpecs);
 		PreparedStatement insert = insertStatement(tableName, storageSpecs);
@@ -157,6 +157,8 @@ public class SQLSinkFactory {
 	}
 
 	private void createTable(String tableName, List<StorageSpec> storageSpecs) throws SQLException {
+		storageSpecs = new ArrayList<>(storageSpecs);
+		storageSpecs.add(new StorageSpec("Timestamp", ExtractType.Timestamp, "now()"));
 		String creation = String.format("CREATE TABLE IF NOT EXISTS %s (%s)",
 				tableName,
 				storageSpecs.stream().map(Object::toString).collect(Collectors.joining(", ")));
