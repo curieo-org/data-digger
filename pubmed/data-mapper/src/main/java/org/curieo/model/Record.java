@@ -1,15 +1,16 @@
 package org.curieo.model;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.List;
-import java.util.Locale;
+import java.util.Optional;
 
 import org.apache.commons.collections4.ListUtils;
 
 public interface Record {
-	static final SimpleDateFormat FORMATTER = new SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH);
 	List<Text> getAbstractText();
 
 	List<Text> getTitles();
@@ -50,8 +51,22 @@ public interface Record {
 		}
 		return list;
 	}
+
+	default List<Metadata> toLinks(String source, String target) {
+		Optional<String> sourceOpt = this.getIdentifiers().stream().filter(m -> m.getKey().equals(source)).map(Metadata::getValue).findFirst();
+		Optional<String> targetOpt = this.getIdentifiers().stream().filter(m -> m.getKey().equals(target)).map(Metadata::getValue).findFirst();
+		
+		if (sourceOpt.isPresent() && targetOpt.isPresent()) {
+			return Collections.singletonList(new Metadata(sourceOpt.get(), targetOpt.get()));
+		}
+		return Collections.emptyList();
+	}
 	
 	static String formatDate(Date date) {
-		return FORMATTER.format(date);
+		Calendar calendar = GregorianCalendar.getInstance();
+		calendar.setTime(date);
+		return String.format("%04d-%02d-%02d", calendar.get(Calendar.YEAR), 
+				calendar.get(Calendar.MONTH) + 1, 
+				calendar.get(Calendar.DAY_OF_MONTH));
 	}
 }

@@ -5,7 +5,8 @@ enum ExtractType {
 	String("VARCHAR"),
 	Integer("INT"),
 	SmallInt("SMALLINT"),
-	Text("TEXT");
+	Text("TEXT"),
+	Timestamp("TIMESTAMP");
 
 	final String sqlType;
 

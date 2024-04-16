@@ -58,21 +58,39 @@ public class DataLoader {
 	String sourceType;
 	Sink<Record> sink;
 	
+	static Option postgresUser() {
+		return Option.builder().option("p").longOpt("postgres-user").hasArg().desc("postgresql user").build();
+	}
+	static Option credentialsOption() {
+		return new Option("c", "credentials", true, "Path to credentials file");
+	}
+	static Option batchSizeOption() {
+		return Option.builder().option("b").longOpt("batch-size")
+				.hasArg().desc("the size of batches to be submitted to the SQL database").type(Integer.class).build();
+	}
+	static Option useKeysOption() {
+		return Option.builder().option("k").longOpt("use-keys").required(false).build();
+	}
 	public static void main(String[] args) throws ParseException, JsonProcessingException, IOException, SQLException {
+		Option postgresuserOpt = postgresUser();
+		Option credentialsOpt = credentialsOption();
+		Option batchSizeOption = batchSizeOption();
+		Option useKeys = useKeysOption();
 		Option maxFiles = Option.builder().option("m").longOpt("maximum-files").hasArg()
 								.desc("maximum number of records to process").type(Integer.class).build();
 		Option firstYearOption = Option.builder().option("f").longOpt("first-year")
 				.hasArg().desc("first year (inclusive)").type(Integer.class).build();
 		Option lastYearOption = Option.builder().option("l").longOpt("last-year")
 				.hasArg().desc("last year (inclusive)").type(Integer.class).build();
-		Option batchSizeOption = Option.builder().option("b").longOpt("batch-size")
-				.hasArg().desc("the size of batches to be submitted to the SQL database").type(Integer.class).build();
 		Option references = Option.builder().option("r").longOpt("references")
 				.desc("references to sql database (specify types, e.g. \"pubmed\")")
 				.required(false).hasArgs().build();
-		Option useKeys = Option.builder().option("k").longOpt("use-keys").required(false).build();
+		Option linkTable = Option.builder().option("l").longOpt("link-table")
+				.desc("create a link table for links between x=y")
+				.required(false).hasArgs().build();
+
 		Options options = new Options()
-				.addOption(new Option("c", "credentials", true, "Path to credentials file"))
+				.addOption(credentialsOpt)
 				.addOption(firstYearOption)
 				.addOption(lastYearOption)
 				.addOption(batchSizeOption)
@@ -80,16 +98,17 @@ public class DataLoader {
 				.addOption(new Option("e", "embeddings", true, "embeddings server URL"))
 				.addOption(new Option("y", "source type", true, "source type - can currently only be \"pubmed\""))
 				.addOption(new Option("d", "data-set", true, "data set to load (defined in credentials)"))
-				.addOption(new Option("p", "postgres-user", true, "postgresql user"))
+				.addOption(postgresuserOpt)
 				.addOption(maxFiles)
 				.addOption(new Option("f", "full-records", false, "full records to sql database"))
 				.addOption(new Option("a", "authors", false, "authors to sql database"))
 				.addOption(references)
+				.addOption(linkTable)
 				.addOption(useKeys)
 				.addOption(new Option("t", "status-tracker", true, "path to file that tracks status"));
 		CommandLineParser parser = new DefaultParser();
 		CommandLine parse = parser.parse(options, args);
-		String credpath = parse.getOptionValue('c', System.getenv("HOME") + "/.credentials.json");
+		String credpath = parse.getOptionValue(credentialsOpt, System.getenv("HOME") + "/.credentials.json");
 		Credentials credentials = Credentials.read(new File(credpath));
 		String application = parse.getOptionValue('d', "pubmed");
 		String sourceType = parse.getOptionValue('y', SourceReader.PUBMED);
@@ -114,7 +133,7 @@ public class DataLoader {
 			tsink = esink;
 		}
 
-		String postgresuser = parse.getOptionValue('p', "datadigger");
+		String postgresuser = parse.getOptionValue(postgresuserOpt, "datadigger");
 
 		PostgreSQLClient postgreSQLClient = null;
 		SQLSinkFactory sqlSinkFactory = null;
@@ -136,6 +155,20 @@ public class DataLoader {
 			if (parse.hasOption("full-records")) {
 				Sink<Record> asink = new MapperSink<>(StandardRecord::copy, sqlSinkFactory.createRecordSink());
 				tsink = tsink == null ? asink : tsink.concatenate(asink);
+			}
+			
+			// store link table
+			if (parse.hasOption(linkTable)) {
+				String[] sourceTargets = parse.getOptionValues(linkTable);
+				for (String sourceTarget : sourceTargets) {
+					String[] st = sourceTarget.split("=");
+					if (st.length!= 2) {
+						LOGGER.warn("Arguments to {} need to be of the shape A=B", linkTable.getLongOpt());
+						System.exit(1);
+					}
+					Sink<Record> asink = new MapperSink<>(r -> r.toLinks(st[0], st[1]), sqlSinkFactory.createLinkoutTable(st[0], st[1]));
+					tsink = tsink == null ? asink : tsink.concatenate(asink);
+				}
 			}
 		}
 
@@ -236,7 +269,7 @@ public class DataLoader {
 				(lastYear != null && year > lastYear));
 	}
 
-	private static Integer getIntOption(CommandLine cmd, Option option) {
+	static Integer getIntOption(CommandLine cmd, Option option) {
 		if (!cmd.hasOption(option))
 			return null;
 		return Integer.parseInt(cmd.getOptionValue(option));

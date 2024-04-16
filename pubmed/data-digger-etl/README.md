@@ -12,8 +12,66 @@ There is a number of readers here, all of which must be run in live mode to keep
 
 * Make sure you have a [Java JDK](https://jdk.java.net/21/) installed.
 * For local build, make sure you have [Maven](https://maven.apache.org/install.html) installed.
+
+## Configuration
+From the root folder run the following commands
+```sh
+mkdir config
+touch config/credentials.json
+
+wget https://repo1.maven.org/maven2/org/slf4j/slf4j-simple/2.0.11/slf4j-simple-2.0.11.jar -P config
+```
+
+Add the following content to the config/credentials.json file and replace the placeholders with the actual credentials.
+```json
+{
+  "pubmed-updates": {
+    "server": "ftp.ncbi.nlm.nih.gov",
+    "password": "****",
+    "remotepath": "/pubmed/updatefiles/",
+    "user": "anonymous"
+  },
+  "postgres-datadigger": {
+    "password": "****",
+    "database": "jdbc:postgresql://localhost:5432/pubmed",
+    "user": "<USER>"
+  },
+  "openai": {
+    "organization": "org-HkACSjWCxgkeC3R7OVHA0Sew",
+    "key": "****"
+  },
+  "pubmed": {
+    "server": "ftp.ncbi.nlm.nih.gov",
+    "password": "****",
+    "remotepath": "/pubmed/baseline/",
+    "user": "anonymous"
+  },
+  "test": {
+    "key": "****"
+  },
+  "postgres-postgres": {
+    "password": "****",
+    "user": "<USER>"
+  },
+  "elastic": {
+    "server": "127.0.0.1",
+    "password": "****",
+    "apiKey": "****",
+    "port": "9200",
+    "fingerprint": "****",
+    "user": "elastic",
+    "url": "http://127.0.0.1:9200"
+  },
+  "pubmedcommons": {
+    "server": "ftp.ncbi.nlm.nih.gov",
+    "password": "****",
+    "remotepath": "/pubmed/pubmedcommons/",
+    "user": "anonymous"
+  }
+}
+```
+
 * Building locally involves two steps:
-	
 ```sh
 # in the root folder (data-digger-java)
 mvn clean install -DskipTests
@@ -23,6 +81,27 @@ mvn package assembly:single -DskipTests
 
 The last step will build a 50MB jar that is referenced in the `load-pubmed.sh` script.
 
+## Running
+From the root folder, run the `load-pubmed.sh` script. This script will scrape the FTP server for new files, parse the files, map the data, and store it in the database.
+
+```sh
+# Cleanup the status files if exist
+rm -f config/status.json
+rm -f config/baseline-status.json
+rm -f config/updates-status.json
+
+# Run the script
+./data-digger-etl/scripts/load-pubmed.sh <OPTION>
+```
+
+Options:
+1. `pubmed-2-elastic`
+2. `pubmed-updates-2-elastic`
+3. `pubmed-baseline-2-postgres`
+4. `pubmed-updates-2-postgres`
+5. `pubmed-updates-2-postgres-20-100`
+6. `pubmed-updates-2-postgres-20-1000`
+7. `pubmed-updates-2-both`
 
 ## General Overview
 The general purpose of this module is to retrieve data from any data source, map it to the right format, and then store it into data stores that are fit for downstream purposes.
@@ -55,7 +134,7 @@ Storage is encapsulated in `Consumer` classes (extended to `Sink` for some extra
 ## Configuration
 
 * If you want to Set up and configure an Elastic Search Database, e.g. in a local docker or on a remote server.
-* Credentials for all services call must be stored in a hidden `json` file in your root folder, `.credentials.json`. This file has the following format (e.g. for ElasticSearch connectivity)
+* Credentials for all services call must be stored in a hidden `credentials.json` file in the `config` folder. This file has the following format (e.g. for ElasticSearch connectivity)
 
 
 ```json
@@ -83,7 +162,7 @@ The application will search for these credentials to access Elastic.
 
 The script will scrape a remote handle to import data into the specified database.
 
-See the [load-pubmed.sh](./scripts/load-pubmed.sh) script for the example.
+See the [load-pubmed.sh](./data-digger-etl/scripts/load-pubmed.sh) script for the example.
 
 The script maintains a status file that records progress on the overall scraping process.
 

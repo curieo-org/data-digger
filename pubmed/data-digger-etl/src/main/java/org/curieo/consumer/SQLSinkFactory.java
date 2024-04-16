@@ -2,17 +2,17 @@ package org.curieo.consumer;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.curieo.model.Authorship;
+import org.curieo.model.FullTextRecord;
 import org.curieo.model.LinkedField;
 import org.curieo.model.Metadata;
 import org.curieo.model.Reference;
@@ -83,8 +83,8 @@ public class SQLSinkFactory {
 		List<StorageSpec> storageSpecs = new ArrayList<>();
 		String tableName = "ReferenceTable";
 		storageSpecs.addAll(Arrays.asList(
-				new StorageSpec("ordinal", ExtractType.Integer),
 				new StorageSpec("articleId", ExtractType.String, 20, useKeys),
+				new StorageSpec("ordinal", ExtractType.Integer),
 				new StorageSpec("citation", ExtractType.String, 500)));
 		// a variable number of identifiers
 		for (String id : ids) {
@@ -94,8 +94,8 @@ public class SQLSinkFactory {
 		PreparedStatement insert = insertStatement(tableName, storageSpecs);
 		
 		List<Extract<LinkedField<Reference>>> extracts = new ArrayList<>();
-		extracts.add(storageSpecs.get(0).extractInt(LinkedField::getOrdinal));
-		extracts.add(storageSpecs.get(1).extractString(LinkedField::getPublicationId));
+		extracts.add(storageSpecs.get(0).extractString(LinkedField::getPublicationId));
+		extracts.add(storageSpecs.get(1).extractInt(LinkedField::getOrdinal));
 		extracts.add(storageSpecs.get(2).extractString(l -> l.getField().getCitation()));
 
 		// a variable number of identifiers
@@ -103,6 +103,30 @@ public class SQLSinkFactory {
 			extracts.add(storageSpecs.get(3).extractString(l -> l.getField().getIdentifiers().stream()
 							.filter(m -> m.getKey().equals(id)).map(Metadata::getValue).findFirst().orElse(null)));
 		}
+
+		return new ListSink<>(createAbstractSink(extracts, insert, batchSize, connection, tableName));
+	}
+
+	/**
+	 * 
+	 * @param sourceIdentifier
+	 * @param targetIdentifier
+	 * @return
+	 * @throws SQLException
+	 */
+	public Sink<List<Metadata>> createLinkoutTable(String sourceIdentifier, String targetIdentifier) throws SQLException {
+		List<StorageSpec> storageSpecs = new ArrayList<>();
+		String tableName = "LinkTable";
+		storageSpecs.addAll(Arrays.asList(
+				new StorageSpec(sourceIdentifier, ExtractType.String, 20, useKeys),
+				new StorageSpec(targetIdentifier, ExtractType.String, 20)));
+		
+		createTable(tableName, storageSpecs);
+		PreparedStatement insert = insertStatement(tableName, storageSpecs);
+		
+		List<Extract<Metadata>> extracts = new ArrayList<>();
+		extracts.add(storageSpecs.get(0).extractString(Metadata::getKey));
+		extracts.add(storageSpecs.get(1).extractString(Metadata::getValue));
 
 		return new ListSink<>(createAbstractSink(extracts, insert, batchSize, connection, tableName));
 	}
@@ -118,8 +142,8 @@ public class SQLSinkFactory {
 	public Sink<StandardRecord> createRecordSink() throws SQLException {
 		List<StorageSpec> storageSpecs = Arrays.asList(
 				new StorageSpec("Identifier", ExtractType.String, 20, useKeys),
-				new StorageSpec("Year", ExtractType.SmallInt, 0),
-				new StorageSpec("Record", ExtractType.Text, 0));
+				new StorageSpec("Year", ExtractType.SmallInt),
+				new StorageSpec("Record", ExtractType.Text));
 		String tableName = "Records";
 		createTable(tableName, storageSpecs);
 		PreparedStatement insert = insertStatement(tableName, storageSpecs);
@@ -129,10 +153,26 @@ public class SQLSinkFactory {
 		extracts.add(storageSpecs.get(1).extractInt(StandardRecord::getYear));
 		extracts.add(storageSpecs.get(2).extractString(StandardRecord::toJson));
 
-		return new GenericSink<>(createAbstractSink(extracts, insert, batchSize, connection, tableName));
+		return new GenericSink<>(createAbstractSink(extracts, insert, batchSize, connection, tableName), false);
 	}
 
+	public Sink<FullTextRecord> createPMCSink(String tableName) throws SQLException {
+		List<StorageSpec> storageSpecs = Arrays.asList(
+				new StorageSpec("Identifier", ExtractType.String, 20, useKeys),
+				new StorageSpec("Record", ExtractType.Text, 0));
+		createTable(tableName, storageSpecs);
+		PreparedStatement insert = insertStatement(tableName, storageSpecs);
+		
+		List<Extract<FullTextRecord>> extracts = new ArrayList<>();
+		extracts.add(storageSpecs.get(0).extractString(FullTextRecord::getIdentifier));
+		extracts.add(storageSpecs.get(1).extractString(FullTextRecord::getContent));
+
+		return new GenericSink<>(createAbstractSink(extracts, insert, batchSize, connection, tableName), true);
+	}
+	
 	private void createTable(String tableName, List<StorageSpec> storageSpecs) throws SQLException {
+		storageSpecs = new ArrayList<>(storageSpecs);
+		storageSpecs.add(new StorageSpec("Timestamp", ExtractType.Timestamp, "now()"));
 		String creation = String.format("CREATE TABLE IF NOT EXISTS %s (%s)",
 				tableName,
 				storageSpecs.stream().map(Object::toString).collect(Collectors.joining(", ")));
@@ -150,23 +190,18 @@ public class SQLSinkFactory {
 
 	private static <T> AbstractSink<T> createAbstractSink(List<Extract<T>> extracts, 
 			PreparedStatement insert, int batchSize, Connection connection, String tableName) throws SQLException {
-		HashSet<String> keys = new HashSet<>();
+		Set<String> keys = new HashSet<>();//org.curieo.sources.IdentifierSet();
 		Optional<Extract<T>> uniqueOpt = extracts.stream().filter(extract -> extract.getSpec().isUnique()).findFirst();
 		Extract<T> keyExtractor = null;
 		PreparedStatement deleteStatement = null;
 		if (uniqueOpt.isPresent()) {
 			keyExtractor = uniqueOpt.get();
 			String query = String.format("SELECT %s FROM %s", keyExtractor.getSpec().getField(), tableName);
-			Statement statement = connection.createStatement();
-			ResultSet resultSet = statement.executeQuery(query);
-			while (resultSet.next()) {
-				keys.add(resultSet.getString(1));
-			}
+			keys = PostgreSQLClient.retrieveSetOfStrings(connection, query);
 			LOGGER.info("Read {} keys from {}", keys.size(), tableName);
 			deleteStatement = connection.prepareStatement(
 					String.format("DELETE FROM %s WHERE %s = ?", tableName, keyExtractor.getSpec().getField()));
 		}
-		return new AbstractSink<T>(extracts, insert, deleteStatement, 
-				new AtomicInteger(), new AtomicInteger(), batchSize, keys, keyExtractor);
+		return new AbstractSink<T>(extracts, insert, deleteStatement, batchSize, keys, keyExtractor);
 	}
 }
