@@ -3,8 +3,9 @@ package org.curieo.model;
 import lombok.Generated;
 import lombok.Value;
 
-@Generated @Value
+@Generated
+@Value
 public class FullTextRecord {
-	String identifier;
-	String content;
+  String identifier;
+  String content;
 }

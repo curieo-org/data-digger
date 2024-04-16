@@ -8,62 +8,63 @@ import static org.curieo.rdf.Constants.ANONYMOUS;
  * @author DoornenbalM
  */
 class RdfAnonymousLiteralTriple extends RdfTripleBase implements RdfTriple {
-	private Literal object;
+  private Literal object;
 
-	RdfAnonymousLiteralTriple(String s, String v, Literal o) {
-		super(s, v);
-		object = o;
-	}
+  RdfAnonymousLiteralTriple(String s, String v, Literal o) {
+    super(s, v);
+    object = o;
+  }
 
-	@Override
-	public void setObject(String o) {
-		object = new Literal(o, null, null);
-	}
-	
-	@Override
-	public void setLiteralObject(Literal o) {
-		object = o;
-	}
+  @Override
+  public void setObject(String o) {
+    object = new Literal(o, null, null);
+  }
 
-	@Override
-	public String getObject() {
-		return object.getValue();
-	}
+  @Override
+  public void setLiteralObject(Literal o) {
+    object = o;
+  }
 
-	@Override
-	public Literal getLiteralObject() {
-		return object;
-	}
+  @Override
+  public String getObject() {
+    return object.getValue();
+  }
 
-	@Override
-	public boolean isLiteral() {
-		return true;
-	}
-	
-	@Override
-	public void setUri(String u) {
-		throw new UnsupportedOperationException(ANONYMOUS);
-	}
+  @Override
+  public Literal getLiteralObject() {
+    return object;
+  }
 
-	@Override
-	public String getUri() {
-		return null;
-	}
+  @Override
+  public boolean isLiteral() {
+    return true;
+  }
 
-	/**
-	 * Implementations of RdfTriple *must* override hashcode() and equals().
-	 * @return
-	 */
-	@Override
-	public int hashCode() {
-		return java.util.Objects.hash(getUri(), getSubject(), getVerb(), object);
-	}
+  @Override
+  public void setUri(String u) {
+    throw new UnsupportedOperationException(ANONYMOUS);
+  }
 
-	@Override
-	public boolean equals(Object o) {
-		if (o instanceof RdfTriple) {
-			return this.equals((RdfTriple)o);
-		}
-		return false;
-	}
+  @Override
+  public String getUri() {
+    return null;
+  }
+
+  /**
+   * Implementations of RdfTriple *must* override hashcode() and equals().
+   *
+   * @return
+   */
+  @Override
+  public int hashCode() {
+    return java.util.Objects.hash(getUri(), getSubject(), getVerb(), object);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (o instanceof RdfTriple) {
+      return this.equals((RdfTriple) o);
+    }
+    return false;
+  }
 }

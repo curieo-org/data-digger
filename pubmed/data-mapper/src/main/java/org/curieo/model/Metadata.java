@@ -3,8 +3,9 @@ package org.curieo.model;
 import lombok.Generated;
 import lombok.Value;
 
-@Generated @Value
+@Generated
+@Value
 public class Metadata {
-	String key;
-	String value;
+  String key;
+  String value;
 }

@@ -46,3 +46,4 @@ pubmed/data-mapper/target
 pubmed/config/
 
 .idea
+/config/
