@@ -14,7 +14,5 @@ class RecordTests {
     calendar.set(Calendar.YEAR, 2000);
     calendar.set(Calendar.DAY_OF_MONTH, 1);
     assertEquals("2000-01-01", Record.formatDate(calendar.getTime()));
-    calendar = Calendar.getInstance();
-    System.out.println(Record.formatDate(calendar.getTime()));
   }
 }

@@ -34,7 +34,8 @@ class RdfTests {
 
   @Test
   void testJournals() throws IOException {
-    String path = System.getenv("HOME") + "/Documents/corpora/pubchem/pc_journal_000001.ttl";
+
+    String path = "../corpora/pc_journal_000001.ttl.gz";
     Store rdf =
         new Turtle(SkosNamespaceService::createStore).read(new File(path)).get(Turtle.DEFAULT);
     printStats(rdf);
@@ -42,7 +43,7 @@ class RdfTests {
 
   @Test
   void testReadMesh() throws IOException {
-    String path = System.getenv("HOME") + "/Documents/corpora/mesh2024.nt.gz";
+    String path = "../corpora/mesh-snippet.nt";
     Store rdf =
         new Turtle(SkosNamespaceService::createStore).read(new File(path)).get(Turtle.DEFAULT);
     printStats(rdf);

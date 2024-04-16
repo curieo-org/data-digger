@@ -14,10 +14,11 @@ class PubmedTests {
 
   @Test
   void testReader() throws IOException, XMLStreamException {
-    String path = System.getenv("HOME") + "/Documents/corpora/pubmed/pubmed24n1223.xml";
+    String path = "../corpora/pubmed24n1307.xml.gz";
     if (!new File(path).exists()) {
       System.out.printf("File %s does not exist - pick a pubmed file%n", path);
     }
+
     int count = 0;
     int haveAbstract = 0, haveTitle = 0, haveReferences = 0;
     int referenceCount = 0;
@@ -35,7 +36,7 @@ class PubmedTests {
         haveAbstract++;
       }
       if (pr.getPublicationDate() == null) {
-        System.out.printf("Publication %s has no year?!%n", pmid);
+        System.out.printf("Publication %s has no year%n", pmid);
       } else {
 
         // SimpleDateFormat FORMATTER = new SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH);
