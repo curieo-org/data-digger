@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "pubmed-ingention"
+name = "pubmed-ingestion"
 version = "0.1.0"
 description = ""
 authors = ["raahulmona <157174139+raahulmona@users.noreply.github.com>"]
@@ -24,4 +24,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-run-cli = "pubmed_ingention.cli:transform_database_to_vectors"
+run-cli = "pubmed_ingestion.cli:transform_database_to_vectors"
