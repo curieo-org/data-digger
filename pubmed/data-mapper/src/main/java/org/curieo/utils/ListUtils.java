@@ -3,6 +3,7 @@ package org.curieo.utils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ListUtils {
 	
@@ -34,7 +35,7 @@ public class ListUtils {
             return Collections.emptyList();
 		}
 		if (i + 1 == combination.size()) {
-			return combination.get(i).stream().map(v -> Collections.singletonList(v)).toList();
+			return combination.get(i).stream().map(v -> Collections.singletonList(v)).collect(Collectors.toList());
 		}
 
         List<List<T>> retval = new ArrayList<>();

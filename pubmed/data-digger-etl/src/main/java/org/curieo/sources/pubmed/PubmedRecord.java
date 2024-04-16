@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLStreamException;
@@ -79,7 +80,7 @@ public class PubmedRecord implements Record {
 	
 	@Override
 	public List<String> getAuthors() {
-		return CollectionUtils.emptyIfNull(getPubmedAuthors()).stream().map(PubmedAuthor::toString).toList();
+		return CollectionUtils.emptyIfNull(getPubmedAuthors()).stream().map(PubmedAuthor::toString).collect(Collectors.toList());
 	}
 
 	@Override

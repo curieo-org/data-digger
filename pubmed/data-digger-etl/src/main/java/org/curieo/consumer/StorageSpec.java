@@ -2,6 +2,7 @@ package org.curieo.consumer;
 
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,7 +89,7 @@ class StorageSpec {
 			List<String> s = extract.apply(t);
 			if (s == null)
 				return s;
-			return s.stream().map(v -> trimField(field, v, size)).toList();
+			return s.stream().map(v -> trimField(field, v, size)).collect(Collectors.toList());
 		}
 	}
 }

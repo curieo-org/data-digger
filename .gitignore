@@ -36,3 +36,12 @@ replay_pid*
 *.ipynb_checkpoints/
 
 *.env
+.venv
+/clinical_trail/.venv/
+chembl/nebula-docker-compose/
+chembl/qdrant_storage/
+pubmed/data-digger-etl/target/maven-archiver/
+pubmed/data-digger-etl/target/maven-status/
+pubmed/data-mapper/target
+
+.idea

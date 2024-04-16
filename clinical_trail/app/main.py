@@ -16,8 +16,8 @@ from app.config import (
 
 async def async_main():
     print('Starting the scraping process and setting up the local database')
-    scrape_clinical_trial_database()
-    setup_local_database()
+    #scrape_clinical_trial_database()
+    #setup_local_database()
 
     print('Starting the data transfer process')
     await transfer_all_tables()

@@ -2,6 +2,7 @@ package org.curieo.sources.pubmed;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
@@ -38,8 +39,8 @@ public class MeshHeading {
 	@Override
 	public String toString() {
 		return String.format("Descriptor %s, Qualifiers %s.", 
-				descriptorName.toString(), 
-				String.join(", ", qualifierNames.stream().map(Object::toString).toList()));
+				descriptorName.toString(),
+                qualifierNames.stream().map(Object::toString).collect(Collectors.joining(", ")));
 	}
 
 	/**
