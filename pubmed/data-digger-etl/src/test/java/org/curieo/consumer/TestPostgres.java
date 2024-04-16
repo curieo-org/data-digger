@@ -32,7 +32,7 @@ class TestPostgres {
 
   @Test
   void testCursor() throws IOException, SQLException {
-    File defaultLocation = new File(System.getenv("HOME") + "/.credentials.json");
+    File defaultLocation = new File("../../config/credentials.json");
     Credentials creds = Credentials.read(defaultLocation);
 
     String select = "SELECT identifier FROM records";
