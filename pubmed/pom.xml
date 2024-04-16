@@ -9,43 +9,46 @@
 	<version>0.0.1-SNAPSHOT</version>
 
 	<properties>
-		<jdk.version>11</jdk.version>
-		<java.version>11</java.version>
+		<jdk.version>21</jdk.version>
+		<java.version>21</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		
-		<maven-compiler-target>11</maven-compiler-target>
-		<maven-compiler-source>11</maven-compiler-source>
+		<maven-compiler-target>21</maven-compiler-target>
+		<maven-compiler-source>21</maven-compiler-source>
 		
-		<maven-compiler-plugin.version>3.8.0</maven-compiler-plugin.version>
-		<maven-assembly-plugin.version>3.4.2</maven-assembly-plugin.version>
-		<maven-source-plugin.version>3.0.1</maven-source-plugin.version>
-		<maven-release-plugin.version>2.5.3</maven-release-plugin.version>
-		<maven.surefire.plugin.version>2.22.0</maven.surefire.plugin.version>
-		<maven-jar-plugin.version>3.1.0</maven-jar-plugin.version>
+		<maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+		<maven-assembly-plugin.version>3.7.1</maven-assembly-plugin.version>
+		<maven-source-plugin.version>3.3.1</maven-source-plugin.version>
+		<maven-release-plugin.version>3.0.1</maven-release-plugin.version>
+		<maven.surefire.plugin.version>3.2.5</maven.surefire.plugin.version>
+		<maven-jar-plugin.version>3.4.0</maven-jar-plugin.version>
+		<buildnumber-maven-plugin.version>3.2.0</buildnumber-maven-plugin.version>
+		<templating-maven-plugin.version>3.0.0</templating-maven-plugin.version>
 		
 		<data-digger.version>0.0.1</data-digger.version>
+
 		<jsonassert.version>1.5.0</jsonassert.version>
-		<assertj.version>3.4.1</assertj.version>
+		<assertj.version>3.25.3</assertj.version>
 		<commons-csv.version>1.5</commons-csv.version>
 		<commons-text.version>1.11.0</commons-text.version>
-		<commons-io.version>2.15.1</commons-io.version>
+		<commons-io.version>2.16.1</commons-io.version>
 		<commons-lang3.version>3.14</commons-lang3.version>
-		<commons-collections.version>4.4</commons-collections.version>
+		<commons-collections.version>4.5.0-M1</commons-collections.version>
 		<commons-cli.version>1.6.0</commons-cli.version>
 		<commons-net.version>3.10.0</commons-net.version>
 		<mockito.version>2.24.5</mockito.version>
-		<jsonld-java.version>0.13.5</jsonld-java.version>
-		<junit.jupiter.version>5.4.0</junit.jupiter.version>
+		<jsonld-java.version>0.13.6</jsonld-java.version>
+		<junit.jupiter.version>5.10.2</junit.jupiter.version>
 		<junit.platform.version>1.2.0</junit.platform.version>
-		<lombok.version>1.18.30</lombok.version>
-		<jackson.version>2.12.3</jackson.version>
+		<lombok.version>1.18.32</lombok.version>
+		<jackson.version>2.17.0</jackson.version>
 		<jewelcli.version>0.8.3</jewelcli.version>
 		<jfasttext.version>0.2</jfasttext.version>
-		<postgresql.version>42.7.2</postgresql.version>
-		<log4j.version>2.17.2</log4j.version>
+		<postgresql.version>42.7.3</postgresql.version>
+		<log4j.version>2.20.0</log4j.version>
 		<slf4j.version>2.7</slf4j.version>
 		<opennlp.version>2.3.2</opennlp.version>
-		<jacoco-maven-plugin.version>0.8.5</jacoco-maven-plugin.version>
+		<jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
 	</properties>
 
 	<modules>
@@ -72,7 +75,6 @@
 
 	<!-- Dependencies for all sub modules - cross cutting concerns -->
 	<dependencies>
-
 		<!--Common test dependencies-->
 		<dependency>
 			<groupId>org.junit.jupiter</groupId>
@@ -123,7 +125,7 @@
 		<profile>
 			<id>owasp</id>
 			<properties>
-				<version.plugin.owasp.check>7.4.1</version.plugin.owasp.check>
+				<version.plugin.owasp.check>9.1.0</version.plugin.owasp.check>
 			</properties>
 			<build>
 				<pluginManagement>
@@ -160,6 +162,26 @@
 	<build>
 		<pluginManagement>
 			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-enforcer-plugin</artifactId>
+					<version>3.4.1</version>
+					<executions>
+						<execution>
+						<id>enforce-maven</id>
+						<goals>
+						<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<requireMavenVersion>
+									<version>3.9</version>
+								</requireMavenVersion>
+							</rules>
+						</configuration>
+						</execution>
+					</executions>
+				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-surefire-plugin</artifactId>
@@ -249,7 +271,7 @@
 				and spark-classifications. -->
 				<plugin>
 					<artifactId>maven-assembly-plugin</artifactId>
-					<version>3.1.1</version>
+					<version>${maven-assembly-plugin.version}</version>
 					<executions>
 						<execution>
 							<phase>package</phase>
@@ -292,6 +314,10 @@
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-source-plugin</artifactId>
 			</plugin>
 			<plugin>
@@ -306,6 +332,21 @@
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
 			</plugin>
+            <plugin>
+                <groupId>com.spotify.fmt</groupId>
+                <artifactId>fmt-maven-plugin</artifactId>
+                <version>2.23</version>
+				<configuration>
+					<style>google</style>
+				</configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>format</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
 		</plugins>
 	</build>
 

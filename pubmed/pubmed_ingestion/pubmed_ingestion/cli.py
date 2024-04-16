@@ -2,7 +2,7 @@ import click
 import os
 from dotenv import load_dotenv
 
-from pubmed_ingention.database_vectordb_transform import DatabaseVectorsEngine
+from pubmed_ingestion.database_vectordb_transform import DatabaseVectorsEngine
 
 load_dotenv()
 database_engine = os.getenv("POSTGRES_ENGINE")

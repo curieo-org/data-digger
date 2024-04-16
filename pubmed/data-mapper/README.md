@@ -1,6 +1,6 @@
-# data-digger-java
+# data-mapper
 
-This repository takes care of parts of the content data feed that powers curieo baseline search.
+This repository takes care of parts of the content data feed that powers Curieo baseline search.
 
 There is a number of readers here, all of which must be run in live mode to keep the indexes up to date.
 
@@ -13,13 +13,13 @@ There is a number of readers here, all of which must be run in live mode to keep
 ## General Overview
 The general purpose of this module is to retrieve data from any data source, map it to the right format, and then store it into data stores that are fit for downstream purposes.
 
-![General Overview](./flow.png).
+![General Overview](../flow.png).
 
 In this process, all components are designed to be interchangeable, although of course this is not true: not all sources are eligible to be stored in all downstream data storages. But technically, the architecture is consistent.
 
 
 ### Scraping
-We currently support scraping from FTP sources through the `FTPProcessing` class. Filtering by file extensions is done and we keep track in a local tracker file of which files we have seen on the remote location. On the _file_ level, this avoids loading a file twice. If you want to start with a clean slate, deleting the local tracker file will do that. 
+We currently support scraping from FTP sources through the `FTPProcessing` class. Filtering by file extensions is done, and we keep track in a local tracker file of which files we have seen on the remote location. On the _file_ level, this avoids loading a file twice. If you want to start with a clean slate, deleting the local tracker file will do that. 
 
 ### Parsing
 Currently only pubmed parsing is supported. All records are supposedly implementing the "Record" interface.
@@ -67,7 +67,7 @@ The application will search for these credentials to access Elastic.
 
 The script will scrape a remote handle to import data into the specified database.
 
-See the [load-pubmed.sh](./scripts/load-pubmed.sh) script for the example.
+See the [load-pubmed.sh](../data-digger-etl/scripts/load-pubmed.sh) script for the example.
 
 The script maintains a status file that records progress on the overall scraping process.
 

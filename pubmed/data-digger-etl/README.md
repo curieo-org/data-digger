@@ -106,7 +106,7 @@ Options:
 ## General Overview
 The general purpose of this module is to retrieve data from any data source, map it to the right format, and then store it into data stores that are fit for downstream purposes.
 
-![General Overview](./flow.png).
+![General Overview](../flow.png).
 
 In this process, all components are designed to be interchangeable, although of course this is not true: not all sources are eligible to be stored in all downstream data storages. But technically, the architecture is consistent.
 
@@ -162,7 +162,7 @@ The application will search for these credentials to access Elastic.
 
 The script will scrape a remote handle to import data into the specified database.
 
-See the [load-pubmed.sh](./data-digger-etl/scripts/load-pubmed.sh) script for the example.
+See the [load-pubmed.sh](./scripts/load-pubmed.sh) script for the example.
 
 The script maintains a status file that records progress on the overall scraping process.
 
@@ -179,7 +179,7 @@ For running embeddings that are _not_ covered by huggingface embeddings inferenc
 python3 -m flask --app pubmed/data-digger-etl/scripts/embeddings_server.py run
 ```
 
-It can support, eg. the `all-mpnet-base-v2` embeddings that HF currently does not support.
+It can support, e.g. the `all-mpnet-base-v2` embeddings that HF currently does not support.
 
 ### text-embeddings-inference (local)
 Clone [text-embeddings-inference](https://github.com/huggingface/text-embeddings-inference). Also build locally on Mac, like so.
