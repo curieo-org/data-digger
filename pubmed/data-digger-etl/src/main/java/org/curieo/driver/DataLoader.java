@@ -226,7 +226,7 @@ public class DataLoader {
     final Sink<Record> sink = new AsynchSink<>(tsink);
     DataLoader loader =
         new DataLoader(
-            getIntOption(parse, firstYearOption).orElse(1900),
+            getIntOption(parse, firstYearOption).orElse(1500),
             getIntOption(parse, lastYearOption).orElse(3000),
             sourceType,
             sink);
