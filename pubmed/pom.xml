@@ -16,14 +16,17 @@
 		<maven-compiler-target>21</maven-compiler-target>
 		<maven-compiler-source>21</maven-compiler-source>
 		
-		<maven-compiler-plugin.version>3.8.0</maven-compiler-plugin.version>
-		<maven-assembly-plugin.version>3.4.2</maven-assembly-plugin.version>
-		<maven-source-plugin.version>3.0.1</maven-source-plugin.version>
-		<maven-release-plugin.version>2.5.3</maven-release-plugin.version>
-		<maven.surefire.plugin.version>2.22.0</maven.surefire.plugin.version>
-		<maven-jar-plugin.version>3.1.0</maven-jar-plugin.version>
+		<maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+		<maven-assembly-plugin.version>3.7.1</maven-assembly-plugin.version>
+		<maven-source-plugin.version>3.3.1</maven-source-plugin.version>
+		<maven-release-plugin.version>3.0.1</maven-release-plugin.version>
+		<maven.surefire.plugin.version>3.2.5</maven.surefire.plugin.version>
+		<maven-jar-plugin.version>3.4.0</maven-jar-plugin.version>
+		<buildnumber-maven-plugin.version>3.2.0</buildnumber-maven-plugin.version>
+		<templating-maven-plugin.version>3.0.0</templating-maven-plugin.version>
 		
 		<data-digger.version>0.0.1</data-digger.version>
+
 		<jsonassert.version>1.5.0</jsonassert.version>
 		<assertj.version>3.25.3</assertj.version>
 		<commons-csv.version>1.5</commons-csv.version>
@@ -45,7 +48,7 @@
 		<log4j.version>2.20.0</log4j.version>
 		<slf4j.version>2.7</slf4j.version>
 		<opennlp.version>2.3.2</opennlp.version>
-		<jacoco-maven-plugin.version>0.8.5</jacoco-maven-plugin.version>
+		<jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
 	</properties>
 
 	<modules>
@@ -122,7 +125,7 @@
 		<profile>
 			<id>owasp</id>
 			<properties>
-				<version.plugin.owasp.check>7.4.1</version.plugin.owasp.check>
+				<version.plugin.owasp.check>9.1.0</version.plugin.owasp.check>
 			</properties>
 			<build>
 				<pluginManagement>
@@ -268,7 +271,7 @@
 				and spark-classifications. -->
 				<plugin>
 					<artifactId>maven-assembly-plugin</artifactId>
-					<version>3.1.1</version>
+					<version>${maven-assembly-plugin.version}</version>
 					<executions>
 						<execution>
 							<phase>package</phase>
