@@ -64,7 +64,7 @@ public class PostgreSQLClient implements AutoCloseable {
     connection.setAutoCommit(false);
     // give some hints as to how to read economically
     Statement statement =
-        connection.createStatement(ResultSet.CONCUR_READ_ONLY, ResultSet.TYPE_FORWARD_ONLY);
+        connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
     statement.setFetchSize(100);
     try (ResultSet resultSet = statement.executeQuery(query)) {
       while (resultSet.next()) {
