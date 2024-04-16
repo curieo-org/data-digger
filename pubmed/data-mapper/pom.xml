@@ -10,7 +10,7 @@
   <artifactId>data-mapper</artifactId>
   <name>data-mapper</name>
 
-  <url>http://maven.apache.org</url>
+  <url>https://maven.apache.org</url>
 
   <properties>
 	<jdk.version>21</jdk.version>
