@@ -37,7 +37,7 @@ replay_pid*
 
 *.env
 .venv
-/clinical_trail/.venv/
+/clinical_trials/.venv/
 chembl/nebula-docker-compose/
 chembl/qdrant_storage/
 pubmed/data-digger-etl/target/maven-archiver/
