@@ -28,7 +28,7 @@ public class CountingConsumer<T, Y> implements Sink<T> {
 
   @Override
   public void accept(T t) {
-    track.merge(mapper.apply(t), 1, (a, b) -> a + b);
+    track.merge(mapper.apply(t), 1, Integer::sum);
     if (count.incrementAndGet() % loggingInterval == 0) {
       logProgress();
     }

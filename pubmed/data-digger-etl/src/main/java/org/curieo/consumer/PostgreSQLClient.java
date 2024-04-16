@@ -7,6 +7,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 import java.util.Set;
+import lombok.Getter;
 import org.curieo.rdf.HashSet;
 import org.curieo.utils.Credentials;
 import org.slf4j.Logger;
@@ -20,10 +21,10 @@ import org.slf4j.LoggerFactory;
 public class PostgreSQLClient implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(PostgreSQLClient.class);
   public static final String LOCALDB = "jdbc:postgresql://localhost:5432/postgres";
-  private final Connection connection;
+  @Getter private final Connection connection;
   private final String connectionString;
 
-  public static enum CreateFlags {
+  public enum CreateFlags {
     OnExistFail,
     OnExistSilentNoOp,
     OnExistSilentOverride
@@ -53,19 +54,6 @@ public class PostgreSQLClient implements AutoCloseable {
     String database = credentials.need(postgresuser, "database");
     String password = credentials.need(postgresuser, "password");
     return new PostgreSQLClient(database, user, password);
-  }
-
-  /**
-   * Create a database.
-   *
-   * @param statement
-   * @return true if the first result is a ResultSet object; false if it is an update count or there
-   *     are no results
-   * @throws SQLException
-   */
-  public boolean executeSqlStatement(String statement) throws SQLException {
-    Statement stmt = connection.createStatement();
-    return stmt.execute(statement);
   }
 
   public static Set<String> retrieveSetOfStrings(Connection connection, String query)
@@ -98,10 +86,7 @@ public class PostgreSQLClient implements AutoCloseable {
   public String createDatabase(String databaseName, CreateFlags flags) throws SQLException {
     Statement stmt = null;
     int i = connectionString.lastIndexOf('/');
-    String retval;
-    if (i == -1) {
-      retval = null;
-    } else {
+    if (i != -1) {
       return connectionString.substring(0, i + 1) + databaseName;
     }
 
@@ -120,7 +105,7 @@ public class PostgreSQLClient implements AutoCloseable {
             stmt.close();
             throw new RuntimeException(String.format("Database %s already exists", databaseName));
           case OnExistSilentNoOp:
-            return retval;
+            return null;
           case OnExistSilentOverride:
             dropDatabase(databaseName);
             break;
@@ -137,7 +122,7 @@ public class PostgreSQLClient implements AutoCloseable {
         stmt.close();
       }
     }
-    return retval;
+    return null;
   }
 
   public void dropDatabase(String databaseName) throws SQLException {
@@ -166,9 +151,5 @@ public class PostgreSQLClient implements AutoCloseable {
     if (connection != null && !connection.isClosed()) {
       connection.close();
     }
-  }
-
-  public Connection getConnection() {
-    return connection;
   }
 }

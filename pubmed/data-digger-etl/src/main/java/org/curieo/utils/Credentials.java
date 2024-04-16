@@ -21,8 +21,7 @@ public class Credentials {
   public Credentials() {}
 
   static {
-    TypeReference<HashMap<String, HashMap<String, String>>> typeRef =
-        new TypeReference<HashMap<String, HashMap<String, String>>>() {};
+    TypeReference<HashMap<String, HashMap<String, String>>> typeRef = new TypeReference<>() {};
     OBJECT_READER = new ObjectMapper().readerFor(typeRef);
     OBJECT_WRITER = new ObjectMapper().writerFor(typeRef).withDefaultPrettyPrinter();
   }
@@ -75,7 +74,7 @@ public class Credentials {
     return creds;
   }
 
-  public void write(File path) throws JsonProcessingException, IOException {
+  public void write(File path) throws IOException {
     OBJECT_WRITER.writeValue(path, data);
   }
 }

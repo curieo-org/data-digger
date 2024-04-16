@@ -13,12 +13,12 @@ public interface Sink<T> extends Consumer<T> {
 
   default Sink<T> concatenate(Sink<T> other) {
     if (other == null) return this;
-    return new Concat<T>(this, other);
+    return new Concat<>(this, other);
   }
 
   @Generated
   @Value
-  static class Concat<T> implements Sink<T> {
+  class Concat<T> implements Sink<T> {
     Sink<T> s1;
     Sink<T> s2;
 

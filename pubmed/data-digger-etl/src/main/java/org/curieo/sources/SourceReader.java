@@ -11,33 +11,26 @@ import org.curieo.sources.pubmed.Pubmed;
 
 /** Standard source reader */
 public interface SourceReader {
-  static final String PUBMED = "pubmed";
+  String PUBMED = "pubmed";
 
   Iterable<Record> read(File path) throws IOException, XMLStreamException;
 
   static SourceReader getReader(String type) {
-    switch (type) {
-      case PUBMED:
-        return new SourceReader() {
-          @Override
-          public Iterable<Record> read(File path) throws IOException, XMLStreamException {
-            return new Mapper<>(Pubmed.read(path));
-          }
-        };
-      default:
-        throw new IllegalArgumentException(String.format("Do not know input type %s", type));
+    if (type.equals(PUBMED)) {
+      return path -> new Mapper<>(Pubmed.read(path));
     }
+    throw new IllegalArgumentException(String.format("Do not know input type %s", type));
   }
 
   @Generated
   @Value
-  static class Mapper<T extends Record> implements Iterable<Record> {
+  class Mapper<T extends Record> implements Iterable<Record> {
     Iterable<T> source;
 
     @Override
     public Iterator<Record> iterator() {
-      return new Iterator<Record>() {
-        Iterator<T> it = source.iterator();
+      return new Iterator<>() {
+        final Iterator<T> it = source.iterator();
 
         @Override
         public boolean hasNext() {

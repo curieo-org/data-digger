@@ -100,7 +100,7 @@ class StorageSpec {
     @Override
     public List<String> apply(T t) {
       List<String> s = extract.apply(t);
-      if (s == null) return s;
+      if (s == null) return null;
       return s.stream().map(v -> trimField(field, v, size)).toList();
     }
   }

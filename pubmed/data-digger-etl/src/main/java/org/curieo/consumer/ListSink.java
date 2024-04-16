@@ -20,7 +20,7 @@ class ListSink<T> implements Sink<List<T>> {
       }
       sink.guaranteeUniqueKeys(keys);
     }
-    t.forEach(sink::accept);
+    t.forEach(sink);
   }
 
   public void finalCall() {

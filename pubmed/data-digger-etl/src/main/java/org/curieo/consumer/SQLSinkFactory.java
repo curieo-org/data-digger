@@ -76,13 +76,13 @@ public class SQLSinkFactory {
    * @throws SQLException
    */
   public Sink<List<LinkedField<Reference>>> createReferenceSink(String... ids) throws SQLException {
-    List<StorageSpec> storageSpecs = new ArrayList<>();
     String tableName = "ReferenceTable";
-    storageSpecs.addAll(
-        Arrays.asList(
-            new StorageSpec("articleId", ExtractType.String, 20, useKeys),
-            new StorageSpec("ordinal", ExtractType.Integer),
-            new StorageSpec("citation", ExtractType.String, 500)));
+    List<StorageSpec> storageSpecs =
+        new ArrayList<>(
+            Arrays.asList(
+                new StorageSpec("articleId", ExtractType.String, 20, useKeys),
+                new StorageSpec("ordinal", ExtractType.Integer),
+                new StorageSpec("citation", ExtractType.String, 500)));
     // a variable number of identifiers
     for (String id : ids) {
       storageSpecs.add(new StorageSpec(id, ExtractType.String, 30));
@@ -120,12 +120,12 @@ public class SQLSinkFactory {
    */
   public Sink<List<Metadata>> createLinkoutTable(String sourceIdentifier, String targetIdentifier)
       throws SQLException {
-    List<StorageSpec> storageSpecs = new ArrayList<>();
     String tableName = "LinkTable";
-    storageSpecs.addAll(
-        Arrays.asList(
-            new StorageSpec(sourceIdentifier, ExtractType.String, 20, useKeys),
-            new StorageSpec(targetIdentifier, ExtractType.String, 20)));
+    List<StorageSpec> storageSpecs =
+        new ArrayList<>(
+            Arrays.asList(
+                new StorageSpec(sourceIdentifier, ExtractType.String, 20, useKeys),
+                new StorageSpec(targetIdentifier, ExtractType.String, 20)));
 
     createTable(tableName, storageSpecs);
     PreparedStatement insert = insertStatement(tableName, storageSpecs);
@@ -225,6 +225,6 @@ public class SQLSinkFactory {
               String.format(
                   "DELETE FROM %s WHERE %s = ?", tableName, keyExtractor.getSpec().getField()));
     }
-    return new AbstractSink<T>(extracts, insert, deleteStatement, batchSize, keys, keyExtractor);
+    return new AbstractSink<>(extracts, insert, deleteStatement, batchSize, keys, keyExtractor);
   }
 }

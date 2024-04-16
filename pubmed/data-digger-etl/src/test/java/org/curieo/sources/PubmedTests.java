@@ -41,7 +41,7 @@ class PubmedTests {
 
         // SimpleDateFormat FORMATTER = new SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH);
         // System.out.println(FORMATTER.format(pr.getPublicationDate()));
-        yearCount.merge(pr.getYear(), 1, (a, b) -> a + b);
+        yearCount.merge(pr.getYear(), 1, Integer::sum);
       }
       if (count % 1000 == 0) {
         System.out.printf("%s: %s\n", pmid, title);
@@ -65,7 +65,7 @@ class PubmedTests {
         "Found %d records, %d have title, %d have abstract, %d have references, %d total references, %d references with article id\n",
         count, haveTitle, haveAbstract, haveReferences, referenceCount, resolvedReferenceCount);
     Iterable<Map.Entry<Integer, Integer>> yearcounts =
-        yearCount.entrySet().stream().sorted((a, b) -> a.getKey().compareTo(b.getKey()))::iterator;
+        yearCount.entrySet().stream().sorted(Map.Entry.comparingByKey())::iterator;
     for (Map.Entry<Integer, Integer> year : yearcounts) {
       System.out.printf("Found %d records from year %d\n", year.getValue(), year.getKey());
     }

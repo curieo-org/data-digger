@@ -5,11 +5,11 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -36,7 +36,7 @@ public class FullText {
   public static final String XML_EXTENSION = "xml";
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FullText.class);
-  final String oaiService;
+  String oaiService;
   private static XMLInputFactory XMLINPUTFACTORY = XMLInputFactory.newInstance();
   private static final QName ID_ATTRIBUTE = new QName("id");
   private static final QName CITATION_ATTRIBUTE = new QName("citation");
@@ -65,6 +65,7 @@ public class FullText {
         TarExtractor.getSingleFileOutOfTar(
             file, true, a -> a.getAbsolutePath().toLowerCase().endsWith(XML_EXTENSION));
     file.delete();
+    assert target != null;
     String content = Files.readString(target.toPath());
     target.delete();
     return content;
@@ -190,19 +191,18 @@ public class FullText {
     return record;
   }
 
-  public static String getParamsString(Map<String, String> params)
-      throws UnsupportedEncodingException {
+  public static String getParamsString(Map<String, String> params) {
     StringBuilder result = new StringBuilder();
 
     for (Map.Entry<String, String> entry : params.entrySet()) {
-      result.append(URLEncoder.encode(entry.getKey(), "UTF-8"));
+      result.append(URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8));
       result.append("=");
-      result.append(URLEncoder.encode(entry.getValue(), "UTF-8"));
+      result.append(URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8));
       result.append("&");
     }
 
     String resultString = result.toString();
-    return resultString.length() > 0
+    return !resultString.isEmpty()
         ? resultString.substring(0, resultString.length() - 1)
         : resultString;
   }

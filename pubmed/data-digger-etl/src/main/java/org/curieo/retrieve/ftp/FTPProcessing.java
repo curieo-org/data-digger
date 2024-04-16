@@ -9,12 +9,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.SocketException;
 import java.net.URL;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import lombok.Generated;
 import lombok.Value;
@@ -36,8 +32,7 @@ public class FTPProcessing implements AutoCloseable {
   FTPClient ftp;
 
   static {
-    TypeReference<HashMap<String, Status>> typeRef =
-        new TypeReference<HashMap<String, Status>>() {};
+    TypeReference<HashMap<String, Status>> typeRef = new TypeReference<>() {};
     OBJECT_READER = new ObjectMapper().readerFor(typeRef);
     OBJECT_WRITER = new ObjectMapper().writerFor(typeRef).withDefaultPrettyPrinter();
   }
@@ -60,7 +55,7 @@ public class FTPProcessing implements AutoCloseable {
     return creds.get(key, "password");
   }
 
-  public static enum Status {
+  public enum Status {
     Success, // submitted, fully completed, processed, no need to resubmit
     Error, // needs redo
     Open, // as yet undone
@@ -72,11 +67,9 @@ public class FTPProcessing implements AutoCloseable {
    *
    * @param path
    * @return instantiated status map
-   * @throws JsonProcessingException
    * @throws IOException
    */
-  public static Map<String, Status> readProcessingStatus(File path)
-      throws JsonProcessingException, IOException {
+  public static Map<String, Status> readProcessingStatus(File path) throws IOException {
     if (!path.exists()) {
       LOGGER.warn("New status map created.");
       return new HashMap<>();
@@ -88,7 +81,6 @@ public class FTPProcessing implements AutoCloseable {
    * write the status map
    *
    * @param path
-   * @return instantiated status map
    * @throws JsonProcessingException
    * @throws IOException
    */
@@ -97,7 +89,7 @@ public class FTPProcessing implements AutoCloseable {
     OBJECT_WRITER.writeValue(path, status);
   }
 
-  public void reopenIfClosed() throws SocketException, IOException {
+  public void reopenIfClosed() throws IOException {
     if (!ftp.isConnected()) {
       ftp.disconnect();
       connect();
@@ -120,7 +112,6 @@ public class FTPProcessing implements AutoCloseable {
   /**
    * Synchronize a remote directory and a local directory.
    *
-   * @param ftp
    * @param remoteDirectory
    * @param localDirectory
    */
@@ -246,9 +237,7 @@ public class FTPProcessing implements AutoCloseable {
 
   public static Function<FTPFile, Status> skipExtensions(String... extensions) {
     Set<String> ext = new HashSet<>();
-    for (String e : extensions) {
-      ext.add(e);
-    }
+    Collections.addAll(ext, extensions);
     return new SkipExtension(ext);
   }
 
@@ -267,7 +256,7 @@ public class FTPProcessing implements AutoCloseable {
     }
   }
 
-  private void connect() throws SocketException, IOException {
+  private void connect() throws IOException {
     ftp = new FTPClient();
     ftp.connect(getServer());
     // extremely important

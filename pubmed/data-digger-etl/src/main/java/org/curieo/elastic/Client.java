@@ -20,23 +20,26 @@ import org.apache.http.message.BasicHeader;
 import org.elasticsearch.client.RestClient;
 
 /**
- * Elastic client as documented
- * https://www.elastic.co/guide/en/elasticsearch/client/java-api-client/current/getting-started-java.html
+ * Elastic client as <a
+ * href="https://www.elastic.co/guide/en/elasticsearch/client/java-api-client/current/getting-started-java.html">
+ * documented </a>
  */
 public class Client {
   // The API client
-  private ElasticsearchClient esClient;
+  private final ElasticsearchClient esClient;
 
   /**
    * This instantiates a simple (non-secure) client, but note: "In self-managed installations,
    * Elasticsearch will start with security features like authentication and TLS enabled. To connect
    * to the Elasticsearch cluster you’ll need to configure the Java API Client to use HTTPS with the
-   * generated CA certificate in order to make requests successfully."
-   * (https://www.elastic.co/guide/en/elasticsearch/client/java-api-client/current/connecting.html)
+   * generated CA certificate in order to make requests successfully." (<a
+   * href="https://www.elastic.co/guide/en/elasticsearch/client/java-api-client/current/connecting.html">source</a>)
    * So, use the HTTPS client instead.
    *
-   * @param serverUrl server URL -- get these from the dashboard at http://localhost:5601
-   * @param apiKey api key -- get these from the dashboard at http://localhost:5601
+   * @param serverUrl server URL -- get these from the dashboard at <a
+   *     href="http://localhost:5601">http://localhost:5601</a>
+   * @param apiKey api key -- get these from the dashboard at <a
+   *     href="http://localhost:5601">http://localhost:5601</a>
    */
   public Client(String serverUrl, String apiKey) {
     // Create the low-level client

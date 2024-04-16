@@ -92,10 +92,7 @@ public class DataLoaderPMC {
         parse.getOptionValue(credentialsOpt, System.getenv("HOME") + "/.credentials.json");
     Credentials credentials = Credentials.read(new File(credpath));
     String postgresuser = parse.getOptionValue(postgresuserOpt, "datadigger");
-    int batchSize =
-        parse.hasOption(batchSizeOption)
-            ? getIntOption(parse, batchSizeOption)
-            : SQLSinkFactory.DEFAULT_BATCH_SIZE;
+    int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);
 
     FullText ft = new FullText(parse.getOptionValue(oaiOption, OAI_SERVICE));
     PostgreSQLClient postgreSQLClient =

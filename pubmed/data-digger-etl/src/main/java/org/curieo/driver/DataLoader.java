@@ -4,11 +4,11 @@ import static org.curieo.retrieve.ftp.FTPProcessing.skipExtensions;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.Result;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import lombok.Generated;
@@ -82,8 +82,7 @@ public class DataLoader {
     return Option.builder().option("k").longOpt("use-keys").required(false).build();
   }
 
-  public static void main(String[] args)
-      throws ParseException, JsonProcessingException, IOException, SQLException {
+  public static void main(String[] args) throws ParseException, IOException, SQLException {
     Option postgresuserOpt = postgresUser();
     Option credentialsOpt = credentialsOption();
     Option batchSizeOption = batchSizeOption();
@@ -158,12 +157,8 @@ public class DataLoader {
     String application = parse.getOptionValue('d', "pubmed");
     String sourceType = parse.getOptionValue('y', SourceReader.PUBMED);
     String index = parse.getOptionValue('i');
-    int maximumNumberOfRecords =
-        parse.hasOption(maxFiles) ? getIntOption(parse, maxFiles) : Integer.MAX_VALUE;
-    int batchSize =
-        parse.hasOption(batchSizeOption)
-            ? getIntOption(parse, batchSizeOption)
-            : SQLSinkFactory.DEFAULT_BATCH_SIZE;
+    int maximumNumberOfRecords = getIntOption(parse, maxFiles).orElse(Integer.MAX_VALUE);
+    int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);
 
     SentenceEmbeddingService sentenceEmbeddingService = null;
     String embeddingsServiceUrl = parse.getOptionValue('e');
@@ -178,14 +173,13 @@ public class DataLoader {
 
     Sink<Record> tsink = null;
     if (index != null) {
-      Sink<Record> esink = getElasticConsumer(credentials, index, sentenceEmbeddingService);
-      tsink = esink;
+      tsink = getElasticConsumer(credentials, index, sentenceEmbeddingService);
     }
 
     String postgresuser = parse.getOptionValue(postgresuserOpt, "datadigger");
 
     PostgreSQLClient postgreSQLClient = null;
-    SQLSinkFactory sqlSinkFactory = null;
+    SQLSinkFactory sqlSinkFactory;
     if (postgresuser != null) {
       postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(credentials, postgresuser);
       sqlSinkFactory =
@@ -232,8 +226,8 @@ public class DataLoader {
     final Sink<Record> sink = new AsynchSink<>(tsink);
     DataLoader loader =
         new DataLoader(
-            getIntOption(parse, firstYearOption),
-            getIntOption(parse, lastYearOption),
+            getIntOption(parse, firstYearOption).orElse(2024),
+            getIntOption(parse, lastYearOption).orElse(2024),
             sourceType,
             sink);
 
@@ -311,6 +305,15 @@ public class DataLoader {
                 credentials.get("elastic", "password"))
             .getClient();
 
+    Function<Record, Result> elasticSink = getElasticSink(index, sentenceEmbeddingService, client);
+
+    BiFunction<Result, Integer, String> formatter =
+        (result, c) -> String.format("Uploaded %d items with result %s", c, result.name());
+    return new CountingConsumer<>(LOGGING_INTERVAL, elasticSink, formatter);
+  }
+
+  private static Function<Record, Result> getElasticSink(
+      String index, SentenceEmbeddingService sentenceEmbeddingService, ElasticsearchClient client) {
     Function<Record, StandardRecord> baseOperation = StandardRecord::copy;
     Function<Record, Result> elasticSink;
 
@@ -322,10 +325,7 @@ public class DataLoader {
       elasticSink =
           baseOperation.andThen(new ElasticConsumer<>(client, index, Record::getIdentifier));
     }
-
-    BiFunction<Result, Integer, String> formatter =
-        (result, c) -> String.format("Uploaded %d items with result %s", c, result.name());
-    return new CountingConsumer<>(LOGGING_INTERVAL, elasticSink, formatter);
+    return elasticSink;
   }
 
   private boolean checkYear(Record sr) {
@@ -334,8 +334,12 @@ public class DataLoader {
     return !((firstYear != null && year < firstYear) || (lastYear != null && year > lastYear));
   }
 
-  static Integer getIntOption(CommandLine cmd, Option option) {
-    if (!cmd.hasOption(option)) return null;
-    return Integer.parseInt(cmd.getOptionValue(option));
+  static Optional<Integer> getIntOption(CommandLine cmd, Option option) {
+    if (!cmd.hasOption(option)) return Optional.empty();
+    try {
+      return Optional.of(Integer.parseInt(cmd.getOptionValue(option)));
+    } catch (NumberFormatException e) {
+      return Optional.empty();
+    }
   }
 }

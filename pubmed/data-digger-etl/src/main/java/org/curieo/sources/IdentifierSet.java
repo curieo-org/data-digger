@@ -25,18 +25,18 @@ public class IdentifierSet implements Set<String> {
   @Override
   public boolean contains(Object o) {
     if (o == null) return hasNull;
-    if (o instanceof String) {
-      String e = (String) o;
+    if (o instanceof String e) {
 
       if (e.length() < 3) {
         return others.contains(e);
       }
       if (e.substring(0, e.length() - 2).chars().allMatch(Character::isDigit) && e.length() <= 11) {
-        BinArray b = data.get(e.substring(e.length() - 2));
+        String substring = e.substring(e.length() - 2);
+        BinArray b = data.get(substring);
         if (b == null) {
           return false;
         }
-        return b.contains(Integer.parseInt(e.substring(e.length() - 2)));
+        return b.contains(Integer.parseInt(substring));
       }
       return others.contains(e);
     }
@@ -68,8 +68,9 @@ public class IdentifierSet implements Set<String> {
       return others.add(e);
     }
     if (e.substring(0, e.length() - 2).chars().allMatch(Character::isDigit) && e.length() <= 11) {
-      BinArray b = data.computeIfAbsent(e.substring(e.length() - 2), c -> new BinArray(1000000000));
-      return b.add(Integer.parseInt(e.substring(e.length() - 2)));
+      String substring = e.substring(e.length() - 2);
+      BinArray b = data.computeIfAbsent(substring, c -> new BinArray(1000000000));
+      return b.add(Integer.parseInt(substring));
     }
 
     return others.add(e);
@@ -107,7 +108,8 @@ public class IdentifierSet implements Set<String> {
   }
 
   private static class BinArray {
-    private static byte[] MASK = new byte[] {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, (byte) 0x80};
+    private static final byte[] MASK =
+        new byte[] {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, (byte) 0x80};
     final byte[] core;
     final Set<Integer> beyondBound = new HashSet<>();
     int upperbound;
@@ -120,8 +122,7 @@ public class IdentifierSet implements Set<String> {
     }
 
     public boolean contains(Object o) {
-      if (o instanceof Integer) {
-        Integer i = (Integer) o;
+      if (o instanceof Integer i) {
         if (i < 0 || i > upperbound) {
           return beyondBound.contains(o);
         }
@@ -137,10 +138,9 @@ public class IdentifierSet implements Set<String> {
     }
 
     public boolean remove(Object o) {
-      if (o instanceof Integer) {
-        Integer i = (Integer) o;
+      if (o instanceof Integer i) {
         if (i < 0 || i >= upperbound) beyondBound.add(i);
-        else core[i >> 3] &= ~MASK[i & 0x07];
+        else core[i >> 3] &= (byte) ~MASK[i & 0x07];
       }
       return true;
     }

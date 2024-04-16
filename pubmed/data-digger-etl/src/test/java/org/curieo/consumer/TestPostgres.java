@@ -3,7 +3,6 @@ package org.curieo.consumer;
 import static org.curieo.consumer.PostgreSQLClient.CreateFlags.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.File;
 import java.io.IOException;
 import java.sql.ResultSet;
@@ -17,7 +16,7 @@ class TestPostgres {
 
   @Test
   @Tag("slow")
-  void testCreateDb() throws JsonProcessingException, IOException, SQLException {
+  void testCreateDb() throws IOException, SQLException {
     File defaultLocation = new File(System.getenv("HOME") + "/.credentials.json");
     Credentials creds = Credentials.read(defaultLocation);
 
@@ -32,7 +31,7 @@ class TestPostgres {
   }
 
   @Test
-  void testCursor() throws JsonProcessingException, IOException, SQLException {
+  void testCursor() throws IOException, SQLException {
     File defaultLocation = new File(System.getenv("HOME") + "/.credentials.json");
     Credentials creds = Credentials.read(defaultLocation);
 
@@ -42,23 +41,25 @@ class TestPostgres {
     String fetch = "FETCH 10000 FROM cursor_name";
     String close = "CLOSE cursor_name ";
     try (PostgreSQLClient client = PostgreSQLClient.getPostgreSQLClient(creds, "datadigger")) {
-      Statement statement = client.getConnection().createStatement();
-      client.getConnection().setAutoCommit(false);
-      int count = 0;
-      /*
-      statement.execute(create);
-      statement.execute(open);
-      boolean notEmpty = true;
-      while (notEmpty) {
-      	try (ResultSet set = statement.executeQuery(fetch)) {
-      		while (set.next())
-      			count++;
-      	}
-      }
-      statement.execute(close);
-      */
-      try (ResultSet set = statement.executeQuery(select)) {
-        while (set.next()) count++;
+      int count;
+      try (Statement statement = client.getConnection().createStatement()) {
+        client.getConnection().setAutoCommit(false);
+        count = 0;
+        /*
+        statement.execute(create);
+        statement.execute(open);
+        boolean notEmpty = true;
+        while (notEmpty) {
+          try (ResultSet set = statement.executeQuery(fetch)) {
+            while (set.next())
+              count++;
+          }
+        }
+        statement.execute(close);
+        */
+        try (ResultSet set = statement.executeQuery(select)) {
+          while (set.next()) count++;
+        }
       }
       System.out.printf("Size = %d%n", count);
     }

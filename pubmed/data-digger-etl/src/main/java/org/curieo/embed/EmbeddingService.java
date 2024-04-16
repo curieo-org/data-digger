@@ -2,7 +2,6 @@ package org.curieo.embed;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
@@ -38,8 +37,7 @@ public class EmbeddingService {
   }
 
   public double[] embed(String text) {
-    try {
-      HttpClient client = HttpClient.newHttpClient();
+    try (HttpClient client = HttpClient.newHttpClient()) {
       HttpRequest request =
           HttpRequest.newBuilder()
               .uri(URI.create(serviceUrl))
@@ -68,10 +66,7 @@ public class EmbeddingService {
         LOGGER.error(error);
         throw new RuntimeException(error);
       }
-    } catch (IOException e) {
-      LOGGER.error(String.format("Not connected to service %s", serviceUrl), e);
-      Thread.currentThread().interrupt();
-    } catch (InterruptedException e) {
+    } catch (IOException | InterruptedException e) {
       LOGGER.error(String.format("Not connected to service %s", serviceUrl), e);
       Thread.currentThread().interrupt();
     }
@@ -86,7 +81,7 @@ public class EmbeddingService {
   }
 
   private static JsonNode deserializeTextEmbeddingsRouter(String response)
-      throws JsonMappingException, JsonProcessingException {
+      throws JsonProcessingException {
     return OBJECT_READER.readTree(response).get(0);
   }
 }

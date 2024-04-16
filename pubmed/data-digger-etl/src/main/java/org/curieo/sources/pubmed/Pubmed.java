@@ -19,12 +19,12 @@ public class Pubmed {
   }
 
   private static class PubmedReader implements Iterable<PubmedRecord> {
-    private final InputStream stream;
     XMLInputFactory xmlInputFactory = XMLInputFactory.newInstance();
     XMLEventReader reader;
 
     public PubmedReader(File file) throws IOException, XMLStreamException {
       FileInputStream bais = new FileInputStream(file);
+      InputStream stream;
       if (file.getAbsolutePath().toLowerCase().endsWith(".gz")) {
         stream = new GZIPInputStream(bais);
       } else {
