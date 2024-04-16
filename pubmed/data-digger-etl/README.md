@@ -18,8 +18,6 @@ From the root folder run the following commands
 ```sh
 mkdir config
 touch config/credentials.json
-
-wget https://repo1.maven.org/maven2/org/slf4j/slf4j-simple/2.0.11/slf4j-simple-2.0.11.jar -P config
 ```
 
 Add the following content to the config/credentials.json file and replace the placeholders with the actual credentials.
