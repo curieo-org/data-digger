@@ -80,7 +80,7 @@ public class PubmedRecord implements Record {
 	
 	@Override
 	public List<String> getAuthors() {
-		return CollectionUtils.emptyIfNull(getPubmedAuthors()).stream().map(PubmedAuthor::toString).collect(Collectors.toList());
+		return CollectionUtils.emptyIfNull(getPubmedAuthors()).stream().map(PubmedAuthor::toString).toList();
 	}
 
 	@Override

@@ -2,7 +2,6 @@ package org.curieo.consumer;
 
 import java.util.List;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +15,7 @@ import lombok.Value;
 @AllArgsConstructor
 class StorageSpec {
 	private static final Logger LOGGER = LoggerFactory.getLogger(StorageSpec.class);
-	
+
 	String field;
 	ExtractType type;
 	int size;
@@ -47,11 +46,11 @@ class StorageSpec {
 		if (type == ExtractType.String || type == ExtractType.List)
 			throw new IllegalArgumentException("VARCHAR types must have a size specified");
 	}
-	
+
 	<T> Extract<T> extractString(Function<T, String> f) {
-		if (this.type == ExtractType.String) 
+		if (this.type == ExtractType.String)
 			return new Extract<>(this, null, new TrimToSize<>(size, f, field), null);
-		if (this.type == ExtractType.Text) 
+		if (this.type == ExtractType.Text)
 			return new Extract<>(this,  null, f, null);
 		throw new IllegalArgumentException("Wrong extractor for specified type");
 	}
@@ -59,7 +58,7 @@ class StorageSpec {
 	<T> Extract<T> extractList(Function<T, List<String>> f) {
 		return new Extract<>(this, new TrimAllToSize<>(size, f, field), null, null);
 	}
-	
+
 	<T> Extract<T> extractInt(Function<T, Integer> f) {
 		return new Extract<>(this, null, null, f);
 	}
@@ -102,7 +101,7 @@ class StorageSpec {
 			List<String> s = extract.apply(t);
 			if (s == null)
 				return s;
-			return s.stream().map(v -> trimField(field, v, size)).collect(Collectors.toList());
+			return s.stream().map(v -> trimField(field, v, size)).toList();
 		}
 	}
 }

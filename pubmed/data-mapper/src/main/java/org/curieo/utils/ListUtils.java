@@ -35,7 +35,7 @@ public class ListUtils {
             return Collections.emptyList();
 		}
 		if (i + 1 == combination.size()) {
-			return combination.get(i).stream().map(v -> Collections.singletonList(v)).collect(Collectors.toList());
+			return combination.get(i).stream().map(Collections::singletonList).toList();
 		}
 
         List<List<T>> retval = new ArrayList<>();
