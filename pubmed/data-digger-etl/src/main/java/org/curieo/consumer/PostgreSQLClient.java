@@ -84,54 +84,46 @@ public class PostgreSQLClient implements AutoCloseable {
    * @throws SQLException
    */
   public String createDatabase(String databaseName, CreateFlags flags) throws SQLException {
-    Statement stmt = null;
     int i = connectionString.lastIndexOf('/');
-    if (i != -1) {
-      return connectionString.substring(0, i + 1) + databaseName;
-    }
+    String dbConnectionString =
+        i != -1
+            ? connectionString.substring(0, i + 1) + databaseName
+            : connectionString + databaseName;
 
-    try {
-      stmt = connection.createStatement();
+    try (Statement stmt = connection.createStatement()) {
       String testIfExists =
           String.format(
               "SELECT * FROM pg_database WHERE datname='%s'", escapeSingleQuotes(databaseName));
-      ResultSet resultSet = stmt.executeQuery(testIfExists);
-      boolean exists = resultSet.next();
-      resultSet.close();
-      if (exists) {
-        // there is already a database with this name
-        switch (flags) {
-          case OnExistFail:
-            stmt.close();
-            throw new RuntimeException(String.format("Database %s already exists", databaseName));
-          case OnExistSilentNoOp:
-            return null;
-          case OnExistSilentOverride:
-            dropDatabase(databaseName);
-            break;
-          default:
-            break;
+
+      try (ResultSet resultSet = stmt.executeQuery(testIfExists)) {
+        if (resultSet.next()) {
+          // there is already a database with this name
+          switch (flags) {
+            case OnExistFail:
+              stmt.close();
+              throw new RuntimeException(String.format("Database %s already exists", databaseName));
+            case OnExistSilentNoOp:
+              return dbConnectionString;
+            case OnExistSilentOverride:
+              dropDatabase(databaseName);
+          }
         }
       }
 
-      String sql = String.format("CREATE DATABASE %s", databaseName);
+      String sql = String.format("CREATE DATABASE %s", escapeSingleQuotes(databaseName));
       int result = stmt.executeUpdate(sql);
       LOGGER.info("Executed create database with success {}", result);
-    } finally {
-      if (stmt != null) {
-        stmt.close();
-      }
     }
-    return null;
+    return dbConnectionString;
   }
 
   public void dropDatabase(String databaseName) throws SQLException {
     // create three connections to three different databases on localhost
     String sql = String.format("DROP DATABASE %s", databaseName);
-    Statement stmt = connection.createStatement();
-    int result = stmt.executeUpdate(sql);
-    LOGGER.info("Dropped database with success {}", result);
-    stmt.close();
+    try (Statement stmt = connection.createStatement()) {
+      int result = stmt.executeUpdate(sql);
+      LOGGER.info("Dropped database with success {}", result);
+    }
   }
 
   public static String escapeSingleQuotes(String s) {

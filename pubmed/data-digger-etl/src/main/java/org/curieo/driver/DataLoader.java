@@ -35,6 +35,7 @@ import org.curieo.model.StandardRecord;
 import org.curieo.model.StandardRecordWithEmbeddings;
 import org.curieo.retrieve.ftp.FTPProcessing;
 import org.curieo.sources.SourceReader;
+import org.curieo.utils.Config;
 import org.curieo.utils.Credentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -151,8 +152,7 @@ public class DataLoader {
             .addOption(new Option("t", "status-tracker", true, "path to file that tracks status"));
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
-    String credpath =
-        parse.getOptionValue(credentialsOpt, System.getenv("HOME") + "/.credentials.json");
+    String credpath = parse.getOptionValue(credentialsOpt, Config.CREDENTIALS_PATH);
     Credentials credentials = Credentials.read(new File(credpath));
     String application = parse.getOptionValue('d', "pubmed");
     String sourceType = parse.getOptionValue('y', SourceReader.PUBMED);
@@ -226,8 +226,8 @@ public class DataLoader {
     final Sink<Record> sink = new AsynchSink<>(tsink);
     DataLoader loader =
         new DataLoader(
-            getIntOption(parse, firstYearOption).orElse(2024),
-            getIntOption(parse, lastYearOption).orElse(2024),
+            getIntOption(parse, firstYearOption).orElse(1900),
+            getIntOption(parse, lastYearOption).orElse(3000),
             sourceType,
             sink);
 

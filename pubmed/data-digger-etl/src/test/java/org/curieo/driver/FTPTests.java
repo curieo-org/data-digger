@@ -1,6 +1,5 @@
 package org.curieo.driver;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -13,8 +12,8 @@ class FTPTests {
 
   @Test
   @Tag("slow")
-  void testListing() throws JsonProcessingException, IOException {
-    Credentials creds = Credentials.read(new File(System.getenv("HOME") + "/.credentials.json"));
+  void testListing() throws IOException {
+    Credentials creds = Credentials.defaults();
     try (FTPProcessing ftpProc = new FTPProcessing(creds, "pubmedcommons")) {
       File processingStatus = File.createTempFile("processingStatus", ".json");
       Files.write(processingStatus.toPath(), "{}".getBytes());

@@ -3,7 +3,6 @@ package org.curieo.consumer;
 import static org.curieo.consumer.PostgreSQLClient.CreateFlags.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.io.File;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -17,23 +16,20 @@ class TestPostgres {
   @Test
   @Tag("slow")
   void testCreateDb() throws IOException, SQLException {
-    File defaultLocation = new File(System.getenv("HOME") + "/.credentials.json");
-    Credentials creds = Credentials.read(defaultLocation);
+    Credentials creds = Credentials.defaults();
 
     String user = creds.get("postgres-datadigger", "user");
     String password = creds.get("postgres-datadigger", "password");
     try (PostgreSQLClient client = new PostgreSQLClient(null, user, password)) {
       client.createDatabase("test", OnExistSilentNoOp);
       assertThrows(RuntimeException.class, () -> client.createDatabase("test", OnExistFail));
-      client.dropDatabase("test");
       client.createDatabase("test", OnExistSilentOverride);
     }
   }
 
   @Test
   void testCursor() throws IOException, SQLException {
-    File defaultLocation = new File("../../config/credentials.json");
-    Credentials creds = Credentials.read(defaultLocation);
+    Credentials creds = Credentials.defaults();
 
     String select = "SELECT identifier FROM records";
     String create = "DECLARE cursor_name CURSOR FOR " + select;

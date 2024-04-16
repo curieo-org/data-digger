@@ -1,6 +1,5 @@
 package org.curieo.utils;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
@@ -61,10 +60,9 @@ public class Credentials {
    *
    * @param path
    * @return instantiated creds
-   * @throws JsonProcessingException
    * @throws IOException
    */
-  public static Credentials read(File path) throws JsonProcessingException, IOException {
+  public static Credentials read(File path) throws IOException {
     Credentials creds = new Credentials();
     if (!path.exists()) {
       creds.data = new HashMap<>();
@@ -76,5 +74,9 @@ public class Credentials {
 
   public void write(File path) throws IOException {
     OBJECT_WRITER.writeValue(path, data);
+  }
+
+  public static Credentials defaults() throws IOException {
+    return Credentials.read(new File(Config.CREDENTIALS_PATH));
   }
 }

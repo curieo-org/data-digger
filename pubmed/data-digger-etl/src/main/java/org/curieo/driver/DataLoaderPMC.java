@@ -2,7 +2,6 @@ package org.curieo.driver;
 
 import static org.curieo.driver.DataLoader.*;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
@@ -23,6 +22,7 @@ import org.curieo.consumer.Sink;
 import org.curieo.model.FullTextRecord;
 import org.curieo.model.Record;
 import org.curieo.sources.pubmedcentral.FullText;
+import org.curieo.utils.Config;
 import org.curieo.utils.Credentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,11 +65,7 @@ public class DataLoaderPMC {
   }
 
   public static void main(String[] args)
-      throws ParseException,
-          JsonProcessingException,
-          IOException,
-          SQLException,
-          XMLStreamException {
+      throws ParseException, IOException, SQLException, XMLStreamException {
     Option postgresuserOpt = postgresUser();
     Option credentialsOpt = credentialsOption();
     Option batchSizeOption = batchSizeOption();
@@ -88,8 +84,7 @@ public class DataLoaderPMC {
             .addOption(credentialsOpt);
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
-    String credpath =
-        parse.getOptionValue(credentialsOpt, System.getenv("HOME") + "/.credentials.json");
+    String credpath = parse.getOptionValue(credentialsOpt, Config.CREDENTIALS_PATH);
     Credentials credentials = Credentials.read(new File(credpath));
     String postgresuser = parse.getOptionValue(postgresuserOpt, "datadigger");
     int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);
