@@ -7,11 +7,7 @@ There is a number of readers here, all of which must be run in live mode to keep
 (c) 2024 MD for Curieo Technologies BV  
 
 
-
 ## Setting up
-
-* Make sure you have a [Java JDK](https://jdk.java.net/21/) installed.
-* For local build, make sure you have [Maven](https://maven.apache.org/install.html) installed.
 
 ## Configuration
 From the root folder run the following commands
@@ -68,6 +64,20 @@ Add the following content to the config/credentials.json file and replace the pl
   }
 }
 ```
+
+### With Docker
+
+If you are using local postgresql, use `host.docker.internal` in place of `127.0.0.1` in the postgres credentials.
+
+```sh
+docker build  -f Dockerfile_Baseline -t pubmed .
+docker run pubmed
+```
+
+### Without Docker
+
+* Make sure you have a [Java JDK](https://jdk.java.net/21/) installed.
+* For local build, make sure you have [Maven](https://maven.apache.org/install.html) installed.
 
 * Building locally involves two steps:
 ```sh
