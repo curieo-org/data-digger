@@ -26,6 +26,7 @@ case $1 in
     ;;
 
     pubmed-baseline-2-postgres)
+        rm -f config/baseline-status.json || true
         echo "Pubmed baseline (full records) to postgres"
         STATUS=$CONFIGDIR/baseline-status.json
         POSTGRESUSER=datadigger
@@ -34,6 +35,7 @@ case $1 in
     ;;
 
     pubmed-updates-2-postgres)
+        rm -f config/updates-status.json || true
         echo "Pubmed updates (full records) to postgres"
         STATUS=$CONFIGDIR/updates-status.json
         POSTGRESUSER=datadigger
@@ -45,6 +47,7 @@ case $1 in
 
     # testing with full-text
     pubmedcentral-test)
+        rm -f config/updates-status.json || true
         echo "Pubmed Central Test"
         CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
         STATUS=$CONFIGDIR/updates-status.json
@@ -56,6 +59,7 @@ case $1 in
 
     # testing with different batch sizes
     pubmed-updates-2-postgres-20-1000)
+        rm -f config/updates-status.json || true
         echo "Pubmed updates (full records) to postgres"
         STATUS=$CONFIGDIR/updates-status.json
         POSTGRESUSER=datadigger
@@ -64,6 +68,7 @@ case $1 in
     ;;
 
     pubmed-updates-2-both)
+        rm -f config/updates-status.json || true
         echo "Pubmed updates to Elastic and postgres"
         STATUS=$CONFIGDIR/updates-status.json
         POSTGRESUSER=datadigger

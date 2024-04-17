@@ -1,0 +1,25 @@
+FROM maven:3.9.6 AS build
+
+WORKDIR /usr/src/app
+
+COPY . .
+RUN mvn clean install -DskipTests
+RUN cd data-digger-etl
+RUN mvn package assembly:single -DskipTests
+RUN cd ..
+
+FROM openjdk:21
+
+WORKDIR /usr/src/app
+COPY --from=build /usr/src/app .
+
+RUN touch init.sh
+RUN echo "#!/bin/bash" > init.sh
+RUN echo "./data-digger-etl/scripts/load-pubmed.sh pubmed-baseline-2-postgres" >> init.sh
+RUN echo "echo 'Completed!'" >> init.sh
+
+RUN chmod +x init.sh
+
+ENTRYPOINT [ "./init.sh" ]
+
+# CMD ["sh", "-c", "./init.sh"]
