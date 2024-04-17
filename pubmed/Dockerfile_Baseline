@@ -17,9 +17,6 @@ RUN touch init.sh
 RUN echo "#!/bin/bash" > init.sh
 RUN echo "./data-digger-etl/scripts/load-pubmed.sh pubmed-baseline-2-postgres" >> init.sh
 RUN echo "echo 'Completed!'" >> init.sh
-
 RUN chmod +x init.sh
 
-ENTRYPOINT [ "./init.sh" ]
-
-# CMD ["sh", "-c", "./init.sh"]
+CMD ["sh", "-c", "./init.sh"]
