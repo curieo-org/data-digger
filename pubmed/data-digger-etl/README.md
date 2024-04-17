@@ -70,8 +70,8 @@ Add the following content to the config/credentials.json file and replace the pl
 If you are using local postgresql, use `host.docker.internal` in place of `127.0.0.1` in the postgres credentials.
 
 ```sh
-docker build  -f Dockerfile_Baseline -t pubmed .
-docker run pubmed
+docker build  -f Dockerfile_Baseline -t data-digger-pubmed-baseline .
+docker run -d -v config:/config data-digger-pubmed-baseline
 ```
 
 ### Without Docker
