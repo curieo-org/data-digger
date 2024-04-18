@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import javax.xml.stream.XMLStreamException;
 import org.curieo.sources.TarExtractor;
 import org.junit.jupiter.api.Test;
@@ -12,7 +13,7 @@ import org.junit.jupiter.api.Test;
 class OAIServiceTests {
 
   @Test
-  void testOAIService() throws IOException, XMLStreamException {
+  void testOAIService() throws IOException, XMLStreamException, URISyntaxException {
     FullText ft = new FullText("https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi");
     String pmcId = "PMC5334499";
     assertNotNull(ft.getRecord(pmcId));

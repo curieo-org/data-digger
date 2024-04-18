@@ -211,19 +211,18 @@ public class SQLSinkFactory {
       throws SQLException {
     Set<String> keys = new HashSet<>(); // org.curieo.sources.IdentifierSet();
     Optional<Extract<T>> uniqueOpt =
-        extracts.stream().filter(extract -> extract.getSpec().isUnique()).findFirst();
+        extracts.stream().filter(extract -> extract.spec().isUnique()).findFirst();
     Extract<T> keyExtractor = null;
     PreparedStatement deleteStatement = null;
     if (uniqueOpt.isPresent()) {
       keyExtractor = uniqueOpt.get();
-      String query =
-          String.format("SELECT %s FROM %s", keyExtractor.getSpec().getField(), tableName);
+      String query = String.format("SELECT %s FROM %s", keyExtractor.spec().getField(), tableName);
       keys = PostgreSQLClient.retrieveSetOfStrings(connection, query);
       LOGGER.info("Read {} keys from {}", keys.size(), tableName);
       deleteStatement =
           connection.prepareStatement(
               String.format(
-                  "DELETE FROM %s WHERE %s = ?", tableName, keyExtractor.getSpec().getField()));
+                  "DELETE FROM %s WHERE %s = ?", tableName, keyExtractor.spec().getField()));
     }
     return new AbstractSink<>(extracts, insert, deleteStatement, batchSize, keys, keyExtractor);
   }

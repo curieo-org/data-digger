@@ -8,10 +8,8 @@ import java.util.List;
 import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.Generated;
 import org.curieo.utils.ListUtils;
 
-@Generated
 @Data
 @AllArgsConstructor
 class AbstractSink<T> implements Sink<T> {
@@ -59,8 +57,8 @@ class AbstractSink<T> implements Sink<T> {
   public void accept(T t) {
     List<List<String>> exploded = new ArrayList<>();
     for (Extract<T> extract : extracts) {
-      if (extract.getSpec().getType() == ExtractType.List) {
-        exploded.add(extract.getExplode().apply(t));
+      if (extract.spec().getType() == ExtractType.List) {
+        exploded.add(extract.explode().apply(t));
       }
     }
 
@@ -74,7 +72,7 @@ class AbstractSink<T> implements Sink<T> {
         int e = 0;
         for (int i = 1; i <= extracts.size(); i++) {
           Extract<T> extract = extracts.get(i - 1);
-          switch (extract.getSpec().getType()) {
+          switch (extract.spec().getType()) {
             case SmallInt:
             case Integer:
               insert.setInt(i, extract.getInteger(t));

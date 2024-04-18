@@ -77,26 +77,16 @@ class StorageSpec {
     return content.substring(0, maximum);
   }
 
-  @Generated
-  @Value
-  private static class TrimToSize<T> implements Function<T, String> {
-    int size;
-    Function<T, String> extract;
-    String field;
-
+  private record TrimToSize<T>(int size, Function<T, String> extract, String field)
+      implements Function<T, String> {
     @Override
     public String apply(T t) {
       return trimField(field, extract.apply(t), size);
     }
   }
 
-  @Generated
-  @Value
-  private static class TrimAllToSize<T> implements Function<T, List<String>> {
-    int size;
-    Function<T, List<String>> extract;
-    String field;
-
+  private record TrimAllToSize<T>(int size, Function<T, List<String>> extract, String field)
+      implements Function<T, List<String>> {
     @Override
     public List<String> apply(T t) {
       List<String> s = extract.apply(t);

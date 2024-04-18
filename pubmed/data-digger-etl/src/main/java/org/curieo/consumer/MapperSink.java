@@ -1,15 +1,8 @@
 package org.curieo.consumer;
 
 import java.util.function.Function;
-import lombok.Generated;
-import lombok.Value;
 
-@Generated
-@Value
-public class MapperSink<T, Y> implements Sink<T> {
-  Function<T, Y> mapper;
-  Sink<Y> embedded;
-
+public record MapperSink<T, Y>(Function<T, Y> mapper, Sink<Y> embedded) implements Sink<T> {
   @Override
   public void accept(T t) {
     embedded.accept(mapper.apply(t));

@@ -1,15 +1,8 @@
 package org.curieo.consumer;
 
 import java.util.Collections;
-import lombok.Generated;
-import lombok.Value;
 
-@Generated
-@Value
-class GenericSink<T> implements Sink<T> {
-  AbstractSink<T> sink;
-  boolean doNotDownloadDuplicates;
-
+record GenericSink<T>(AbstractSink<T> sink, boolean doNotDownloadDuplicates) implements Sink<T> {
   @Override
   public void accept(T t) {
     boolean skip = false;

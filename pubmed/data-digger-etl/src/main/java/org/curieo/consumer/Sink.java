@@ -1,8 +1,6 @@
 package org.curieo.consumer;
 
 import java.util.function.Consumer;
-import lombok.Generated;
-import lombok.Value;
 
 public interface Sink<T> extends Consumer<T> {
   void finalCall();
@@ -16,12 +14,7 @@ public interface Sink<T> extends Consumer<T> {
     return new Concat<>(this, other);
   }
 
-  @Generated
-  @Value
-  class Concat<T> implements Sink<T> {
-    Sink<T> s1;
-    Sink<T> s2;
-
+  record Concat<T>(Sink<T> s1, Sink<T> s2) implements Sink<T> {
     @Override
     public void accept(T t) {
       s1.accept(t);

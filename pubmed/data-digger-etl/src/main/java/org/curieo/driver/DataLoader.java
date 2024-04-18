@@ -11,21 +11,13 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import lombok.Generated;
-import lombok.Value;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.curieo.consumer.AsynchSink;
-import org.curieo.consumer.CountingConsumer;
-import org.curieo.consumer.MapperSink;
-import org.curieo.consumer.MultiSink;
-import org.curieo.consumer.PostgreSQLClient;
-import org.curieo.consumer.SQLSinkFactory;
-import org.curieo.consumer.Sink;
+import org.curieo.consumer.*;
 import org.curieo.elastic.Client;
 import org.curieo.elastic.ElasticConsumer;
 import org.curieo.embed.EmbeddingService;
@@ -43,18 +35,13 @@ import org.slf4j.LoggerFactory;
 /**
  * We need to: - keep track of what we downloaded - download some more - and then upload into the
  * search
+ *
+ * @param firstYear you can specify a year range that you want loaded.
  */
-@Generated
-@Value
-public class DataLoader {
+public record DataLoader(
+    Integer firstYear, Integer lastYear, String sourceType, Sink<Record> sink) {
   public static final int LOGGING_INTERVAL = 1000;
   private static final Logger LOGGER = LoggerFactory.getLogger(DataLoader.class);
-
-  // you can specify a year range that you want loaded.
-  Integer firstYear;
-  Integer lastYear;
-  String sourceType;
-  Sink<Record> sink;
 
   static Option postgresUser() {
     return Option.builder()
@@ -171,7 +158,7 @@ public class DataLoader {
       sentenceEmbeddingService = new SentenceEmbeddingService(embeddingService);
     }
 
-    Sink<Record> tsink = null;
+    Sink<Record> tsink = new NoopSink<>();
     if (index != null) {
       tsink = getElasticConsumer(credentials, index, sentenceEmbeddingService);
     }
@@ -189,7 +176,7 @@ public class DataLoader {
       if (parse.hasOption('a')) {
         Sink<Record> asink =
             new MultiSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
-        tsink = tsink == null ? asink : tsink.concatenate(asink);
+        tsink = tsink.concatenate(asink);
       }
       // store references
       if (parse.hasOption(references)) {
@@ -197,13 +184,13 @@ public class DataLoader {
             new MultiSink<>(
                 Record::toReferences,
                 sqlSinkFactory.createReferenceSink(parse.getOptionValues(references)));
-        tsink = tsink == null ? asink : tsink.concatenate(asink);
+        tsink = tsink.concatenate(asink);
       }
       // store full records
       if (parse.hasOption("full-records")) {
         Sink<Record> asink =
             new MapperSink<>(StandardRecord::copy, sqlSinkFactory.createRecordSink());
-        tsink = tsink == null ? asink : tsink.concatenate(asink);
+        tsink = tsink.concatenate(asink);
       }
 
       // store link table
@@ -218,15 +205,15 @@ public class DataLoader {
           Sink<Record> asink =
               new MapperSink<>(
                   r -> r.toLinks(st[0], st[1]), sqlSinkFactory.createLinkoutTable(st[0], st[1]));
-          tsink = tsink == null ? asink : tsink.concatenate(asink);
+          tsink = tsink.concatenate(asink);
         }
       }
     }
 
-    final Sink<Record> sink = new AsynchSink<>(tsink);
+    final Sink<Record> sink = new AsyncSink<>(tsink);
     DataLoader loader =
         new DataLoader(
-            getIntOption(parse, firstYearOption).orElse(1900),
+            getIntOption(parse, firstYearOption).orElse(1500),
             getIntOption(parse, lastYearOption).orElse(3000),
             sourceType,
             sink);

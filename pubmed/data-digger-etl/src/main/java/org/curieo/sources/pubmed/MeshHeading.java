@@ -13,7 +13,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.Generated;
 import lombok.Singular;
-import lombok.Value;
 
 @Generated
 @Data
@@ -22,12 +21,7 @@ public class MeshHeading {
   private static final QName QNAME_UI = new QName("UI");
   private static final QName QNAME_MajorTopicYN = new QName("MajorTopicYN");
 
-  @Generated
-  @Value
-  public static class Heading {
-    String UI;
-    boolean majorTopic;
-
+  public record Heading(String UI, boolean majorTopic) {
     public String toString() {
       return String.format("%s (%s)", UI, majorTopic ? "Y" : "N");
     }

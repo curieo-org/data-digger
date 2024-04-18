@@ -9,11 +9,11 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.*;
 import java.util.function.Function;
-import lombok.Generated;
-import lombok.Value;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
@@ -241,11 +241,7 @@ public class FTPProcessing implements AutoCloseable {
     return new SkipExtension(ext);
   }
 
-  @Generated
-  @Value
-  private static class SkipExtension implements Function<FTPFile, Status> {
-    Set<String> extensions;
-
+  private record SkipExtension(Set<String> extensions) implements Function<FTPFile, Status> {
     @Override
     public Status apply(FTPFile t) {
       if (extensions.contains(suffix(t.getName()))) {
@@ -279,8 +275,8 @@ public class FTPProcessing implements AutoCloseable {
     ftp.login(getUser(), getPassword());
   }
 
-  public static boolean retrieve(String href, File file) throws IOException {
-    URL url = new URL(href);
+  public static boolean retrieve(String href, File file) throws IOException, URISyntaxException {
+    URL url = URI.create(href).parseServerAuthority().toURL();
     String path = url.getFile();
     String server = url.getHost();
     Credentials credentials = new Credentials();
