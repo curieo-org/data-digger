@@ -1,7 +1,7 @@
 #!/bin/bash
 
-rm -f config || true
-mv /config/ config
+rm -rf config || true
+cp -r /config ./
 
 ./data-digger-etl/scripts/load-pubmed.sh pubmed-baseline-2-postgres
 
