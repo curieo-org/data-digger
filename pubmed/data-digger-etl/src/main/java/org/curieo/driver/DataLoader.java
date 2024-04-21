@@ -1,14 +1,11 @@
 package org.curieo.driver;
 
-import static org.curieo.retrieve.ftp.FTPProcessing.skipExtensions;
-
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.Result;
 import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.Locale;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.commons.cli.CommandLine;
@@ -17,11 +14,13 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.net.ftp.FTPFile;
 import org.curieo.consumer.*;
 import org.curieo.elastic.Client;
 import org.curieo.elastic.ElasticConsumer;
 import org.curieo.embed.EmbeddingService;
 import org.curieo.embed.SentenceEmbeddingService;
+import org.curieo.model.Job;
 import org.curieo.model.Record;
 import org.curieo.model.StandardRecord;
 import org.curieo.model.StandardRecordWithEmbeddings;
@@ -158,6 +157,7 @@ public record DataLoader(
       sentenceEmbeddingService = new SentenceEmbeddingService(embeddingService);
     }
 
+    Sink<Job> jobsSink = new NoopSink<>();
     Sink<Record> tsink = new NoopSink<>();
     if (index != null) {
       tsink = getElasticConsumer(credentials, index, sentenceEmbeddingService);
@@ -172,6 +172,7 @@ public record DataLoader(
       sqlSinkFactory =
           new SQLSinkFactory(postgreSQLClient.getConnection(), batchSize, parse.hasOption(useKeys));
 
+      jobsSink = sqlSinkFactory.createJobsSink();
       // store authorships
       if (parse.hasOption('a')) {
         Sink<Record> asink =
@@ -204,7 +205,7 @@ public record DataLoader(
           }
           Sink<Record> asink =
               new MapperSink<>(
-                  r -> r.toLinks(st[0], st[1]), sqlSinkFactory.createLinkoutTable(st[0], st[1]));
+                  r -> r.toLinks(st[0], st[1]), sqlSinkFactory.createLinkTable(st[0], st[1]));
           tsink = tsink.concatenate(asink);
         }
       }
@@ -228,12 +229,18 @@ public record DataLoader(
         LOGGER.error("You must specify a status tracker file with option --status-tracker");
         System.exit(1);
       }
-      File statusTracker = new File(parse.getOptionValue('t'));
+
+      assert postgreSQLClient != null;
+      Map<String, Job.State> jobStates = new HashMap<>();
+      PostgreSQLClient.retrieveStringMap(
+              postgreSQLClient.getConnection(), "select name, state from jobs")
+          .forEach((k, v) -> jobStates.put(k, Job.State.fromInt(v)));
 
       ftpProcessing.processRemoteDirectory(
           credentials.get(application, "remotepath"),
-          statusTracker,
-          skipExtensions("md5"),
+          jobStates,
+          jobsSink,
+          (FTPFile ftpFile) -> ftpFile.getName().toLowerCase().endsWith(".xml.gz"),
           loader::processFile,
           maximumNumberOfRecords);
     }
@@ -247,13 +254,15 @@ public record DataLoader(
     System.exit(0);
   }
 
-  public FTPProcessing.Status processFile(File file) {
+  public FTPProcessing.Status processFile(File file, String name) {
+    // File file = fileAndName.l();
+    // String name = fileAndName.r();
     String path = file.getAbsolutePath();
     if (path.toLowerCase().endsWith(".xml.gz")) {
       try {
         long startTimeInMillis = System.currentTimeMillis();
         int count = 0, countRejected = 0;
-        for (Record r : SourceReader.getReader(sourceType).read(file)) {
+        for (Record r : SourceReader.getReader(sourceType).read(file, name)) {
           count++;
           if (checkYear(r)) {
             sink.accept(r);
@@ -273,7 +282,7 @@ public record DataLoader(
                 Locale.US, "%.2f", (float) (endTimeInMillis - startTimeInMillis) / count));
         return FTPProcessing.Status.Success;
       } catch (Exception e) {
-        LOGGER.error(String.format("Processed file %s", path), e);
+        LOGGER.error(String.format("Failed to process file %s", path), e);
         return FTPProcessing.Status.Error;
       }
     } else {

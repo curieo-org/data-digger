@@ -36,6 +36,7 @@ class AbstractSink<T> implements Sink<T> {
   // guarantee uniqueness of keys.
   // we are assuming a linear read: later update overrides previous
   void guaranteeUniqueKeys(Set<String> keysFound) {
+    /*
     try {
       for (String key : keysFound) {
         if (keys.contains(key)) {
@@ -51,6 +52,7 @@ class AbstractSink<T> implements Sink<T> {
     } catch (SQLException e) {
       throw new RuntimeException(e);
     }
+    */
   }
 
   @Override
@@ -73,9 +75,11 @@ class AbstractSink<T> implements Sink<T> {
         for (int i = 1; i <= extracts.size(); i++) {
           Extract<T> extract = extracts.get(i - 1);
           switch (extract.spec().getType()) {
-            case SmallInt:
-            case Integer:
+            case SmallInt, Integer:
               insert.setInt(i, extract.getInteger(t));
+              break;
+            case BigInteger:
+              insert.setLong(i, extract.getLong(t));
               break;
             case List:
               if (values.size() > e) {
@@ -84,8 +88,7 @@ class AbstractSink<T> implements Sink<T> {
                 insert.setString(i, null);
               }
               break;
-            case String:
-            case Text:
+            case String, Text:
               insert.setString(i, extract.getString(t));
               break;
             default:
@@ -119,11 +122,13 @@ class AbstractSink<T> implements Sink<T> {
 
   private void executeAndClearBatch() {
     try {
+      /*
       if (deletesInBatch != 0) {
         delete.executeBatch();
         delete.clearBatch();
         deletesInBatch = 0;
       }
+      */
       insert.executeBatch();
       insert.clearBatch();
     } catch (SQLException e) {

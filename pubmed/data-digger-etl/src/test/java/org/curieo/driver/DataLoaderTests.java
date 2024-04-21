@@ -22,7 +22,7 @@ class DataLoaderTests {
     String path = Config.CORPORA_FOLDER + "pubmed24n1307.xml.gz";
     Sink<Record> esink = DataLoader.getElasticConsumer(credentials, "search-curieo", null);
     DataLoader dataLoader = new DataLoader(0, 3000, "pubmed", esink);
-    dataLoader.processFile(new File(path));
+    dataLoader.processFile(new File(path), "pubmed24n1307.xml.gz");
   }
 
   @Test
@@ -38,6 +38,6 @@ class DataLoaderTests {
     Sink<Record> sink =
         new MultiSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
     DataLoader dataLoader = new DataLoader(0, 3000, "pubmed", sink);
-    dataLoader.processFile(new File(path));
+    dataLoader.processFile(new File(path), "pubmed24n1307.xml.gz");
   }
 }

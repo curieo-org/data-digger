@@ -5,6 +5,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import lombok.Getter;
@@ -75,15 +77,33 @@ public class PostgreSQLClient implements AutoCloseable {
     return keys;
   }
 
+  public static Map<String, Integer> retrieveStringMap(Connection connection, String query)
+      throws SQLException {
+    Map<String, Integer> keys = new HashMap<>();
+    // https://jdbc.postgresql.org/documentation/query/#getting-results-based-on-a-cursor
+    boolean autocommit = connection.getAutoCommit();
+    connection.setAutoCommit(false);
+    // give some hints as to how to read economically
+    Statement statement =
+        connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+    statement.setFetchSize(100);
+    try (ResultSet resultSet = statement.executeQuery(query)) {
+      while (resultSet.next()) {
+        keys.put(resultSet.getString(1), resultSet.getInt(2));
+      }
+    }
+    connection.setAutoCommit(autocommit); // back to original value
+    return keys;
+  }
+
   /**
    * Create a database.
    *
    * @param databaseName
    * @param flags
-   * @return connection string for the database.
    * @throws SQLException
    */
-  public String createDatabase(String databaseName, CreateFlags flags) throws SQLException {
+  public void createDatabase(String databaseName, CreateFlags flags) throws SQLException {
     int i = connectionString.lastIndexOf('/');
     String dbConnectionString =
         i != -1
@@ -103,7 +123,7 @@ public class PostgreSQLClient implements AutoCloseable {
               stmt.close();
               throw new RuntimeException(String.format("Database %s already exists", databaseName));
             case OnExistSilentNoOp:
-              return dbConnectionString;
+              return;
             case OnExistSilentOverride:
               dropDatabase(databaseName);
           }
@@ -114,7 +134,6 @@ public class PostgreSQLClient implements AutoCloseable {
       int result = stmt.executeUpdate(sql);
       LOGGER.info("Executed create database with success {}", result);
     }
-    return dbConnectionString;
   }
 
   public void dropDatabase(String databaseName) throws SQLException {

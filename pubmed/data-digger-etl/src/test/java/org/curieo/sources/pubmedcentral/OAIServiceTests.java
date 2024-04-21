@@ -18,12 +18,12 @@ class OAIServiceTests {
     String pmcId = "PMC5334499";
     assertNotNull(ft.getRecord(pmcId));
     File tar = ft.getFullText(pmcId, "tgz");
+    assertNotNull(tar);
     File desired =
         TarExtractor.getSingleFileOutOfTar(
             tar,
             tar.getAbsolutePath().toLowerCase().endsWith("gz"),
             f -> f.getAbsolutePath().toLowerCase().endsWith("xml"));
-    assertNotNull(tar);
     assertNotNull(desired);
     tar.delete();
     assertTrue(desired.exists());

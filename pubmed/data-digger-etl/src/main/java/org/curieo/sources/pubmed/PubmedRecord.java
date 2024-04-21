@@ -48,6 +48,8 @@ public class PubmedRecord implements Record {
   public static final String DAY_TAG = "Day";
   public static final String YEAR_TAG = "Year";
 
+  String origin;
+
   @Singular("abstractTex")
   List<Text> abstractText;
 
@@ -77,6 +79,11 @@ public class PubmedRecord implements Record {
   }
 
   @Override
+  public String getOrigin() {
+    return origin;
+  }
+
+  @Override
   public List<String> getAuthors() {
     return CollectionUtils.emptyIfNull(getPubmedAuthors()).stream()
         .map(PubmedAuthor::toString)
@@ -91,7 +98,7 @@ public class PubmedRecord implements Record {
       list.add(
           new LinkedField<>(
               ordinal,
-              getIdentifier(),
+              getNumericIdentifier(),
               pubmedAuthors.get(ordinal).toAuthorship(year == null ? 0 : year)));
     }
     return list;
@@ -107,17 +114,17 @@ public class PubmedRecord implements Record {
 
   public String getIdentifier(String type) {
     for (Metadata id : identifiers) {
-      if (id.getKey().equals(type)) {
-        return id.getValue();
+      if (id.key().equals(type)) {
+        return id.value();
       }
     }
     return null;
   }
 
-  public static PubmedRecord read(XMLEventReader reader, XMLEvent current)
+  public static PubmedRecord read(String filename, XMLEventReader reader, XMLEvent current)
       throws XMLStreamException {
     // read the record
-    PubmedRecordBuilder builder = PubmedRecord.builder();
+    PubmedRecordBuilder builder = PubmedRecord.builder().origin(filename);
     while (reader.hasNext()) {
       XMLEvent event = reader.nextEvent();
       if (event.isStartElement()) {

@@ -24,7 +24,7 @@ class PubmedTests {
     int referenceCount = 0;
     int resolvedReferenceCount = 0;
     Map<Integer, Integer> yearCount = new HashMap<>();
-    for (PubmedRecord pr : Pubmed.read(new File(path))) {
+    for (PubmedRecord pr : Pubmed.read(new File(path), "pubmed24n1307.xml.gz")) {
       String title, pmid = pr.getIdentifier("pubmed");
       if (pr.getTitles().isEmpty()) {
         title = "NONE";
@@ -55,7 +55,7 @@ class PubmedTests {
                     ref ->
                         (int)
                             ListUtils.emptyIfNull(ref.getIdentifiers()).stream()
-                                .filter(a -> a.getKey().equals("pubmed"))
+                                .filter(a -> a.key().equals("pubmed"))
                                 .count())
                 .sum();
       }
