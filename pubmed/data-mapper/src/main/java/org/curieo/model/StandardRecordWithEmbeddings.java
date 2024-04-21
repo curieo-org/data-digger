@@ -14,6 +14,7 @@ import lombok.Generated;
 @Data
 @Builder
 public class StandardRecordWithEmbeddings implements Record {
+  String origin;
   List<Text> abstractText;
   List<Text> titles;
   List<String> authors;
@@ -26,6 +27,7 @@ public class StandardRecordWithEmbeddings implements Record {
 
   public static StandardRecordWithEmbeddings copy(Record record, double[] embeddings) {
     return new StandardRecordWithEmbeddings.StandardRecordWithEmbeddingsBuilder()
+        .origin(record.getOrigin())
         .abstractText(record.getAbstractText())
         .titles(record.getTitles())
         .authors(record.getAuthors())
@@ -36,5 +38,10 @@ public class StandardRecordWithEmbeddings implements Record {
         .identifier(record.getIdentifier())
         .embeddings(embeddings)
         .build();
+  }
+
+  @Override
+  public String getOrigin() {
+    return origin;
   }
 }
