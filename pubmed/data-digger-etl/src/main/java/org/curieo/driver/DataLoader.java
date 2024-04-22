@@ -20,10 +20,8 @@ import org.curieo.elastic.Client;
 import org.curieo.elastic.ElasticConsumer;
 import org.curieo.embed.EmbeddingService;
 import org.curieo.embed.SentenceEmbeddingService;
-import org.curieo.model.Job;
+import org.curieo.model.*;
 import org.curieo.model.Record;
-import org.curieo.model.StandardRecord;
-import org.curieo.model.StandardRecordWithEmbeddings;
 import org.curieo.retrieve.ftp.FTPProcessing;
 import org.curieo.sources.SourceReader;
 import org.curieo.utils.Config;
@@ -157,7 +155,7 @@ public record DataLoader(
       sentenceEmbeddingService = new SentenceEmbeddingService(embeddingService);
     }
 
-    Sink<Job> jobsSink = new NoopSink<>();
+    Sink<TS<Job>> jobsSink = new NoopSink<>();
     Sink<Record> tsink = new NoopSink<>();
     if (index != null) {
       tsink = getElasticConsumer(credentials, index, sentenceEmbeddingService);
@@ -231,14 +229,11 @@ public record DataLoader(
       }
 
       assert postgreSQLClient != null;
-      Map<String, Job.State> jobStates = new HashMap<>();
-      PostgreSQLClient.retrieveStringMap(
-              postgreSQLClient.getConnection(), "select name, state from jobs")
-          .forEach((k, v) -> jobStates.put(k, Job.State.fromInt(v)));
+      Map<String, TS<Job>> jobs = PostgreSQLClient.retrieveJobs(postgreSQLClient.getConnection());
 
       ftpProcessing.processRemoteDirectory(
           credentials.get(application, "remotepath"),
-          jobStates,
+          jobs,
           jobsSink,
           (FTPFile ftpFile) -> ftpFile.getName().toLowerCase().endsWith(".xml.gz"),
           loader::processFile,

@@ -1,14 +1,16 @@
 package org.curieo.consumer;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.function.Function;
 
 record Extract<T>(
-    StorageSpec spec,
+    FieldSpec spec,
     Function<T, List<String>> explode,
     Function<T, String> stringExtract,
     Function<T, Integer> intExtract,
-    Function<T, Long> longExtract) {
+    Function<T, Long> longExtract,
+    Function<T, Timestamp> timestampExtract) {
   String getAsString(T t) {
     return switch (spec.getType()) {
       case String -> stringExtract.apply(t);
@@ -30,5 +32,9 @@ record Extract<T>(
 
   public String getString(T t) {
     return stringExtract.apply(t);
+  }
+
+  public Timestamp getTimestamp(T t) {
+    return timestampExtract.apply(t);
   }
 }

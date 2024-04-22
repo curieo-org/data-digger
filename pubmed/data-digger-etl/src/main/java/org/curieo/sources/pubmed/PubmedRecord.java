@@ -23,9 +23,7 @@ import org.curieo.model.Record;
 import org.curieo.model.Reference;
 import org.curieo.model.Reference.ReferenceBuilder;
 import org.curieo.model.Text;
-import org.curieo.sources.IdProvider;
 import org.curieo.sources.Source;
-import org.curieo.sources.SourceReader;
 
 @Generated
 @Value
@@ -104,12 +102,10 @@ public class PubmedRecord implements Record {
     return list;
   }
 
-  /**
-   * We're computing a unique identifier by suffixing the PubmedId with a code from the IdProvider
-   */
+  /** Retrieve unique pubmed identifier */
   @Override
   public String getIdentifier() {
-    return IdProvider.identifier(this.getIdentifier("pubmed"), SourceReader.PUBMED);
+    return this.getIdentifier("pubmed");
   }
 
   public String getIdentifier(String type) {

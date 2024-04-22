@@ -1,5 +1,6 @@
 package org.curieo.consumer;
 
+import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -16,6 +17,23 @@ import org.slf4j.LoggerFactory;
 class StorageSpec {
   private static final Logger LOGGER = LoggerFactory.getLogger(StorageSpec.class);
 
+  List<FieldSpec> fields;
+
+  public static StorageSpec of(FieldSpec... fields) {
+    return new StorageSpec(List.of(fields));
+  }
+
+  public void add(FieldSpec field) {
+    fields.add(field);
+  }
+}
+
+@Generated
+@Value
+@AllArgsConstructor
+class FieldSpec {
+  private static final Logger LOGGER = LoggerFactory.getLogger(FieldSpec.class);
+
   String field;
   ExtractType type;
   int size;
@@ -31,20 +49,24 @@ class StorageSpec {
     NA
   }
 
+  public boolean isTimestamp() {
+    return type == ExtractType.Timestamp;
+  }
+
   public boolean isIdentityColumn() {
     return identityType != IdentityType.NA;
   }
 
-  StorageSpec(String field, ExtractType type) {
+  FieldSpec(String field, ExtractType type) {
     this(field, type, 0, false, "", IdentityType.NA);
     if (type == ExtractType.String || type == ExtractType.List)
       throw new IllegalArgumentException("VARCHAR types must have a size specified");
   }
 
-  static StorageSpec identity(ExtractType type) {
+  static FieldSpec identity(ExtractType type) {
     switch (type) {
       case SmallInt, Integer, BigInteger -> {
-        return new StorageSpec("Id", type, 0, false, "", IdentityType.Generated);
+        return new FieldSpec("id", type, 0, false, "", IdentityType.Generated);
       }
       default ->
           throw new IllegalArgumentException(
@@ -52,23 +74,31 @@ class StorageSpec {
     }
   }
 
-  static StorageSpec identity(String field, ExtractType type) {
-    return new StorageSpec(field, type, 0, true, "", IdentityType.Manual);
+  static FieldSpec identity(String field, ExtractType type) {
+    return new FieldSpec(field, type, 0, true, "", IdentityType.Manual);
   }
 
-  StorageSpec(String field, ExtractType type, int size, boolean unique) {
+  static FieldSpec timestamp(String field, String defaultValue) {
+    return new FieldSpec(field, ExtractType.Timestamp, 0, false, defaultValue, IdentityType.NA);
+  }
+
+  static FieldSpec timestamp(String field) {
+    return new FieldSpec(field, ExtractType.Timestamp, 0, false, "", IdentityType.NA);
+  }
+
+  FieldSpec(String field, ExtractType type, int size, boolean unique) {
     this(field, type, size, unique, "", IdentityType.NA);
     if (type != ExtractType.String && type != ExtractType.List)
       throw new IllegalArgumentException("Only VARCHAR types can have a size specified");
   }
 
-  StorageSpec(String field, ExtractType type, int size) {
+  FieldSpec(String field, ExtractType type, int size) {
     this(field, type, size, false, "", IdentityType.NA);
     if (type != ExtractType.String && type != ExtractType.List)
       throw new IllegalArgumentException("Only VARCHAR types can have a size specified");
   }
 
-  StorageSpec(String field, ExtractType type, String defaultValue) {
+  FieldSpec(String field, ExtractType type, String defaultValue) {
     this(field, type, 0, false, defaultValue, IdentityType.NA);
     if (type == ExtractType.String || type == ExtractType.List)
       throw new IllegalArgumentException("VARCHAR types must have a size specified");
@@ -77,22 +107,28 @@ class StorageSpec {
   <T> Extract<T> extractString(Function<T, String> f) {
     return switch (this.type) {
       case ExtractType.String ->
-          new Extract<>(this, null, new TrimToSize<>(size, f, field), null, null);
-      case ExtractType.Text -> new Extract<>(this, null, f, null, null);
-      default -> throw new IllegalArgumentException("Wrong extractor for specified type");
+          new Extract<>(this, null, new TrimToSize<>(size, f, field), null, null, null);
+      case ExtractType.Text -> new Extract<>(this, null, f, null, null, null);
+      default ->
+          throw new IllegalArgumentException(
+              "No string extractor for specified type: " + this.type);
     };
   }
 
   <T> Extract<T> extractList(Function<T, List<String>> f) {
-    return new Extract<>(this, new TrimAllToSize<>(size, f, field), null, null, null);
+    return new Extract<>(this, new TrimAllToSize<>(size, f, field), null, null, null, null);
   }
 
   <T> Extract<T> extractInt(Function<T, Integer> f) {
-    return new Extract<>(this, null, null, f, null);
+    return new Extract<>(this, null, null, f, null, null);
   }
 
   <T> Extract<T> extractLong(Function<T, Long> f) {
-    return new Extract<>(this, null, null, null, f);
+    return new Extract<>(this, null, null, null, f, null);
+  }
+
+  <T> Extract<T> extractTimestamp(Function<T, Timestamp> f) {
+    return new Extract<>(this, null, null, null, null, f);
   }
 
   public String toSql() {

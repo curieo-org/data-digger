@@ -14,21 +14,25 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
   private static final Logger LOGGER = LoggerFactory.getLogger(SQLSinkFactory.class);
   public static final int DEFAULT_BATCH_SIZE = 100;
 
-  public Sink<Job> createJobsSink() throws SQLException {
-    List<StorageSpec> storageSpecs =
-        List.of(
-            new StorageSpec("name", ExtractType.String, 60, true),
-            new StorageSpec("state", ExtractType.SmallInt));
-    String tableName = "Jobs";
+  public Sink<TS<Job>> createJobsSink() throws SQLException {
+    StorageSpec spec =
+        StorageSpec.of(
+            new FieldSpec("name", ExtractType.String, 60, true),
+            new FieldSpec("state", ExtractType.SmallInt),
+            FieldSpec.timestamp("timestamp"));
 
-    createTable(tableName, storageSpecs);
-    PreparedStatement upsert = upsertStatement(tableName, storageSpecs, "name");
+    String tableName = "jobs";
 
-    List<Extract<Job>> extracts = new ArrayList<>();
-    extracts.add(storageSpecs.get(0).extractString(Job::getName));
-    extracts.add(storageSpecs.get(1).extractInt(Job::getJobStateInner));
+    createTable(tableName, spec.getFields());
+    PreparedStatement upsert = upsertStatement(tableName, spec.getFields(), "name");
 
-    return createAbstractSink(extracts, upsert, 1, connection, tableName);
+    List<FieldSpec> fieldSpecs = spec.getFields();
+    List<Extract<TS<Job>>> extracts = new ArrayList<>();
+    extracts.add(fieldSpecs.get(0).extractString(ts -> ts.value().getName()));
+    extracts.add(fieldSpecs.get(1).extractInt(ts -> ts.value().getJobStateInner()));
+    extracts.add(fieldSpecs.get(2).extractTimestamp(TS::timestamp));
+
+    return createAbstractSink(extracts, upsert);
   }
 
   /**
@@ -39,29 +43,29 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
    * @throws SQLException
    */
   public Sink<List<LinkedField<Authorship>>> createAuthorshipSink() throws SQLException {
-    List<StorageSpec> storageSpecs =
+    List<FieldSpec> fieldSpecs =
         Arrays.asList(
-            StorageSpec.identity("publicationId", ExtractType.BigInteger),
-            new StorageSpec("Ordinal", ExtractType.SmallInt),
-            new StorageSpec("foreName", ExtractType.String, 40),
-            new StorageSpec("lastName", ExtractType.String, 60),
-            new StorageSpec("initials", ExtractType.String, 10),
-            new StorageSpec("affiliation", ExtractType.List, 2000),
-            new StorageSpec("yearActive", ExtractType.SmallInt),
-            new StorageSpec("emailaddress", ExtractType.String, 60));
+            FieldSpec.identity("publicationId", ExtractType.BigInteger),
+            new FieldSpec("Ordinal", ExtractType.SmallInt),
+            new FieldSpec("foreName", ExtractType.String, 40),
+            new FieldSpec("lastName", ExtractType.String, 60),
+            new FieldSpec("initials", ExtractType.String, 10),
+            new FieldSpec("affiliation", ExtractType.List, 2000),
+            new FieldSpec("yearActive", ExtractType.SmallInt),
+            new FieldSpec("emailaddress", ExtractType.String, 60));
     String tableName = "Authorships";
-    createTable(tableName, storageSpecs);
-    PreparedStatement insert = upsertStatement(tableName, storageSpecs, "publicationId");
+    createTable(tableName, fieldSpecs);
+    PreparedStatement insert = upsertStatement(tableName, fieldSpecs, "publicationId");
 
     List<Extract<LinkedField<Authorship>>> extracts = new ArrayList<>();
-    extracts.add(storageSpecs.get(0).extractLong(LinkedField::publicationId));
-    extracts.add(storageSpecs.get(1).extractInt(LinkedField::ordinal));
-    extracts.add(storageSpecs.get(2).extractString(l -> l.field().getForeName()));
-    extracts.add(storageSpecs.get(3).extractString(l -> l.field().getLastName()));
-    extracts.add(storageSpecs.get(4).extractString(l -> l.field().getInitials()));
-    extracts.add(storageSpecs.get(5).extractList(l -> l.field().getAffiliations()));
-    extracts.add(storageSpecs.get(6).extractInt(l -> l.field().getYearActive()));
-    extracts.add(storageSpecs.get(7).extractString(l -> l.field().getEmailAddress()));
+    extracts.add(fieldSpecs.get(0).extractLong(LinkedField::publicationId));
+    extracts.add(fieldSpecs.get(1).extractInt(LinkedField::ordinal));
+    extracts.add(fieldSpecs.get(2).extractString(l -> l.field().getForeName()));
+    extracts.add(fieldSpecs.get(3).extractString(l -> l.field().getLastName()));
+    extracts.add(fieldSpecs.get(4).extractString(l -> l.field().getInitials()));
+    extracts.add(fieldSpecs.get(5).extractList(l -> l.field().getAffiliations()));
+    extracts.add(fieldSpecs.get(6).extractInt(l -> l.field().getYearActive()));
+    extracts.add(fieldSpecs.get(7).extractString(l -> l.field().getEmailAddress()));
 
     return new ListSink<>(createAbstractSink(extracts, insert, batchSize, connection, tableName));
   }
@@ -75,28 +79,28 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
    */
   public Sink<List<LinkedField<Reference>>> createReferenceSink(String... ids) throws SQLException {
     String tableName = "ReferenceTable";
-    List<StorageSpec> storageSpecs =
+    List<FieldSpec> fieldSpecs =
         new ArrayList<>(
             Arrays.asList(
-                StorageSpec.identity("articleId", ExtractType.BigInteger),
-                new StorageSpec("ordinal", ExtractType.Integer),
-                new StorageSpec("citation", ExtractType.String, 500)));
+                FieldSpec.identity("articleId", ExtractType.BigInteger),
+                new FieldSpec("ordinal", ExtractType.Integer),
+                new FieldSpec("citation", ExtractType.String, 500)));
     // a variable number of identifiers
     for (String id : ids) {
-      storageSpecs.add(new StorageSpec(id, ExtractType.String, 30));
+      fieldSpecs.add(new FieldSpec(id, ExtractType.String, 30));
     }
-    createTable(tableName, storageSpecs);
-    PreparedStatement upsert = upsertStatement(tableName, storageSpecs, "articleId");
+    createTable(tableName, fieldSpecs);
+    PreparedStatement upsert = upsertStatement(tableName, fieldSpecs, "articleId");
 
     List<Extract<LinkedField<Reference>>> extracts = new ArrayList<>();
-    extracts.add(storageSpecs.get(0).extractLong(LinkedField::publicationId));
-    extracts.add(storageSpecs.get(1).extractInt(LinkedField::ordinal));
-    extracts.add(storageSpecs.get(2).extractString(l -> l.field().getCitation()));
+    extracts.add(fieldSpecs.get(0).extractLong(LinkedField::publicationId));
+    extracts.add(fieldSpecs.get(1).extractInt(LinkedField::ordinal));
+    extracts.add(fieldSpecs.get(2).extractString(l -> l.field().getCitation()));
 
     // a variable number of identifiers
     for (String id : ids) {
       extracts.add(
-          storageSpecs
+          fieldSpecs
               .get(3)
               .extractString(
                   l ->
@@ -119,18 +123,18 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
   public Sink<List<Metadata>> createLinkTable(String sourceIdentifier, String targetIdentifier)
       throws SQLException {
     String tableName = "LinkTable";
-    List<StorageSpec> storageSpecs =
+    List<FieldSpec> fieldSpecs =
         new ArrayList<>(
             Arrays.asList(
-                StorageSpec.identity(sourceIdentifier, ExtractType.BigInteger),
-                new StorageSpec(targetIdentifier, ExtractType.String, 20)));
+                FieldSpec.identity(sourceIdentifier, ExtractType.BigInteger),
+                new FieldSpec(targetIdentifier, ExtractType.String, 20)));
 
-    createTable(tableName, storageSpecs);
-    PreparedStatement upsert = upsertStatement(tableName, storageSpecs, sourceIdentifier);
+    createTable(tableName, fieldSpecs);
+    PreparedStatement upsert = upsertStatement(tableName, fieldSpecs, sourceIdentifier);
 
     List<Extract<Metadata>> extracts = new ArrayList<>();
-    extracts.add(storageSpecs.get(0).extractLong(s -> Long.parseLong(s.key())));
-    extracts.add(storageSpecs.get(1).extractString(Metadata::value));
+    extracts.add(fieldSpecs.get(0).extractLong(s -> Long.parseLong(s.key())));
+    extracts.add(fieldSpecs.get(1).extractString(Metadata::value));
 
     return new ListSink<>(createAbstractSink(extracts, upsert, batchSize, connection, tableName));
   }
@@ -143,108 +147,118 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
    * @throws SQLException
    */
   public Sink<StandardRecord> createRecordSink() throws SQLException {
-    List<StorageSpec> storageSpecs =
+    List<FieldSpec> fieldSpecs =
         Arrays.asList(
-            StorageSpec.identity("Identifier", ExtractType.BigInteger),
-            new StorageSpec("Year", ExtractType.SmallInt),
-            new StorageSpec("Record", ExtractType.Text),
-            new StorageSpec("Origin", ExtractType.String, 60));
+            FieldSpec.identity("Identifier", ExtractType.BigInteger),
+            new FieldSpec("Year", ExtractType.SmallInt),
+            new FieldSpec("Record", ExtractType.Text),
+            new FieldSpec("Origin", ExtractType.String, 60));
     String tableName = "Records";
-    createLargeTable(tableName, storageSpecs);
+    createLargeTable(tableName, fieldSpecs);
 
-    PreparedStatement upsert = upsertStatement(tableName, storageSpecs, "identifier");
+    PreparedStatement upsert = upsertStatement(tableName, fieldSpecs, "Identifier");
 
     List<Extract<StandardRecord>> extracts = new ArrayList<>();
-    extracts.add(storageSpecs.get(0).extractLong(StandardRecord::getNumericIdentifier));
-    extracts.add(storageSpecs.get(1).extractInt(StandardRecord::getYear));
-    extracts.add(storageSpecs.get(2).extractString(StandardRecord::toJson));
-    extracts.add(storageSpecs.get(3).extractString(StandardRecord::getOrigin));
+    extracts.add(fieldSpecs.get(0).extractLong(StandardRecord::getNumericIdentifier));
+    extracts.add(fieldSpecs.get(1).extractInt(StandardRecord::getYear));
+    extracts.add(fieldSpecs.get(2).extractString(StandardRecord::toJson));
+    extracts.add(fieldSpecs.get(3).extractString(StandardRecord::getOrigin));
 
     return createAbstractSink(extracts, upsert, batchSize, connection, tableName);
   }
 
   public Sink<FullTextRecord> createPMCSink(String tableName) throws SQLException {
-    List<StorageSpec> storageSpecs =
+    List<FieldSpec> fieldSpecs =
         Arrays.asList(
-            new StorageSpec("Identifier", ExtractType.String, 20, useKeys),
-            new StorageSpec("Record", ExtractType.Text, 0));
-    createTable(tableName, storageSpecs);
-    PreparedStatement insert = insertStatement(tableName, storageSpecs);
+            new FieldSpec("Identifier", ExtractType.String, 20, useKeys),
+            new FieldSpec("Record", ExtractType.Text, 0));
+    createTable(tableName, fieldSpecs);
+    PreparedStatement insert = insertStatement(tableName, fieldSpecs);
     if (useKeys) {
-      insert = upsertStatement(tableName, storageSpecs, "identifier");
+      insert = upsertStatement(tableName, fieldSpecs, "identifier");
     }
 
     List<Extract<FullTextRecord>> extracts = new ArrayList<>();
-    extracts.add(storageSpecs.get(0).extractString(FullTextRecord::getIdentifier));
-    extracts.add(storageSpecs.get(1).extractString(FullTextRecord::getContent));
+    extracts.add(fieldSpecs.get(0).extractString(FullTextRecord::getIdentifier));
+    extracts.add(fieldSpecs.get(1).extractString(FullTextRecord::getContent));
 
     return createAbstractSink(extracts, insert, batchSize, connection, tableName);
   }
 
-  private void createTableHelper(
-      String tableName, List<StorageSpec> storageSpecs, ExtractType idType) throws SQLException {
-    storageSpecs = new ArrayList<>(storageSpecs);
+  private List<FieldSpec> createTableHelper(
+      String tableName, List<FieldSpec> fieldSpecs, ExtractType idType) throws SQLException {
+    fieldSpecs = new ArrayList<>(fieldSpecs);
 
-    boolean missingIdentityColumn = storageSpecs.stream().noneMatch(StorageSpec::isIdentityColumn);
+    boolean missingIdentityColumn = fieldSpecs.stream().noneMatch(FieldSpec::isIdentityColumn);
+    boolean missingTimestamp = fieldSpecs.stream().noneMatch(FieldSpec::isTimestamp);
     if (missingIdentityColumn) {
-      storageSpecs.addFirst(StorageSpec.identity(idType));
+      fieldSpecs.addFirst(FieldSpec.identity(idType));
     }
-    storageSpecs.add(new StorageSpec("Timestamp", ExtractType.Timestamp, "now()"));
+    if (missingTimestamp) {
+      fieldSpecs.add(FieldSpec.timestamp("timestamp", "now()"));
+    }
     String creation =
         String.format(
             "CREATE TABLE IF NOT EXISTS %s (%s)",
-            tableName,
-            storageSpecs.stream().map(StorageSpec::toSql).collect(Collectors.joining(", ")));
+            tableName, fieldSpecs.stream().map(FieldSpec::toSql).collect(Collectors.joining(", ")));
     Statement statement = connection.createStatement();
     statement.execute(creation);
+
+    return fieldSpecs;
   }
 
-  private void createTable(String tableName, List<StorageSpec> storageSpecs) throws SQLException {
-    // Use integer as we probably won't go over 2 billion entries
-    createTableHelper(tableName, storageSpecs, ExtractType.Integer);
-  }
-
-  private void createLargeTable(String tableName, List<StorageSpec> storageSpecs)
+  private List<FieldSpec> createTable(String tableName, List<FieldSpec> fieldSpecs)
       throws SQLException {
-    createTableHelper(tableName, storageSpecs, ExtractType.BigInteger);
+    // Use integer as we probably won't go over 2 billion entries
+    return createTableHelper(tableName, fieldSpecs, ExtractType.Integer);
   }
 
-  private PreparedStatement insertStatement(String tableName, List<StorageSpec> storageSpecs)
+  private List<FieldSpec> createLargeTable(String tableName, List<FieldSpec> fieldSpecs)
+      throws SQLException {
+    return createTableHelper(tableName, fieldSpecs, ExtractType.BigInteger);
+  }
+
+  private PreparedStatement insertStatement(String tableName, List<FieldSpec> fieldSpecs)
       throws SQLException {
     String insert =
         String.format(
             "INSERT INTO %s (%s) VALUES (%s)",
             tableName,
-            storageSpecs.stream().map(StorageSpec::getField).collect(Collectors.joining(", ")),
-            storageSpecs.stream().map(s -> "?").collect(Collectors.joining(", ")));
+            fieldSpecs.stream().map(FieldSpec::getField).collect(Collectors.joining(", ")),
+            fieldSpecs.stream().map(s -> "?").collect(Collectors.joining(", ")));
     return connection.prepareStatement(insert);
   }
 
   private PreparedStatement upsertStatement(
-      String tableName, List<StorageSpec> storageSpecs, String conflictColumn) throws SQLException {
+      String tableName, List<FieldSpec> fieldSpecs, String conflictColumn) throws SQLException {
 
-    String insert =
+    String upsert =
         String.format(
-            "insert into %s (%s) VALUES (%s) on conflict (%s) do update set %s, timestamp = now();",
+            "insert into %s (%s) VALUES (%s) on conflict (%s) do update set %s;",
             tableName,
-            storageSpecs.stream().map(StorageSpec::getField).collect(Collectors.joining(", ")),
-            storageSpecs.stream().map(s -> "?").collect(Collectors.joining(", ")),
+            fieldSpecs.stream().map(FieldSpec::getField).collect(Collectors.joining(", ")),
+            fieldSpecs.stream().map(s -> "?").collect(Collectors.joining(", ")),
             conflictColumn,
-            storageSpecs.stream()
-                .map(StorageSpec::getField)
-                .filter(s -> !Objects.equals(s, conflictColumn))
+            fieldSpecs.stream()
+                .map(FieldSpec::getField)
+                .filter(s -> !Objects.equals(s.toLowerCase(), conflictColumn.toLowerCase()))
                 .map(s -> String.format("%s = EXCLUDED.%s", s, s))
                 .collect(Collectors.joining(", ")));
 
-    return connection.prepareStatement(insert);
+    return connection.prepareStatement(upsert);
   }
 
   private static <T> AbstractSink<T> createAbstractSink(
       List<Extract<T>> extracts,
-      PreparedStatement insert,
+      PreparedStatement statement,
       int batchSize,
       Connection connection,
       String tableName) {
-    return new AbstractSink<>(extracts, insert, batchSize);
+    return new AbstractSink<>(extracts, statement, batchSize);
+  }
+
+  private static <T> AbstractSink<T> createAbstractSink(
+      List<Extract<T>> extracts, PreparedStatement statement) {
+    return new AbstractSink<>(extracts, statement, 1);
   }
 }

@@ -11,8 +11,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
@@ -23,6 +22,7 @@ import org.apache.commons.net.ftp.FTPReply;
 import org.curieo.consumer.PostgreSQLClient;
 import org.curieo.consumer.Sink;
 import org.curieo.model.Job;
+import org.curieo.model.TS;
 import org.curieo.utils.Credentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,28 +102,6 @@ public class FTPProcessing implements AutoCloseable {
   }
 
   /**
-   * If the path does not exist, returns empty map.
-   *
-   * @return instantiated status map
-   * @throws IOException
-   */
-  public Map<String, Status> getJobStatuses() throws SQLException {
-    if (psqlClient == null) {
-      throw new IllegalStateException("PostgreSQL connection not initialized.");
-    }
-    try (PreparedStatement stmt =
-        psqlClient
-            .getConnection()
-            .prepareStatement(
-                """
-          select id, name, state, timestamp from jobs
-          """)) {
-      stmt.executeQuery();
-    }
-    return new HashMap<>();
-  }
-
-  /**
    * write the status map
    *
    * @param path
@@ -175,8 +153,8 @@ public class FTPProcessing implements AutoCloseable {
    */
   public void processRemoteDirectory(
       String remoteDirectory,
-      Map<String, Job.State> jobStates,
-      Sink<Job> updateJobSink,
+      Map<String, TS<Job>> jobs,
+      Sink<TS<Job>> updateJobSink,
       Function<FTPFile, Boolean> filter,
       BiFunction<File, String, Status> processor,
       int maximumNumberOfFiles)
@@ -187,12 +165,22 @@ public class FTPProcessing implements AutoCloseable {
     // First pass
     for (FTPFile file : ftp.listFiles(remoteDirectory)) {
       if (filter.apply(file)) {
-        jobStates.computeIfAbsent(
-            file.getName(),
-            jobName -> {
-              updateJobSink.accept(Job.queue(jobName));
-              return Job.State.Queued;
-            });
+        String name = file.getName();
+        Timestamp remoteTimestamp = Timestamp.from(file.getTimestamp().toInstant());
+
+        if (jobs.containsKey(name)) {
+          // If our job is outdated
+          if (jobs.get(name).timestamp().before(remoteTimestamp)) {
+            // Add job to queue and update jobs
+            Job queued = Job.queue(name);
+            updateJobSink.accept(TS.of(queued, remoteTimestamp));
+            jobs.put(name, TS.of(queued, remoteTimestamp));
+          }
+        } else {
+          Job queued = Job.queue(name);
+          updateJobSink.accept(TS.of(queued, remoteTimestamp));
+          jobs.put(name, TS.of(queued, remoteTimestamp));
+        }
       }
     }
 
@@ -200,15 +188,22 @@ public class FTPProcessing implements AutoCloseable {
     AtomicInteger done =
         new AtomicInteger(
             (int)
-                jobStates.values().stream()
-                    .filter(status -> status == Job.State.Completed)
+                jobs.values().stream()
+                    .filter(ts -> ts.value().getJobState() == Job.State.Completed)
                     .count());
 
-    jobStates.entrySet().stream()
-        .filter(s -> s.getValue() == Job.State.Queued || s.getValue() == Job.State.Failed)
+    jobs.entrySet().stream()
         .parallel()
         .forEach(
             state -> {
+              String key = state.getKey();
+              TS<Job> ts = state.getValue();
+              Timestamp timestamp = ts.timestamp();
+              Job job = ts.value();
+
+              if (job.getJobState() != Job.State.Queued && job.getJobState() != Job.State.Failed) {
+                return;
+              }
               if (filesSeen.get() >= maximumNumberOfFiles) {
                 return;
               }
@@ -216,22 +211,22 @@ public class FTPProcessing implements AutoCloseable {
               try {
                 // retrieve the remote file, and submit.
                 FTPClient ftpClient = createClient();
-                File tmp = File.createTempFile(prefix(state.getKey()), suffix(state.getKey()));
+                File tmp = File.createTempFile(prefix(key), suffix(key));
                 String remoteFile;
                 if (remoteDirectory.endsWith("/")) {
-                  remoteFile = remoteDirectory + state.getKey();
+                  remoteFile = remoteDirectory + key;
                 } else {
-                  remoteFile = remoteDirectory + "/" + state.getKey();
+                  remoteFile = remoteDirectory + "/" + key;
                 }
 
                 if (!retrieveFile(ftpClient, remoteFile, tmp)) {
                   LOGGER.error("Cannot retrieve file {}", remoteFile);
-                  updateJobSink.accept(Job.failed(state.getKey()));
+                  updateJobSink.accept(TS.of(Job.failed(key), timestamp));
                 } else {
-                  updateJobSink.accept(Job.inProgress(state.getKey()));
+                  updateJobSink.accept(TS.of(Job.inProgress(key), timestamp));
                   updateJobSink.accept(
-                      new Job(state.getKey(), processor.apply(tmp, state.getKey()).intoJobState()));
-                  LOGGER.info("Processed {}: state = {}", state.getKey(), state.getValue());
+                      TS.of(new Job(key, processor.apply(tmp, key).intoJobState()), timestamp));
+                  LOGGER.info("Processed {}: state = {}", key, ts);
                   filesSeen.getAndIncrement();
                 }
 
@@ -243,27 +238,17 @@ public class FTPProcessing implements AutoCloseable {
                 LOGGER.info(
                     String.format(
                         "Done %d/%d, at %.1f%%",
-                        currentDone,
-                        jobStates.size(),
-                        (float) 100 * currentDone / jobStates.size()));
-                updateJobSink.accept(Job.completed(state.getKey()));
+                        currentDone, jobs.size(), (float) 100 * currentDone / jobs.size()));
+                updateJobSink.accept(TS.of(Job.completed(key), timestamp));
                 ftpClient.disconnect();
 
               } catch (IOException e) {
-                updateJobSink.accept(Job.failed(state.getKey()));
+                updateJobSink.accept(TS.of(Job.failed(key), timestamp));
                 throw new RuntimeException(e);
               }
             });
 
     close();
-  }
-
-  public static <K, V> Map<K, V> mapDiff(Map<K, V> left, Map<K, V> right) {
-    Map<K, V> difference = new HashMap<>();
-    difference.putAll(left);
-    difference.putAll(right);
-    difference.entrySet().removeAll(right.entrySet());
-    return difference;
   }
 
   private boolean retrieveFile(String remoteFile, File localFile) throws IOException {

@@ -14,13 +14,13 @@ import org.curieo.utils.ListUtils;
 @AllArgsConstructor
 class AbstractSink<T> implements Sink<T> {
   final List<Extract<T>> extracts;
-  final PreparedStatement insert;
+  final PreparedStatement statement;
   int insertions;
   int updates;
   int batchSize;
 
-  public AbstractSink(List<Extract<T>> extracts, PreparedStatement insert, int batchSize) {
-    this(extracts, insert, 0, 0, batchSize);
+  public AbstractSink(List<Extract<T>> extracts, PreparedStatement statement, int batchSize) {
+    this(extracts, statement, 0, 0, batchSize);
   }
 
   @Override
@@ -44,26 +44,27 @@ class AbstractSink<T> implements Sink<T> {
           Extract<T> extract = extracts.get(i - 1);
           switch (extract.spec().getType()) {
             case SmallInt, Integer:
-              insert.setInt(i, extract.getInteger(t));
+              statement.setInt(i, extract.getInteger(t));
               break;
             case BigInteger:
-              insert.setLong(i, extract.getLong(t));
+              statement.setLong(i, extract.getLong(t));
               break;
             case List:
               if (values.size() > e) {
-                insert.setString(i, values.get(e++));
+                statement.setString(i, values.get(e++));
               } else {
-                insert.setString(i, null);
+                statement.setString(i, null);
               }
               break;
             case String, Text:
-              insert.setString(i, extract.getString(t));
+              statement.setString(i, extract.getString(t));
               break;
-            default:
+            case Timestamp:
+              statement.setTimestamp(i, extract.getTimestamp(t));
               break;
           }
         }
-        insert.addBatch();
+        statement.addBatch();
         insertions++;
         if (insertions % batchSize == 0) {
           executeAndClearBatch();
@@ -90,11 +91,10 @@ class AbstractSink<T> implements Sink<T> {
 
   private void executeAndClearBatch() {
     try {
-      int[] updateCounts = insert.executeBatch();
+      int[] updateCounts = statement.executeBatch();
       int updateSum = Arrays.stream(updateCounts).filter(i -> i > 0).sum();
       updates += updateSum;
-
-      insert.clearBatch();
+      statement.clearBatch();
     } catch (SQLException e) {
       throw new RuntimeException(e);
     }

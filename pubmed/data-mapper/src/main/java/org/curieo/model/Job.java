@@ -33,10 +33,6 @@ public class Job {
     return new Job(name, State.Failed);
   }
 
-  public Job copy() {
-    return Job.builder().name(name).jobState(jobState).build();
-  }
-
   public int getJobStateInner() {
     return this.getJobState().inner;
   }

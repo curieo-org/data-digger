@@ -5,11 +5,10 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 import lombok.Getter;
+import org.curieo.model.Job;
+import org.curieo.model.TS;
 import org.curieo.rdf.HashSet;
 import org.curieo.utils.Credentials;
 import org.slf4j.Logger;
@@ -77,9 +76,10 @@ public class PostgreSQLClient implements AutoCloseable {
     return keys;
   }
 
-  public static Map<String, Integer> retrieveStringMap(Connection connection, String query)
-      throws SQLException {
-    Map<String, Integer> keys = new HashMap<>();
+  public static Map<String, TS<Job>> retrieveJobs(Connection connection) throws SQLException {
+
+    Map<String, TS<Job>> jobs = new HashMap<>();
+
     // https://jdbc.postgresql.org/documentation/query/#getting-results-based-on-a-cursor
     boolean autocommit = connection.getAutoCommit();
     connection.setAutoCommit(false);
@@ -87,13 +87,21 @@ public class PostgreSQLClient implements AutoCloseable {
     Statement statement =
         connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
     statement.setFetchSize(100);
-    try (ResultSet resultSet = statement.executeQuery(query)) {
+    try (ResultSet resultSet = statement.executeQuery("select name, state, timestamp from jobs")) {
       while (resultSet.next()) {
-        keys.put(resultSet.getString(1), resultSet.getInt(2));
+
+        Job job =
+            Job.builder()
+                .name(resultSet.getString(1))
+                .jobState(Job.State.fromInt(resultSet.getInt(2)))
+                .build();
+
+        TS<Job> jobTs = new TS<>(job, resultSet.getTimestamp(3));
+        jobs.put(job.getName(), jobTs);
       }
     }
     connection.setAutoCommit(autocommit); // back to original value
-    return keys;
+    return jobs;
   }
 
   /**
