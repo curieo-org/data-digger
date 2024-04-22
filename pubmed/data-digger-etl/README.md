@@ -14,61 +14,10 @@ There is a number of readers here, all of which must be run in live mode to keep
 * For local build, make sure you have [Maven](https://maven.apache.org/install.html) installed.
 
 ## Configuration
-From the root folder run the following commands
+Copy the `.env.template` file to `.env` in the root folder and configure the necessary environment variables.
+
 ```sh
-mkdir config
-touch config/credentials.json
-
-wget https://repo1.maven.org/maven2/org/slf4j/slf4j-simple/2.0.11/slf4j-simple-2.0.11.jar -P config
-```
-
-Add the following content to the config/credentials.json file and replace the placeholders with the actual credentials.
-```json
-{
-  "pubmed-updates": {
-    "server": "ftp.ncbi.nlm.nih.gov",
-    "password": "****",
-    "remotepath": "/pubmed/updatefiles/",
-    "user": "anonymous"
-  },
-  "postgres-datadigger": {
-    "password": "****",
-    "database": "jdbc:postgresql://localhost:5432/pubmed",
-    "user": "<USER>"
-  },
-  "openai": {
-    "organization": "org-HkACSjWCxgkeC3R7OVHA0Sew",
-    "key": "****"
-  },
-  "pubmed": {
-    "server": "ftp.ncbi.nlm.nih.gov",
-    "password": "****",
-    "remotepath": "/pubmed/baseline/",
-    "user": "anonymous"
-  },
-  "test": {
-    "key": "****"
-  },
-  "postgres-postgres": {
-    "password": "****",
-    "user": "<USER>"
-  },
-  "elastic": {
-    "server": "127.0.0.1",
-    "password": "****",
-    "apiKey": "****",
-    "port": "9200",
-    "fingerprint": "****",
-    "user": "elastic",
-    "url": "http://127.0.0.1:9200"
-  },
-  "pubmedcommons": {
-    "server": "ftp.ncbi.nlm.nih.gov",
-    "password": "****",
-    "remotepath": "/pubmed/pubmedcommons/",
-    "user": "anonymous"
-  }
-}
+cp .env.template .env
 ```
 
 * Building locally involves two steps:

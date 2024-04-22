@@ -2,7 +2,6 @@ package org.curieo.driver;
 
 import static org.curieo.driver.DataLoader.*;
 
-import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Set;
@@ -23,7 +22,6 @@ import org.curieo.model.FullTextRecord;
 import org.curieo.model.Record;
 import org.curieo.sources.pubmedcentral.FullText;
 import org.curieo.utils.Config;
-import org.curieo.utils.Credentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,8 +64,6 @@ public class DataLoaderPMC {
 
   public static void main(String[] args)
       throws ParseException, IOException, SQLException, XMLStreamException {
-    Option postgresuserOpt = postgresUser();
-    Option credentialsOpt = credentialsOption();
     Option batchSizeOption = batchSizeOption();
     Option oaiOption = oaiOption();
     Option useKeys = useKeysOption();
@@ -75,23 +71,18 @@ public class DataLoaderPMC {
     Option tableNameOpt = tableNameOption();
     Options options =
         new Options()
-            .addOption(postgresuserOpt)
             .addOption(batchSizeOption)
             .addOption(oaiOption)
             .addOption(queryOpt)
             .addOption(tableNameOpt)
-            .addOption(useKeys)
-            .addOption(credentialsOpt);
+            .addOption(useKeys);
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
-    String credpath = parse.getOptionValue(credentialsOpt, Config.CREDENTIALS_PATH);
-    Credentials credentials = Credentials.read(new File(credpath));
-    String postgresuser = parse.getOptionValue(postgresuserOpt, "datadigger");
+    Config config = new Config();
     int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);
 
     FullText ft = new FullText(parse.getOptionValue(oaiOption, OAI_SERVICE));
-    PostgreSQLClient postgreSQLClient =
-        PostgreSQLClient.getPostgreSQLClient(credentials, postgresuser);
+    PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config);
     SQLSinkFactory sqlSinkFactory =
         new SQLSinkFactory(postgreSQLClient.getConnection(), batchSize, parse.hasOption(useKeys));
     if (!parse.hasOption(queryOpt)) {

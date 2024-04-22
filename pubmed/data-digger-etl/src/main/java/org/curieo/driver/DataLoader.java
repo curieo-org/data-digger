@@ -36,7 +36,6 @@ import org.curieo.model.StandardRecordWithEmbeddings;
 import org.curieo.retrieve.ftp.FTPProcessing;
 import org.curieo.sources.SourceReader;
 import org.curieo.utils.Config;
-import org.curieo.utils.Credentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,19 +55,6 @@ public class DataLoader {
   String sourceType;
   Sink<Record> sink;
 
-  static Option postgresUser() {
-    return Option.builder()
-        .option("p")
-        .longOpt("postgres-user")
-        .hasArg()
-        .desc("postgresql user")
-        .build();
-  }
-
-  static Option credentialsOption() {
-    return new Option("c", "credentials", true, "Path to credentials file");
-  }
-
   static Option batchSizeOption() {
     return Option.builder()
         .option("b")
@@ -84,8 +70,6 @@ public class DataLoader {
   }
 
   public static void main(String[] args) throws ParseException, IOException, SQLException {
-    Option postgresuserOpt = postgresUser();
-    Option credentialsOpt = credentialsOption();
     Option batchSizeOption = batchSizeOption();
     Option useKeys = useKeysOption();
     Option maxFiles =
@@ -131,7 +115,6 @@ public class DataLoader {
 
     Options options =
         new Options()
-            .addOption(credentialsOpt)
             .addOption(firstYearOption)
             .addOption(lastYearOption)
             .addOption(batchSizeOption)
@@ -142,7 +125,6 @@ public class DataLoader {
                     "y", "source type", true, "source type - can currently only be \"pubmed\""))
             .addOption(
                 new Option("d", "data-set", true, "data set to load (defined in credentials)"))
-            .addOption(postgresuserOpt)
             .addOption(maxFiles)
             .addOption(new Option("f", "full-records", false, "full records to sql database"))
             .addOption(new Option("a", "authors", false, "authors to sql database"))
@@ -152,8 +134,7 @@ public class DataLoader {
             .addOption(new Option("t", "status-tracker", true, "path to file that tracks status"));
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
-    String credpath = parse.getOptionValue(credentialsOpt, Config.CREDENTIALS_PATH);
-    Credentials credentials = Credentials.read(new File(credpath));
+    Config config = new Config();
     String application = parse.getOptionValue('d', "pubmed");
     String sourceType = parse.getOptionValue('y', SourceReader.PUBMED);
     String index = parse.getOptionValue('i');
@@ -173,53 +154,47 @@ public class DataLoader {
 
     Sink<Record> tsink = null;
     if (index != null) {
-      tsink = getElasticConsumer(credentials, index, sentenceEmbeddingService);
+      tsink = getElasticConsumer(config, index, sentenceEmbeddingService);
     }
 
-    String postgresuser = parse.getOptionValue(postgresuserOpt, "datadigger");
+    PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config);
+    SQLSinkFactory sqlSinkFactory =
+        new SQLSinkFactory(postgreSQLClient.getConnection(), batchSize, parse.hasOption(useKeys));
 
-    PostgreSQLClient postgreSQLClient = null;
-    SQLSinkFactory sqlSinkFactory;
-    if (postgresuser != null) {
-      postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(credentials, postgresuser);
-      sqlSinkFactory =
-          new SQLSinkFactory(postgreSQLClient.getConnection(), batchSize, parse.hasOption(useKeys));
+    // store authorships
+    if (parse.hasOption('a')) {
+      Sink<Record> asink =
+          new MultiSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
+      tsink = tsink == null ? asink : tsink.concatenate(asink);
+    }
+    // store references
+    if (parse.hasOption(references)) {
+      Sink<Record> asink =
+          new MultiSink<>(
+              Record::toReferences,
+              sqlSinkFactory.createReferenceSink(parse.getOptionValues(references)));
+      tsink = tsink == null ? asink : tsink.concatenate(asink);
+    }
+    // store full records
+    if (parse.hasOption("full-records")) {
+      Sink<Record> asink =
+          new MapperSink<>(StandardRecord::copy, sqlSinkFactory.createRecordSink());
+      tsink = tsink == null ? asink : tsink.concatenate(asink);
+    }
 
-      // store authorships
-      if (parse.hasOption('a')) {
-        Sink<Record> asink =
-            new MultiSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
-        tsink = tsink == null ? asink : tsink.concatenate(asink);
-      }
-      // store references
-      if (parse.hasOption(references)) {
-        Sink<Record> asink =
-            new MultiSink<>(
-                Record::toReferences,
-                sqlSinkFactory.createReferenceSink(parse.getOptionValues(references)));
-        tsink = tsink == null ? asink : tsink.concatenate(asink);
-      }
-      // store full records
-      if (parse.hasOption("full-records")) {
-        Sink<Record> asink =
-            new MapperSink<>(StandardRecord::copy, sqlSinkFactory.createRecordSink());
-        tsink = tsink == null ? asink : tsink.concatenate(asink);
-      }
-
-      // store link table
-      if (parse.hasOption(linkTable)) {
-        String[] sourceTargets = parse.getOptionValues(linkTable);
-        for (String sourceTarget : sourceTargets) {
-          String[] st = sourceTarget.split("=");
-          if (st.length != 2) {
-            LOGGER.warn("Arguments to {} need to be of the shape A=B", linkTable.getLongOpt());
-            System.exit(1);
-          }
-          Sink<Record> asink =
-              new MapperSink<>(
-                  r -> r.toLinks(st[0], st[1]), sqlSinkFactory.createLinkoutTable(st[0], st[1]));
-          tsink = tsink == null ? asink : tsink.concatenate(asink);
+    // store link table
+    if (parse.hasOption(linkTable)) {
+      String[] sourceTargets = parse.getOptionValues(linkTable);
+      for (String sourceTarget : sourceTargets) {
+        String[] st = sourceTarget.split("=");
+        if (st.length != 2) {
+          LOGGER.warn("Arguments to {} need to be of the shape A=B", linkTable.getLongOpt());
+          System.exit(1);
         }
+        Sink<Record> asink =
+            new MapperSink<>(
+                r -> r.toLinks(st[0], st[1]), sqlSinkFactory.createLinkoutTable(st[0], st[1]));
+        tsink = tsink == null ? asink : tsink.concatenate(asink);
       }
     }
 
@@ -231,12 +206,19 @@ public class DataLoader {
             sourceType,
             sink);
 
-    if (!credentials.hasApplication(application)) {
-      LOGGER.error("Cannot find application {} in {}", application, credpath);
+    String remotePath = null;
+    if (application.equals("baseline")) {
+      remotePath = config.baseline_remote_path;
+    } else if (application.equals("updates")) {
+      remotePath = config.updates_remote_path;
+    } else if (application.equals("commons")) {
+      remotePath = config.commons_remote_path;
+    } else {
+      LOGGER.error("Cannot find application {} in environment", application);
       System.exit(1);
     }
 
-    try (FTPProcessing ftpProcessing = new FTPProcessing(credentials, application)) {
+    try (FTPProcessing ftpProcessing = new FTPProcessing(config)) {
       if (parse.getOptionValue('t') == null) {
         LOGGER.error("You must specify a status tracker file with option --status-tracker");
         System.exit(1);
@@ -244,7 +226,7 @@ public class DataLoader {
       File statusTracker = new File(parse.getOptionValue('t'));
 
       ftpProcessing.processRemoteDirectory(
-          credentials.get(application, "remotepath"),
+          remotePath,
           statusTracker,
           skipExtensions("md5"),
           loader::processFile,
@@ -295,14 +277,14 @@ public class DataLoader {
   }
 
   public static Sink<Record> getElasticConsumer(
-      Credentials credentials, String index, SentenceEmbeddingService sentenceEmbeddingService) {
+      Config config, String index, SentenceEmbeddingService sentenceEmbeddingService) {
     ElasticsearchClient client =
         new Client(
-                credentials.get("elastic", "server"),
-                Integer.parseInt(credentials.get("elastic", "port")),
-                credentials.get("elastic", "fingerprint"),
-                credentials.get("elastic", "user"),
-                credentials.get("elastic", "password"))
+                config.elastic_server_url,
+                Integer.parseInt(config.elastic_server_port),
+                config.elastic_server_fingerprint,
+                config.elastic_server_user,
+                config.elastic_server_password)
             .getClient();
 
     Function<Record, Result> elasticSink = getElasticSink(index, sentenceEmbeddingService, client);

@@ -18,7 +18,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPReply;
-import org.curieo.utils.Credentials;
+import org.curieo.utils.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,8 +27,7 @@ public class FTPProcessing implements AutoCloseable {
 
   private static final ObjectReader OBJECT_READER;
   private static final ObjectWriter OBJECT_WRITER;
-  Credentials creds;
-  String key;
+  Config config;
   FTPClient ftp;
 
   static {
@@ -37,22 +36,9 @@ public class FTPProcessing implements AutoCloseable {
     OBJECT_WRITER = new ObjectMapper().writerFor(typeRef).withDefaultPrettyPrinter();
   }
 
-  public FTPProcessing(Credentials credentials, String key) throws IOException {
-    this.key = key;
-    this.creds = credentials;
+  public FTPProcessing(Config config) throws IOException {
+    this.config = config;
     connect();
-  }
-
-  public String getServer() {
-    return creds.get(key, "server");
-  }
-
-  public String getUser() {
-    return creds.get(key, "user");
-  }
-
-  public String getPassword() {
-    return creds.get(key, "password");
   }
 
   public enum Status {
@@ -258,13 +244,13 @@ public class FTPProcessing implements AutoCloseable {
 
   private void connect() throws IOException {
     ftp = new FTPClient();
-    ftp.connect(getServer());
+    ftp.connect(this.config.pubmed_ftp_server);
     // extremely important
     ftp.setFileType(FTPClient.BINARY_FILE_TYPE);
     ftp.setBufferSize(1024 * 1024);
     // ftp.enterLocalPassiveMode();
 
-    LOGGER.info("Connected to {}.", getServer());
+    LOGGER.info("Connected to {}.", this.config.pubmed_ftp_server);
     LOGGER.info(ftp.getReplyString());
 
     // After connection attempt, you should check the reply code to verify
@@ -276,18 +262,18 @@ public class FTPProcessing implements AutoCloseable {
       LOGGER.error("FTP server refused connection.");
     }
 
-    ftp.login(getUser(), getPassword());
+    ftp.login(this.config.pubmed_ftp_user, this.config.pubmed_ftp_password);
   }
 
   public static boolean retrieve(String href, File file) throws IOException {
     URL url = new URL(href);
     String path = url.getFile();
     String server = url.getHost();
-    Credentials credentials = new Credentials();
-    credentials.add("dummy", "server", server);
-    credentials.add("dummy", "user", "anonymous");
-    credentials.add("dummy", "password", "anonymous");
-    try (FTPProcessing ftp = new FTPProcessing(credentials, "dummy")) {
+    Config config = new Config();
+    config.pubmed_ftp_server = server;
+    config.pubmed_ftp_user = "anonymous";
+    config.pubmed_ftp_password = "anonymous";
+    try (FTPProcessing ftp = new FTPProcessing(config)) {
       return ftp.retrieveFile(path, file);
     }
   }
