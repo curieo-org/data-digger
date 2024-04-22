@@ -5,7 +5,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import lombok.Generated;
 import org.curieo.model.*;
-import org.curieo.rdf.HashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +28,7 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
     extracts.add(storageSpecs.get(0).extractString(Job::getName));
     extracts.add(storageSpecs.get(1).extractInt(Job::getJobStateInner));
 
-    return new GenericSink<>(createAbstractSink(extracts, upsert, 1, connection, tableName), false);
+    return createAbstractSink(extracts, upsert, 1, connection, tableName);
   }
 
   /**
@@ -161,8 +160,7 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
     extracts.add(storageSpecs.get(2).extractString(StandardRecord::toJson));
     extracts.add(storageSpecs.get(3).extractString(StandardRecord::getOrigin));
 
-    return new GenericSink<>(
-        createAbstractSink(extracts, upsert, batchSize, connection, tableName), false);
+    return createAbstractSink(extracts, upsert, batchSize, connection, tableName);
   }
 
   public Sink<FullTextRecord> createPMCSink(String tableName) throws SQLException {
@@ -180,8 +178,7 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
     extracts.add(storageSpecs.get(0).extractString(FullTextRecord::getIdentifier));
     extracts.add(storageSpecs.get(1).extractString(FullTextRecord::getContent));
 
-    return new GenericSink<>(
-        createAbstractSink(extracts, insert, batchSize, connection, tableName), true);
+    return createAbstractSink(extracts, insert, batchSize, connection, tableName);
   }
 
   private void createTableHelper(
@@ -225,12 +222,7 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
 
   private PreparedStatement upsertStatement(
       String tableName, List<StorageSpec> storageSpecs, String conflictColumn) throws SQLException {
-    // String idColumn =
-    //     storageSpecs.stream()
-    //         .filter(StorageSpec::isIdColumn)
-    //         .findFirst()
-    //         .map(StorageSpec::getField)
-    //         .orElse("id");
+
     String insert =
         String.format(
             "insert into %s (%s) VALUES (%s) on conflict (%s) do update set %s, timestamp = now();",
@@ -253,24 +245,6 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
       int batchSize,
       Connection connection,
       String tableName) {
-    Set<String> keys = new HashSet<>(); // org.curieo.sources.IdentifierSet();
-    /*
-    Optional<Extract<T>> uniqueOpt =
-        extracts.stream().filter(extract -> extract.spec().isUnique()).findFirst();
-    Extract<T> keyExtractor = null;
-    PreparedStatement deleteStatement = null;
-    if (uniqueOpt.isPresent()) {
-      keyExtractor = uniqueOpt.get();
-      String query = String.format("SELECT %s FROM %s", keyExtractor.spec().getField(), tableName);
-      keys = PostgreSQLClient.retrieveSetOfStrings(connection, query);
-      LOGGER.info("Read {} keys from {}", keys.size(), tableName);
-      deleteStatement =
-          connection.prepareStatement(
-              String.format(
-                  "DELETE FROM %s WHERE %s = ?", tableName, keyExtractor.spec().getField()));
-    }
-
-     */
-    return new AbstractSink<>(extracts, insert, null, batchSize, keys, null);
+    return new AbstractSink<>(extracts, insert, batchSize);
   }
 }

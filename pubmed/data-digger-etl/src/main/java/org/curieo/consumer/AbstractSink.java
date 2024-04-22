@@ -3,9 +3,9 @@ package org.curieo.consumer;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.curieo.utils.ListUtils;
@@ -15,44 +15,12 @@ import org.curieo.utils.ListUtils;
 class AbstractSink<T> implements Sink<T> {
   final List<Extract<T>> extracts;
   final PreparedStatement insert;
-  final PreparedStatement delete;
   int insertions;
-  int deletions;
-  int deletesInBatch;
+  int updates;
   int batchSize;
-  final Set<String> keys;
-  final Extract<T> keyExtractor;
 
-  public AbstractSink(
-      List<Extract<T>> extracts,
-      PreparedStatement insert,
-      PreparedStatement deleteStatement,
-      int batchSize,
-      Set<String> keys,
-      Extract<T> keyExtractor) {
-    this(extracts, insert, deleteStatement, 0, 0, 0, batchSize, keys, keyExtractor);
-  }
-
-  // guarantee uniqueness of keys.
-  // we are assuming a linear read: later update overrides previous
-  void guaranteeUniqueKeys(Set<String> keysFound) {
-    /*
-    try {
-      for (String key : keysFound) {
-        if (keys.contains(key)) {
-
-          // issue delete
-          delete.setString(1, key);
-          delete.addBatch();
-          deletions++;
-          deletesInBatch++;
-        }
-        keys.add(key);
-      }
-    } catch (SQLException e) {
-      throw new RuntimeException(e);
-    }
-    */
+  public AbstractSink(List<Extract<T>> extracts, PreparedStatement insert, int batchSize) {
+    this(extracts, insert, 0, 0, batchSize);
   }
 
   @Override
@@ -107,7 +75,7 @@ class AbstractSink<T> implements Sink<T> {
   }
 
   public void finalCall() {
-    if (insertions % batchSize != 0) {
+    if (insertions > 0) {
       executeAndClearBatch();
     }
   }
@@ -117,26 +85,18 @@ class AbstractSink<T> implements Sink<T> {
   }
 
   public int getUpdatedCount() {
-    return deletions;
+    return updates;
   }
 
   private void executeAndClearBatch() {
     try {
-      /*
-      if (deletesInBatch != 0) {
-        delete.executeBatch();
-        delete.clearBatch();
-        deletesInBatch = 0;
-      }
-      */
-      insert.executeBatch();
+      int[] updateCounts = insert.executeBatch();
+      int updateSum = Arrays.stream(updateCounts).filter(i -> i > 0).sum();
+      updates += updateSum;
+
       insert.clearBatch();
     } catch (SQLException e) {
       throw new RuntimeException(e);
     }
-  }
-
-  public boolean isPresent(String key) {
-    return keys.contains(key);
   }
 }
