@@ -1,10 +1,5 @@
 package org.curieo.retrieve.ftp;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectReader;
-import com.fasterxml.jackson.databind.ObjectWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -30,18 +25,10 @@ import org.slf4j.LoggerFactory;
 public class FTPProcessing implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(FTPProcessing.class);
 
-  private static final ObjectReader OBJECT_READER;
-  private static final ObjectWriter OBJECT_WRITER;
   Credentials creds;
   String key;
   FTPClient ftp;
   PostgreSQLClient psqlClient;
-
-  static {
-    TypeReference<HashMap<String, Status>> typeRef = new TypeReference<>() {};
-    OBJECT_READER = new ObjectMapper().readerFor(typeRef);
-    OBJECT_WRITER = new ObjectMapper().writerFor(typeRef).withDefaultPrettyPrinter();
-  }
 
   public FTPProcessing(Credentials credentials, String key) throws IOException {
     this.key = key;
@@ -86,33 +73,6 @@ public class FTPProcessing implements AutoCloseable {
     }
   }
 
-  /**
-   * If the path does not exist, returns empty map.
-   *
-   * @param path
-   * @return instantiated status map
-   * @throws IOException
-   */
-  public static Map<String, Status> readProcessingStatus(File path) throws IOException {
-    if (!path.exists()) {
-      LOGGER.warn("New status map created.");
-      return new HashMap<>();
-    }
-    return OBJECT_READER.readValue(path);
-  }
-
-  /**
-   * write the status map
-   *
-   * @param path
-   * @throws JsonProcessingException
-   * @throws IOException
-   */
-  public static void writeProcessingStatus(Map<String, Status> status, File path)
-      throws JsonProcessingException, IOException {
-    OBJECT_WRITER.writeValue(path, status);
-  }
-
   public void reopenIfClosed() throws IOException {
     if (!ftp.isConnected()) {
       ftp.disconnect();
@@ -131,16 +91,6 @@ public class FTPProcessing implements AutoCloseable {
         // do nothing
       }
     }
-  }
-
-  /**
-   * Synchronize a remote directory and a local directory.
-   *
-   * @param remoteDirectory
-   * @param localDirectory
-   */
-  public static void synchronize(String remoteDirectory, File localDirectory) {
-    throw new UnsupportedOperationException();
   }
 
   /**
@@ -191,6 +141,8 @@ public class FTPProcessing implements AutoCloseable {
                 jobs.values().stream()
                     .filter(ts -> ts.value().getJobState() == Job.State.Completed)
                     .count());
+
+
 
     jobs.entrySet().stream()
         .parallel()
