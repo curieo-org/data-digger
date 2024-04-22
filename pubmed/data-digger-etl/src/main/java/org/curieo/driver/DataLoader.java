@@ -155,8 +155,8 @@ public record DataLoader(
       sentenceEmbeddingService = new SentenceEmbeddingService(embeddingService);
     }
 
-    Sink<TS<Job>> jobsSink = new NoopSink<>();
-    Sink<Record> tsink = new NoopSink<>();
+    Sink<TS<Job>> jobsSink = new Sink.Noop<>();
+    Sink<Record> tsink = new Sink.Noop<>();
     if (index != null) {
       tsink = getElasticConsumer(credentials, index, sentenceEmbeddingService);
     }
@@ -173,13 +173,13 @@ public record DataLoader(
       // store authorships
       if (parse.hasOption('a')) {
         Sink<Record> asink =
-            new MultiSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
+            new MapSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
         tsink = tsink.concatenate(asink);
       }
       // store references
       if (parse.hasOption(references)) {
         Sink<Record> asink =
-            new MultiSink<>(
+            new MapSink<>(
                 Record::toReferences,
                 sqlSinkFactory.createReferenceSink(parse.getOptionValues(references)));
         tsink = tsink.concatenate(asink);
@@ -187,7 +187,7 @@ public record DataLoader(
       // store full records
       if (parse.hasOption("full-records")) {
         Sink<Record> asink =
-            new MapperSink<>(StandardRecord::copy, sqlSinkFactory.createRecordSink());
+            new MapSink<>(StandardRecord::copy, sqlSinkFactory.createRecordSink());
         tsink = tsink.concatenate(asink);
       }
 
@@ -201,7 +201,7 @@ public record DataLoader(
             System.exit(1);
           }
           Sink<Record> asink =
-              new MapperSink<>(
+              new MapSink<>(
                   r -> r.toLinks(st[0], st[1]), sqlSinkFactory.createLinkTable(st[0], st[1]));
           tsink = tsink.concatenate(asink);
         }
@@ -247,8 +247,6 @@ public record DataLoader(
   }
 
   public FTPProcessing.Status processFile(File file, String name) {
-    // File file = fileAndName.l();
-    // String name = fileAndName.r();
     String path = file.getAbsolutePath();
     if (path.toLowerCase().endsWith(".xml.gz")) {
       try {
@@ -297,7 +295,7 @@ public record DataLoader(
 
     BiFunction<Result, Integer, String> formatter =
         (result, c) -> String.format("Uploaded %d items with result %s", c, result.name());
-    return new CountingConsumer<>(LOGGING_INTERVAL, elasticSink, formatter);
+    return new CountingSink<>(LOGGING_INTERVAL, elasticSink, formatter);
   }
 
   private static Function<Record, Result> getElasticSink(

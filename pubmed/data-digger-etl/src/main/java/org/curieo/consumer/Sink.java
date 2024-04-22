@@ -3,6 +3,8 @@ package org.curieo.consumer;
 import java.util.function.Consumer;
 
 public interface Sink<T> extends Consumer<T> {
+  void accept(T t);
+
   void finalCall();
 
   int getTotalCount();
@@ -36,5 +38,28 @@ public interface Sink<T> extends Consumer<T> {
     public int getUpdatedCount() {
       return s1.getUpdatedCount() + s2.getUpdatedCount();
     }
+  }
+
+  /**
+   * Useful as a starting point when you are concatenating several sinks.
+   *
+   * @param <T>
+   */
+  record Noop<T>() implements Sink<T> {
+    @Override
+    public void finalCall() {}
+
+    @Override
+    public int getTotalCount() {
+      return 0;
+    }
+
+    @Override
+    public int getUpdatedCount() {
+      return 0;
+    }
+
+    @Override
+    public void accept(T t) {}
   }
 }

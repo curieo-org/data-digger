@@ -2,7 +2,7 @@ package org.curieo.consumer;
 
 import java.util.function.Function;
 
-public record MapperSink<T, Y>(Function<T, Y> mapper, Sink<Y> embedded) implements Sink<T> {
+public record MapSink<T, Y>(Function<T, Y> mapper, Sink<Y> embedded) implements Sink<T> {
   @Override
   public void accept(T t) {
     embedded.accept(mapper.apply(t));

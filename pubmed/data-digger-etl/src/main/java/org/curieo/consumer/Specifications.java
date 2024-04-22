@@ -11,14 +11,7 @@ import lombok.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Generated
-@Value
-@AllArgsConstructor
-class StorageSpec {
-  private static final Logger LOGGER = LoggerFactory.getLogger(StorageSpec.class);
-
-  List<FieldSpec> fields;
-
+record StorageSpec(List<FieldSpec> fields) {
   public static StorageSpec of(FieldSpec... fields) {
     return new StorageSpec(List.of(fields));
   }

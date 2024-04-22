@@ -23,10 +23,10 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
 
     String tableName = "jobs";
 
-    createTable(tableName, spec.getFields());
-    PreparedStatement upsert = upsertStatement(tableName, spec.getFields(), "name");
+    createTable(tableName, spec.fields());
+    PreparedStatement upsert = upsertStatement(tableName, spec.fields(), "name");
 
-    List<FieldSpec> fieldSpecs = spec.getFields();
+    List<FieldSpec> fieldSpecs = spec.fields();
     List<Extract<TS<Job>>> extracts = new ArrayList<>();
     extracts.add(fieldSpecs.get(0).extractString(ts -> ts.value().getName()));
     extracts.add(fieldSpecs.get(1).extractInt(ts -> ts.value().getJobStateInner()));

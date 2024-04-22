@@ -2,7 +2,6 @@ package org.curieo.driver;
 
 import java.io.IOException;
 import java.util.HashMap;
-import org.curieo.consumer.NoopSink;
 import org.curieo.consumer.Sink;
 import org.curieo.model.Job;
 import org.curieo.model.TS;
@@ -18,7 +17,7 @@ class FTPTests {
   void testListing() throws IOException {
     Credentials creds = Credentials.defaults();
 
-    Sink<TS<Job>> jobSink = new NoopSink<>();
+    Sink<TS<Job>> jobSink = new Sink.Noop<>();
     try (FTPProcessing ftpProc = new FTPProcessing(creds, "pubmedcommons")) {
       ftpProc.processRemoteDirectory(
           creds.get("pubmedcommons", "remotepath"),
