@@ -83,29 +83,7 @@ Storage is encapsulated in `Consumer` classes (extended to `Sink` for some extra
 ## Configuration
 
 * If you want to Set up and configure an Elastic Search Database, e.g. in a local docker or on a remote server.
-* Credentials for all services call must be stored in a hidden `credentials.json` file in the `config` folder. This file has the following format (e.g. for ElasticSearch connectivity)
-
-
-```json
-{
-  "elastic" : {
-    "url" : "http://127.0.0.1:9200",
-    "server": "127.0.0.1",
-    "port" : "9200",
-    "apiKey" : "<SECRET>",
-    "fingerprint": "<SECRET>",
-    "user": "elastic",
-    "password": "<SECRET>"
-  },
-  "pubmed": {
-    "server" : "ftp.ncbi.nlm.nih.gov",
-    "remotepath": "/pubmed/baseline/",
-    "user" : "anonymous",
-    "password" : "does not matter"
-  }
-}
-
-```
+* Credentials for all services call must be stored in a hidden `.env` file in the root folder.
 
 The application will search for these credentials to access Elastic.
 
