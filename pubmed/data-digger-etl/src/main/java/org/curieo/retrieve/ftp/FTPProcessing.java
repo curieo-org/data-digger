@@ -142,8 +142,6 @@ public class FTPProcessing implements AutoCloseable {
                     .filter(ts -> ts.value().getJobState() == Job.State.Completed)
                     .count());
 
-
-
     jobs.entrySet().stream()
         .parallel()
         .forEach(

@@ -1,12 +1,8 @@
 package org.curieo.consumer;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import com.zaxxer.hikari.HikariDataSource;
+import java.sql.*;
 import java.util.*;
-import lombok.Getter;
 import org.curieo.model.Job;
 import org.curieo.model.TS;
 import org.curieo.rdf.HashSet;
@@ -22,7 +18,7 @@ import org.slf4j.LoggerFactory;
 public class PostgreSQLClient implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(PostgreSQLClient.class);
   public static final String LOCALDB = "jdbc:postgresql://localhost:5432/postgres";
-  @Getter private final Connection connection;
+  private final HikariDataSource dataSource;
   private final String connectionString;
 
   public enum CreateFlags {
@@ -36,16 +32,27 @@ public class PostgreSQLClient implements AutoCloseable {
     if (dbUrl == null) {
       dbUrl = LOCALDB;
     }
+    HikariDataSource ds = new HikariDataSource();
+    ds.setJdbcUrl(dbUrl);
+    ds.setUsername(user);
+    ds.setPassword(password);
 
-    Properties parameters = new Properties();
-    parameters.put("user", user);
-    parameters.put("password", password);
-
-    connection = DriverManager.getConnection(dbUrl, parameters);
-    if (connection != null) {
-      LOGGER.info("Connected to database {}", dbUrl);
-    }
     connectionString = dbUrl;
+    dataSource = ds;
+  }
+
+  public Connection getConnection() throws SQLException {
+    return dataSource.getConnection();
+  }
+
+  public PreparedStatement prepareStatement(String sql) throws SQLException {
+    return getConnection().prepareStatement(sql);
+  }
+
+  public void execute(String sql) throws SQLException {
+    try (Connection connection = getConnection()) {
+      connection.createStatement().execute(sql);
+    }
   }
 
   public static PostgreSQLClient getPostgreSQLClient(Credentials credentials, String postgresuser)
@@ -118,7 +125,7 @@ public class PostgreSQLClient implements AutoCloseable {
             ? connectionString.substring(0, i + 1) + databaseName
             : connectionString + databaseName;
 
-    try (Statement stmt = connection.createStatement()) {
+    try (Statement stmt = getConnection().createStatement()) {
       String testIfExists =
           String.format(
               "SELECT * FROM pg_database WHERE datname='%s'", escapeSingleQuotes(databaseName));
@@ -147,7 +154,7 @@ public class PostgreSQLClient implements AutoCloseable {
   public void dropDatabase(String databaseName) throws SQLException {
     // create three connections to three different databases on localhost
     String sql = String.format("DROP DATABASE %s", databaseName);
-    try (Statement stmt = connection.createStatement()) {
+    try (Statement stmt = getConnection().createStatement()) {
       int result = stmt.executeUpdate(sql);
       LOGGER.info("Dropped database with success {}", result);
     }
@@ -166,9 +173,7 @@ public class PostgreSQLClient implements AutoCloseable {
   }
 
   @Override
-  public void close() throws SQLException {
-    if (connection != null && !connection.isClosed()) {
-      connection.close();
-    }
+  public void close() {
+    dataSource.close();
   }
 }

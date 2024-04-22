@@ -167,8 +167,7 @@ public record DataLoader(
     SQLSinkFactory sqlSinkFactory;
     if (postgresuser != null) {
       postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(credentials, postgresuser);
-      sqlSinkFactory =
-          new SQLSinkFactory(postgreSQLClient.getConnection(), batchSize, parse.hasOption(useKeys));
+      sqlSinkFactory = new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeys));
 
       jobsSink = sqlSinkFactory.createJobsSink();
       // store authorships

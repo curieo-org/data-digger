@@ -88,7 +88,7 @@ public record DataLoaderPMC(String sourceType, Sink<Record> sink) {
     PostgreSQLClient postgreSQLClient =
         PostgreSQLClient.getPostgreSQLClient(credentials, postgresuser);
     SQLSinkFactory sqlSinkFactory =
-        new SQLSinkFactory(postgreSQLClient.getConnection(), batchSize, parse.hasOption(useKeys));
+        new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeys));
     if (!parse.hasOption(queryOpt)) {
       LOGGER.error("You must specify the --query option");
       System.exit(1);

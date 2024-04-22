@@ -98,12 +98,6 @@ class FieldSpec {
       throw new IllegalArgumentException("Only VARCHAR types can have a size specified");
   }
 
-  FieldSpec(String field, ExtractType type, String defaultValue) {
-    this(field, type, 0, false, defaultValue, IdentityType.NA);
-    if (type == ExtractType.String || type == ExtractType.List)
-      throw new IllegalArgumentException("VARCHAR types must have a size specified");
-  }
-
   <T> Extract<T> extractString(Function<T, String> f) {
     return switch (this.type) {
       case ExtractType.String ->

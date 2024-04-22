@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 
 /** Class to create record consumers into an SQL database. */
 @Generated
-public record SQLSinkFactory(Connection connection, int batchSize, boolean useKeys) {
+public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean useKeys) {
   private static final Logger LOGGER = LoggerFactory.getLogger(SQLSinkFactory.class);
   public static final int DEFAULT_BATCH_SIZE = 100;
 
@@ -67,7 +67,7 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
     extracts.add(fieldSpecs.get(6).extractInt(l -> l.field().getYearActive()));
     extracts.add(fieldSpecs.get(7).extractString(l -> l.field().getEmailAddress()));
 
-    return new ListSink<>(createAbstractSink(extracts, insert, batchSize, connection, tableName));
+    return new ListSink<>(createAbstractSink(extracts, insert, batchSize));
   }
 
   /**
@@ -111,7 +111,7 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
                           .orElse(null)));
     }
 
-    return new ListSink<>(createAbstractSink(extracts, upsert, batchSize, connection, tableName));
+    return new ListSink<>(createAbstractSink(extracts, upsert, batchSize));
   }
 
   /**
@@ -136,7 +136,7 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
     extracts.add(fieldSpecs.get(0).extractLong(s -> Long.parseLong(s.key())));
     extracts.add(fieldSpecs.get(1).extractString(Metadata::value));
 
-    return new ListSink<>(createAbstractSink(extracts, upsert, batchSize, connection, tableName));
+    return new ListSink<>(createAbstractSink(extracts, upsert, batchSize));
   }
 
   /**
@@ -164,7 +164,7 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
     extracts.add(fieldSpecs.get(2).extractString(StandardRecord::toJson));
     extracts.add(fieldSpecs.get(3).extractString(StandardRecord::getOrigin));
 
-    return createAbstractSink(extracts, upsert, batchSize, connection, tableName);
+    return createAbstractSink(extracts, upsert, batchSize);
   }
 
   public Sink<FullTextRecord> createPMCSink(String tableName) throws SQLException {
@@ -182,7 +182,7 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
     extracts.add(fieldSpecs.get(0).extractString(FullTextRecord::getIdentifier));
     extracts.add(fieldSpecs.get(1).extractString(FullTextRecord::getContent));
 
-    return createAbstractSink(extracts, insert, batchSize, connection, tableName);
+    return createAbstractSink(extracts, insert, batchSize);
   }
 
   private List<FieldSpec> createTableHelper(
@@ -197,12 +197,12 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
     if (missingTimestamp) {
       fieldSpecs.add(FieldSpec.timestamp("timestamp", "now()"));
     }
-    String creation =
+    String create =
         String.format(
             "CREATE TABLE IF NOT EXISTS %s (%s)",
             tableName, fieldSpecs.stream().map(FieldSpec::toSql).collect(Collectors.joining(", ")));
-    Statement statement = connection.createStatement();
-    statement.execute(creation);
+
+    psqlClient.execute(create);
 
     return fieldSpecs;
   }
@@ -226,7 +226,8 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
             tableName,
             fieldSpecs.stream().map(FieldSpec::getField).collect(Collectors.joining(", ")),
             fieldSpecs.stream().map(s -> "?").collect(Collectors.joining(", ")));
-    return connection.prepareStatement(insert);
+
+    return psqlClient.prepareStatement(insert);
   }
 
   private PreparedStatement upsertStatement(
@@ -245,15 +246,11 @@ public record SQLSinkFactory(Connection connection, int batchSize, boolean useKe
                 .map(s -> String.format("%s = EXCLUDED.%s", s, s))
                 .collect(Collectors.joining(", ")));
 
-    return connection.prepareStatement(upsert);
+    return psqlClient.prepareStatement(upsert);
   }
 
   private static <T> AbstractSink<T> createAbstractSink(
-      List<Extract<T>> extracts,
-      PreparedStatement statement,
-      int batchSize,
-      Connection connection,
-      String tableName) {
+      List<Extract<T>> extracts, PreparedStatement statement, int batchSize) {
     return new AbstractSink<>(extracts, statement, batchSize);
   }
 
