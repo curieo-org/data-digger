@@ -248,9 +248,7 @@ public record DataLoader(
     LOGGER.info(
         "Stored {} records, updated {} records", sink.getTotalCount(), sink.getUpdatedCount());
 
-    if (postgreSQLClient != null) {
-      postgreSQLClient.close();
-    }
+    postgreSQLClient.close();
     System.exit(0);
   }
 

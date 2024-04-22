@@ -187,8 +187,12 @@ public class FTPProcessing implements AutoCloseable {
     // First pass
     for (FTPFile file : ftp.listFiles(remoteDirectory)) {
       if (filter.apply(file)) {
-        updateJobSink.accept(Job.queue(file.getName()));
-        jobStates.putIfAbsent(file.getName(), Job.State.Queued);
+        jobStates.computeIfAbsent(
+            file.getName(),
+            jobName -> {
+              updateJobSink.accept(Job.queue(jobName));
+              return Job.State.Queued;
+            });
       }
     }
 
@@ -201,52 +205,50 @@ public class FTPProcessing implements AutoCloseable {
                     .count());
 
     jobStates.entrySet().stream()
+        .filter(s -> s.getValue() == Job.State.Queued || s.getValue() == Job.State.Failed)
         .parallel()
         .forEach(
             state -> {
+              if (filesSeen.get() >= maximumNumberOfFiles) {
+                return;
+              }
+
               try {
-                FTPClient ftpClient = createClient();
                 // retrieve the remote file, and submit.
-                switch (state.getValue()) {
-                  case Queued, Failed:
-                    File tmp = File.createTempFile(prefix(state.getKey()), suffix(state.getKey()));
-                    String remoteFile;
-                    if (remoteDirectory.endsWith("/")) {
-                      remoteFile = remoteDirectory + state.getKey();
-                    } else {
-                      remoteFile = remoteDirectory + "/" + state.getKey();
-                    }
-
-                    if (!retrieveFile(ftpClient, remoteFile, tmp)) {
-                      LOGGER.error("Cannot retrieve file {}", remoteFile);
-                      updateJobSink.accept(Job.failed(state.getKey()));
-                    } else {
-                      updateJobSink.accept(Job.inProgress(state.getKey()));
-                      updateJobSink.accept(
-                          new Job(
-                              state.getKey(), processor.apply(tmp, state.getKey()).intoJobState()));
-                      LOGGER.info("Processed {}: state = {}", state.getKey(), state.getValue());
-                      filesSeen.getAndIncrement();
-                    }
-
-                    if (!tmp.delete()) {
-                      LOGGER.error("Could not delete temp file {}", tmp.getAbsolutePath());
-                    }
-
-                    if (filesSeen.get() == maximumNumberOfFiles) {
-                      break;
-                    }
-
-                    int currentDone = done.getAndIncrement() + 1;
-                    LOGGER.info(
-                        String.format(
-                            "Done %d/%d, at %.1f%%",
-                            currentDone,
-                            jobStates.size(),
-                            (float) 100 * currentDone / jobStates.size()));
-                    updateJobSink.accept(Job.completed(state.getKey()));
-                    ftpClient.disconnect();
+                FTPClient ftpClient = createClient();
+                File tmp = File.createTempFile(prefix(state.getKey()), suffix(state.getKey()));
+                String remoteFile;
+                if (remoteDirectory.endsWith("/")) {
+                  remoteFile = remoteDirectory + state.getKey();
+                } else {
+                  remoteFile = remoteDirectory + "/" + state.getKey();
                 }
+
+                if (!retrieveFile(ftpClient, remoteFile, tmp)) {
+                  LOGGER.error("Cannot retrieve file {}", remoteFile);
+                  updateJobSink.accept(Job.failed(state.getKey()));
+                } else {
+                  updateJobSink.accept(Job.inProgress(state.getKey()));
+                  updateJobSink.accept(
+                      new Job(state.getKey(), processor.apply(tmp, state.getKey()).intoJobState()));
+                  LOGGER.info("Processed {}: state = {}", state.getKey(), state.getValue());
+                  filesSeen.getAndIncrement();
+                }
+
+                if (!tmp.delete()) {
+                  LOGGER.error("Could not delete temp file {}", tmp.getAbsolutePath());
+                }
+
+                int currentDone = done.incrementAndGet();
+                LOGGER.info(
+                    String.format(
+                        "Done %d/%d, at %.1f%%",
+                        currentDone,
+                        jobStates.size(),
+                        (float) 100 * currentDone / jobStates.size()));
+                updateJobSink.accept(Job.completed(state.getKey()));
+                ftpClient.disconnect();
+
               } catch (IOException e) {
                 updateJobSink.accept(Job.failed(state.getKey()));
                 throw new RuntimeException(e);
