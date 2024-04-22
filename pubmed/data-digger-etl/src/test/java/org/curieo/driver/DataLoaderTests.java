@@ -3,7 +3,6 @@ package org.curieo.driver;
 import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
-
 import org.curieo.consumer.*;
 import org.curieo.model.Record;
 import org.curieo.utils.Config;
@@ -33,8 +32,7 @@ class DataLoaderTests {
 
     PostgreSQLClient client = PostgreSQLClient.getPostgreSQLClient(credentials, "datadigger");
     SQLSinkFactory sqlSinkFactory = new SQLSinkFactory(client, 100, false);
-    Sink<Record> sink =
-        new MapSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
+    Sink<Record> sink = new MapSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
     DataLoader dataLoader = new DataLoader(0, 3000, "pubmed", sink);
     dataLoader.processFile(new File(path), "pubmed24n1307.xml.gz");
   }

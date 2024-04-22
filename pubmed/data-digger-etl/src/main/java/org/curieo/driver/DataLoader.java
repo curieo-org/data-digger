@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.commons.cli.CommandLine;
@@ -23,7 +24,7 @@ import org.curieo.embed.SentenceEmbeddingService;
 import org.curieo.model.*;
 import org.curieo.model.Record;
 import org.curieo.retrieve.ftp.FTPProcessing;
-import org.curieo.sources.SourceReader;
+import org.curieo.sources.SourceStreamReader;
 import org.curieo.utils.Config;
 import org.curieo.utils.Credentials;
 import org.slf4j.Logger;
@@ -139,7 +140,7 @@ public record DataLoader(
     String credpath = parse.getOptionValue(credentialsOpt, Config.CREDENTIALS_PATH);
     Credentials credentials = Credentials.read(new File(credpath));
     String application = parse.getOptionValue('d', "pubmed");
-    String sourceType = parse.getOptionValue('y', SourceReader.PUBMED);
+    String sourceType = parse.getOptionValue('y', SourceStreamReader.PUBMED);
     String index = parse.getOptionValue('i');
     int maximumNumberOfRecords = getIntOption(parse, maxFiles).orElse(Integer.MAX_VALUE);
     int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);
@@ -186,8 +187,7 @@ public record DataLoader(
       }
       // store full records
       if (parse.hasOption("full-records")) {
-        Sink<Record> asink =
-            new MapSink<>(StandardRecord::copy, sqlSinkFactory.createRecordSink());
+        Sink<Record> asink = new MapSink<>(StandardRecord::copy, sqlSinkFactory.createRecordSink());
         tsink = tsink.concatenate(asink);
       }
 
@@ -249,17 +249,21 @@ public record DataLoader(
   public FTPProcessing.Status processFile(File file, String name) {
     String path = file.getAbsolutePath();
     if (path.toLowerCase().endsWith(".xml.gz")) {
+      AtomicInteger count = new AtomicInteger();
+      AtomicInteger countRejected = new AtomicInteger();
+      long startTimeInMillis = System.currentTimeMillis();
       try {
-        long startTimeInMillis = System.currentTimeMillis();
-        int count = 0, countRejected = 0;
-        for (Record r : SourceReader.getReader(sourceType).read(file, name)) {
-          count++;
-          if (checkYear(r)) {
-            sink.accept(r);
-          } else {
-            countRejected++;
-          }
-        }
+        SourceStreamReader.get(sourceType).stream(file, name)
+            .forEach(
+                r -> {
+                  count.getAndIncrement();
+                  if (checkYear(r)) {
+                    sink.accept(r);
+                  } else {
+                    countRejected.getAndIncrement();
+                  }
+                });
+
         LOGGER.info("Seen {} records - rejected {} by year filter", count, countRejected);
 
         long endTimeInMillis = System.currentTimeMillis();
@@ -269,7 +273,7 @@ public record DataLoader(
             count,
             String.format(Locale.US, "%.1f", (float) (endTimeInMillis - startTimeInMillis) / 1000),
             String.format(
-                Locale.US, "%.2f", (float) (endTimeInMillis - startTimeInMillis) / count));
+                Locale.US, "%.2f", (float) (endTimeInMillis - startTimeInMillis) / count.get()));
         return FTPProcessing.Status.Success;
       } catch (Exception e) {
         LOGGER.error(String.format("Failed to process file %s", path), e);
