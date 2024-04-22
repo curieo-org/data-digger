@@ -6,20 +6,13 @@ CONFIGDIR=$(pwd)/config
 
 # get the paths to the relevant jars
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )" # https://stackoverflow.com/questions/59895/getting-the-source-directory-of-a-bash-script-from-within
-LOGJAR=$DIR/slf4j-simple-2.0.11.jar
 JAR="$(ls $DIR/../target/data-digger-*-jar-with-dependencies.jar)"
 
 # compose the command for pubmed loading
-CMD="java -cp $JAR:$LOGJAR -Xmx64G org.curieo.driver.DataLoader"
+CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoader"
 STATUS=$CONFIGDIR/status.json
 ARGS="-f 2018 -i search-curieo -d baseline -t $STATUS -e http://127.0.0.1:5000/embed"
 
-
-# This is a very serious hack that will fix the logger.
-# what happens is that an out-of-date logging configuration creeps into the jar and 
-# is mistaken for the actual configuration
-# if we remove it, it is fixed.
-zip -d $JAR META-INF/org/apache/logging/log4j/core/config/plugins/Log4j2Plugins.dat
 
 case $1 in
 	pubmed-2-elastic)
@@ -50,9 +43,9 @@ case $1 in
     # testing with full-text
     pubmedcentral-test)
         echo "Pubmed Central Test"
-        CMD="java -cp $JAR:$LOGJAR -Xmx64G org.curieo.driver.DataLoaderPMC"
+        CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
         STATUS=$CONFIGDIR/updates-status.json
-        QUERY="--query SELECT PMC FROM datadigger.linktable LIMIT 10"
+        QUERY="--query SELECT PMC FROM linktable LIMIT 10"
         ARGS="$QUERY --table-name PMCFullText --use-keys "
         $CMD $ARGS
     ;;
