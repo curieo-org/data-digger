@@ -8,8 +8,12 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.sql.Timestamp;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
+import java.util.function.Predicate;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPReply;
@@ -18,6 +22,7 @@ import org.curieo.consumer.Sink;
 import org.curieo.model.Job;
 import org.curieo.model.TS;
 import org.curieo.utils.Credentials;
+import org.curieo.utils.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -144,63 +149,107 @@ public class FTPProcessing implements AutoCloseable {
                     .filter(ts -> ts.value().getJobState() == Job.State.Completed)
                     .count());
 
-    jobs.forEach(
-        (key, ts) -> {
-          Timestamp timestamp = ts.timestamp();
-          Job job = ts.value();
+    Predicate<Map.Entry<String, TS<Job>>> needsWork =
+        (entry) -> {
+          Job.State state = entry.getValue().value().getJobState();
+          return filesSeen.get() <= maximumNumberOfFiles
+              && (state == Job.State.Queued || state == Job.State.Failed);
+        };
 
-          if (job.getJobState() != Job.State.Queued && job.getJobState() != Job.State.Failed) {
-            return;
-          }
-          if (filesSeen.get() >= maximumNumberOfFiles) {
-            return;
-          }
-          File tmp = null;
-          try {
-            // retrieve the remote file, and submit.
-            FTPClient ftpClient = createClient();
-            tmp = File.createTempFile(prefix(key), suffix(key));
-            String remoteFile;
-            if (remoteDirectory.endsWith("/")) {
-              remoteFile = remoteDirectory + key;
-            } else {
-              remoteFile = remoteDirectory + "/" + key;
-            }
+    Executor executor = Executors.newFixedThreadPool(10);
+    final List<CompletableFuture<Void>> futures =
+        jobs.entrySet().stream()
+            .filter(needsWork)
+            .map(
+                entry -> {
+                  String key = entry.getKey();
+                  TS<Job> ts = entry.getValue();
+                  Timestamp timestamp = ts.timestamp();
 
-            if (!retrieveFile(ftpClient, remoteFile, tmp)) {
-              LOGGER.error("Cannot retrieve file {}", remoteFile);
-              updateJobSink.accept(TS.of(Job.failed(key), timestamp));
-            } else {
-              updateJobSink.accept(TS.of(Job.inProgress(key), timestamp));
-              updateJobSink.accept(
-                  TS.of(new Job(key, processor.apply(tmp, key).intoJobState()), timestamp));
-              LOGGER.info("Processed {}: state = {}", key, ts);
-              filesSeen.getAndIncrement();
-            }
+                  return CompletableFuture.supplyAsync(
+                          () -> {
+                            try {
+                              return createClient();
+                            } catch (IOException e) {
+                              throw new RuntimeException(e);
+                            }
+                          },
+                          executor)
+                      .thenApply(
+                          ftpClient -> {
+                            try {
+                              return Pair.of(
+                                  ftpClient, File.createTempFile(prefix(key), suffix(key)));
+                            } catch (IOException e) {
+                              throw new RuntimeException(e);
+                            }
+                          })
+                      .thenApply(
+                          state -> {
+                            FTPClient ftpClient = state.l();
+                            File tempFile = state.r();
 
-            if (!tmp.delete()) {
-              LOGGER.error("Could not delete temp file {}", tmp.getAbsolutePath());
-            }
+                            // retrieve the remote file, and submit.
+                            String remoteFile;
+                            if (remoteDirectory.endsWith("/")) {
+                              remoteFile = remoteDirectory + key;
+                            } else {
+                              remoteFile = remoteDirectory + "/" + key;
+                            }
+                            try {
+                              boolean fileRetrieved = retrieveFile(ftpClient, remoteFile, tempFile);
+                              return Pair.of(fileRetrieved, state);
+                            } catch (IOException e) {
+                              if (!tempFile.delete()) {
+                                LOGGER.error(
+                                    "Could not delete temp file {}", tempFile.getAbsolutePath());
+                              }
+                              updateJobSink.accept(TS.of(Job.failed(key), timestamp));
+                              throw new RuntimeException(e);
+                            }
+                          })
+                      .thenAcceptAsync(
+                          state -> {
+                            boolean fileRetrieved = state.l();
+                            FTPClient ftpClient = state.r().l();
+                            File tempFile = state.r().r();
 
-            int currentDone = done.incrementAndGet();
-            LOGGER.info(
-                String.format(
-                    "Done %d/%d, at %.1f%%",
-                    currentDone, jobs.size(), (float) 100 * currentDone / jobs.size()));
-            updateJobSink.accept(TS.of(Job.completed(key), timestamp));
-            ftpClient.disconnect();
+                            if (!fileRetrieved) {
+                              LOGGER.error("Cannot retrieve file {}", key);
+                              updateJobSink.accept(TS.of(Job.failed(key), timestamp));
+                            } else {
+                              updateJobSink.accept(TS.of(Job.inProgress(key), timestamp));
+                              updateJobSink.accept(
+                                  TS.of(
+                                      new Job(key, processor.apply(tempFile, key).intoJobState()),
+                                      timestamp));
+                              LOGGER.info("Processed {}: state = {}", key, ts);
+                              filesSeen.getAndIncrement();
+                            }
 
-          } catch (Exception e) {
-            if (tmp != null) {
-              if (!tmp.delete()) {
-                LOGGER.error("Could not delete temp file {}", tmp.getAbsolutePath());
-              }
-            }
-            updateJobSink.accept(TS.of(Job.failed(key), timestamp));
-            throw new RuntimeException(e);
-          }
-        });
-    close();
+                            if (!tempFile.delete()) {
+                              LOGGER.error(
+                                  "Could not delete temp file {}", tempFile.getAbsolutePath());
+                            }
+                            int currentDone = done.incrementAndGet();
+                            LOGGER.info(
+                                String.format(
+                                    "Done %d/%d, at %.1f%%",
+                                    currentDone,
+                                    jobs.size(),
+                                    (float) 100 * currentDone / jobs.size()));
+                            updateJobSink.accept(TS.of(Job.completed(key), timestamp));
+
+                            try {
+                              ftpClient.disconnect();
+                            } catch (IOException e) {
+                              throw new RuntimeException(e);
+                            }
+                          });
+                })
+            .toList();
+
+    futures.forEach(CompletableFuture::join);
   }
 
   private boolean retrieveFile(String remoteFile, File localFile) throws IOException {
