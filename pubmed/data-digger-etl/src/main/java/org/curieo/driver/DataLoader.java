@@ -40,19 +40,6 @@ public record DataLoader(
   public static final int LOGGING_INTERVAL = 1000;
   private static final Logger LOGGER = LoggerFactory.getLogger(DataLoader.class);
 
-  static Option postgresUser() {
-    return Option.builder()
-        .option("p")
-        .longOpt("postgres-user")
-        .hasArg()
-        .desc("postgresql user")
-        .build();
-  }
-
-  static Option credentialsOption() {
-    return new Option("c", "credentials", true, "Path to credentials file");
-  }
-
   static Option batchSizeOption() {
     return Option.builder()
         .option("b")
@@ -133,7 +120,7 @@ public record DataLoader(
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
     Config config = new Config();
-    String application = parse.getOptionValue('d', "pubmed");
+    String application = parse.getOptionValue('d', "baseline");
     String sourceType = parse.getOptionValue('y', SourceReader.PUBMED);
     String index = parse.getOptionValue('i');
     int maximumNumberOfRecords = getIntOption(parse, maxFiles).orElse(Integer.MAX_VALUE);
@@ -158,53 +145,42 @@ public record DataLoader(
 
     PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config);
     SQLSinkFactory sqlSinkFactory =
-        new SQLSinkFactory(postgreSQLClient.getConnection(), batchSize, parse.hasOption(useKeys));
+        new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeys));
 
-    PostgreSQLClient postgreSQLClient = null;
-    SQLSinkFactory sqlSinkFactory;
-    if (postgresuser != null) {
-      postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(credentials, postgresuser);
-      sqlSinkFactory = new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeys));
+    jobsSink = sqlSinkFactory.createJobsSink();
+    // store authorships
+    if (parse.hasOption('a')) {
+      Sink<Record> asink =
+          new MapSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
+      tsink = tsink.concatenate(asink);
+    }
+    // store references
+    if (parse.hasOption(references)) {
+      Sink<Record> asink =
+          new MapSink<>(
+              Record::toReferences,
+              sqlSinkFactory.createReferenceSink(parse.getOptionValues(references)));
+      tsink = tsink.concatenate(asink);
+    }
+    // store full records
+    if (parse.hasOption("full-records")) {
+      Sink<Record> asink = new MapSink<>(StandardRecord::copy, sqlSinkFactory.createRecordSink());
+      tsink = tsink.concatenate(asink);
+    }
 
-      jobsSink = sqlSinkFactory.createJobsSink();
-      // store authorships
-      if (parse.hasOption('a')) {
-        Sink<Record> asink =
-            new MapSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
-        tsink = tsink.concatenate(asink);
-      }
-      // store references
-      if (parse.hasOption(references)) {
-        Sink<Record> asink =
-            new MapSink<>(
-                Record::toReferences,
-                sqlSinkFactory.createReferenceSink(parse.getOptionValues(references)));
-        tsink = tsink.concatenate(asink);
-      }
-      // store full records
-      if (parse.hasOption("full-records")) {
-        Sink<Record> asink = new MapSink<>(StandardRecord::copy, sqlSinkFactory.createRecordSink());
-        tsink = tsink.concatenate(asink);
-      }
-
-      // store link table
-      if (parse.hasOption(linkTable)) {
-        String[] sourceTargets = parse.getOptionValues(linkTable);
-        for (String sourceTarget : sourceTargets) {
-          String[] st = sourceTarget.split("=");
-          if (st.length != 2) {
-            LOGGER.warn("Arguments to {} need to be of the shape A=B", linkTable.getLongOpt());
-            System.exit(1);
-          }
-          Sink<Record> asink =
-              new MapSink<>(
-                  r -> r.toLinks(st[0], st[1]), sqlSinkFactory.createLinkTable(st[0], st[1]));
-          tsink = tsink.concatenate(asink);
+    // store link table
+    if (parse.hasOption(linkTable)) {
+      String[] sourceTargets = parse.getOptionValues(linkTable);
+      for (String sourceTarget : sourceTargets) {
+        String[] st = sourceTarget.split("=");
+        if (st.length != 2) {
+          LOGGER.warn("Arguments to {} need to be of the shape A=B", linkTable.getLongOpt());
+          System.exit(1);
         }
         Sink<Record> asink =
-            new MapperSink<>(
-                r -> r.toLinks(st[0], st[1]), sqlSinkFactory.createLinkoutTable(st[0], st[1]));
-        tsink = tsink == null ? asink : tsink.concatenate(asink);
+            new MapSink<>(
+                r -> r.toLinks(st[0], st[1]), sqlSinkFactory.createLinkTable(st[0], st[1]));
+        tsink = tsink.concatenate(asink);
       }
     }
 
@@ -238,7 +214,7 @@ public record DataLoader(
       Map<String, TS<Job>> jobs = PostgreSQLClient.retrieveJobs(postgreSQLClient.getConnection());
 
       ftpProcessing.processRemoteDirectory(
-          credentials.get(application, "remotepath"),
+          remotePath,
           jobs,
           jobsSink,
           FTPProcessingFilter.ValidExtension(".xml.gz"),

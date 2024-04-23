@@ -33,12 +33,6 @@ The last step will build a 50MB jar that is referenced in the `load-pubmed.sh` s
 ## Running
 From the root folder, run the `load-pubmed.sh` script. This script will scrape the FTP server for new files, parse the files, map the data, and store it in the database.
 
-```sh
-# Cleanup the status files if exist
-rm -f config/status.json
-rm -f config/baseline-status.json
-rm -f config/updates-status.json
-
 # Run the script
 ./data-digger-etl/scripts/load-pubmed.sh <OPTION>
 ```

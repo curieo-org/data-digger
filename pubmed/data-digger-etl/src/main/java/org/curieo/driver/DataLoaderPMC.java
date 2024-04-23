@@ -59,8 +59,6 @@ public record DataLoaderPMC(String sourceType, Sink<Record> sink) {
 
   public static void main(String[] args)
       throws ParseException, IOException, SQLException, XMLStreamException, URISyntaxException {
-    Option postgresuserOpt = postgresUser();
-    Option credentialsOpt = credentialsOption();
     Option batchSizeOption = batchSizeOption();
     Option oaiOption = oaiOption();
     Option useKeys = useKeysOption();

@@ -29,7 +29,7 @@ class DataLoaderTests {
     Config config = new Config();
     String path = config.corpora_folder_path + "pubmed24n1307.xml.gz";
 
-    PostgreSQLClient client = PostgreSQLClient.getPostgreSQLClient(credentials, "datadigger");
+    PostgreSQLClient client = PostgreSQLClient.getPostgreSQLClient(config);
     SQLSinkFactory sqlSinkFactory = new SQLSinkFactory(client, 100, false);
     Sink<Record> sink = new MapSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
     DataLoader dataLoader = new DataLoader(0, 3000, "pubmed", sink);
