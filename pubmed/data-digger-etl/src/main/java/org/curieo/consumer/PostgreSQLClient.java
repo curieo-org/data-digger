@@ -1,13 +1,10 @@
 package org.curieo.consumer;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Properties;
-import java.util.Set;
-import lombok.Getter;
+import com.zaxxer.hikari.HikariDataSource;
+import java.sql.*;
+import java.util.*;
+import org.curieo.model.Job;
+import org.curieo.model.TS;
 import org.curieo.rdf.HashSet;
 import org.curieo.utils.Credentials;
 import org.slf4j.Logger;
@@ -21,7 +18,7 @@ import org.slf4j.LoggerFactory;
 public class PostgreSQLClient implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(PostgreSQLClient.class);
   public static final String LOCALDB = "jdbc:postgresql://localhost:5432/postgres";
-  @Getter private final Connection connection;
+  private final HikariDataSource dataSource;
   private final String connectionString;
 
   public enum CreateFlags {
@@ -35,16 +32,40 @@ public class PostgreSQLClient implements AutoCloseable {
     if (dbUrl == null) {
       dbUrl = LOCALDB;
     }
+    HikariDataSource ds = new HikariDataSource();
+    ds.setJdbcUrl(dbUrl);
+    ds.setUsername(user);
+    ds.setPassword(password);
+    ds.setMinimumIdle(10);
+    ds.setMaximumPoolSize(45);
+    // ds.setKeepaliveTime(60000);
+    // ds.setIdleTimeout(120000);
+    // ds.setLeakDetectionThreshold(150000);
+    // ds.setMaxLifetime(180000);
+    // ds.setConnectionTimeout(3000);
+    // ds.setValidationTimeout(2500);
+    ds.setRegisterMbeans(true);
+    ds.setAllowPoolSuspension(false);
+    ds.setAutoCommit(true);
 
-    Properties parameters = new Properties();
-    parameters.put("user", user);
-    parameters.put("password", password);
-
-    connection = DriverManager.getConnection(dbUrl, parameters);
-    if (connection != null) {
-      LOGGER.info("Connected to database {}", dbUrl);
-    }
     connectionString = dbUrl;
+    dataSource = ds;
+  }
+
+  public Connection getConnection() throws SQLException {
+    return dataSource.getConnection();
+  }
+
+  public PreparedStatement prepareStatement(String sql) throws SQLException {
+    PreparedStatement prepStmt = getConnection().prepareStatement(sql);
+    prepStmt.closeOnCompletion();
+    return prepStmt;
+  }
+
+  public void execute(String sql) throws SQLException {
+    try (Connection connection = getConnection()) {
+      connection.createStatement().execute(sql);
+    }
   }
 
   public static PostgreSQLClient getPostgreSQLClient(Credentials credentials, String postgresuser)
@@ -75,22 +96,49 @@ public class PostgreSQLClient implements AutoCloseable {
     return keys;
   }
 
+  public static Map<String, TS<Job>> retrieveJobs(Connection connection) throws SQLException {
+
+    Map<String, TS<Job>> jobs = new HashMap<>();
+
+    // https://jdbc.postgresql.org/documentation/query/#getting-results-based-on-a-cursor
+    boolean autocommit = connection.getAutoCommit();
+    connection.setAutoCommit(false);
+    // give some hints as to how to read economically
+    Statement statement =
+        connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+    statement.setFetchSize(100);
+    try (ResultSet resultSet = statement.executeQuery("select name, state, timestamp from jobs")) {
+      while (resultSet.next()) {
+
+        Job job =
+            Job.builder()
+                .name(resultSet.getString(1))
+                .jobState(Job.State.fromInt(resultSet.getInt(2)))
+                .build();
+
+        TS<Job> jobTs = new TS<>(job, resultSet.getTimestamp(3));
+        jobs.put(job.getName(), jobTs);
+      }
+    }
+    connection.setAutoCommit(autocommit); // back to original value
+    return jobs;
+  }
+
   /**
    * Create a database.
    *
    * @param databaseName
    * @param flags
-   * @return connection string for the database.
    * @throws SQLException
    */
-  public String createDatabase(String databaseName, CreateFlags flags) throws SQLException {
+  public void createDatabase(String databaseName, CreateFlags flags) throws SQLException {
     int i = connectionString.lastIndexOf('/');
     String dbConnectionString =
         i != -1
             ? connectionString.substring(0, i + 1) + databaseName
             : connectionString + databaseName;
 
-    try (Statement stmt = connection.createStatement()) {
+    try (Statement stmt = getConnection().createStatement()) {
       String testIfExists =
           String.format(
               "SELECT * FROM pg_database WHERE datname='%s'", escapeSingleQuotes(databaseName));
@@ -103,7 +151,7 @@ public class PostgreSQLClient implements AutoCloseable {
               stmt.close();
               throw new RuntimeException(String.format("Database %s already exists", databaseName));
             case OnExistSilentNoOp:
-              return dbConnectionString;
+              return;
             case OnExistSilentOverride:
               dropDatabase(databaseName);
           }
@@ -114,13 +162,12 @@ public class PostgreSQLClient implements AutoCloseable {
       int result = stmt.executeUpdate(sql);
       LOGGER.info("Executed create database with success {}", result);
     }
-    return dbConnectionString;
   }
 
   public void dropDatabase(String databaseName) throws SQLException {
     // create three connections to three different databases on localhost
     String sql = String.format("DROP DATABASE %s", databaseName);
-    try (Statement stmt = connection.createStatement()) {
+    try (Statement stmt = getConnection().createStatement()) {
       int result = stmt.executeUpdate(sql);
       LOGGER.info("Dropped database with success {}", result);
     }
@@ -139,9 +186,7 @@ public class PostgreSQLClient implements AutoCloseable {
   }
 
   @Override
-  public void close() throws SQLException {
-    if (connection != null && !connection.isClosed()) {
-      connection.close();
-    }
+  public void close() {
+    dataSource.close();
   }
 }

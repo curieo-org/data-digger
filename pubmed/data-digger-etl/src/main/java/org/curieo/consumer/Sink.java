@@ -1,10 +1,10 @@
 package org.curieo.consumer;
 
 import java.util.function.Consumer;
-import lombok.Generated;
-import lombok.Value;
 
 public interface Sink<T> extends Consumer<T> {
+  void accept(T t);
+
   void finalCall();
 
   int getTotalCount();
@@ -16,12 +16,7 @@ public interface Sink<T> extends Consumer<T> {
     return new Concat<>(this, other);
   }
 
-  @Generated
-  @Value
-  class Concat<T> implements Sink<T> {
-    Sink<T> s1;
-    Sink<T> s2;
-
+  record Concat<T>(Sink<T> s1, Sink<T> s2) implements Sink<T> {
     @Override
     public void accept(T t) {
       s1.accept(t);
@@ -43,5 +38,28 @@ public interface Sink<T> extends Consumer<T> {
     public int getUpdatedCount() {
       return s1.getUpdatedCount() + s2.getUpdatedCount();
     }
+  }
+
+  /**
+   * Useful as a starting point when you are concatenating several sinks.
+   *
+   * @param <T>
+   */
+  record Noop<T>() implements Sink<T> {
+    @Override
+    public void finalCall() {}
+
+    @Override
+    public int getTotalCount() {
+      return 0;
+    }
+
+    @Override
+    public int getUpdatedCount() {
+      return 0;
+    }
+
+    @Override
+    public void accept(T t) {}
   }
 }

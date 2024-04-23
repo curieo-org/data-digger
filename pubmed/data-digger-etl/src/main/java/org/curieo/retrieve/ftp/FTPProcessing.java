@@ -1,46 +1,51 @@
 package org.curieo.retrieve.ftp;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectReader;
-import com.fasterxml.jackson.databind.ObjectWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.sql.Timestamp;
 import java.util.*;
-import java.util.function.Function;
-import lombok.Generated;
-import lombok.Value;
-import org.apache.commons.io.IOUtils;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
+import java.util.function.Predicate;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPReply;
+import org.curieo.consumer.PostgreSQLClient;
+import org.curieo.consumer.Sink;
+import org.curieo.model.Job;
+import org.curieo.model.TS;
 import org.curieo.utils.Credentials;
+import org.curieo.utils.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class FTPProcessing implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(FTPProcessing.class);
 
-  private static final ObjectReader OBJECT_READER;
-  private static final ObjectWriter OBJECT_WRITER;
   Credentials creds;
   String key;
   FTPClient ftp;
-
-  static {
-    TypeReference<HashMap<String, Status>> typeRef = new TypeReference<>() {};
-    OBJECT_READER = new ObjectMapper().readerFor(typeRef);
-    OBJECT_WRITER = new ObjectMapper().writerFor(typeRef).withDefaultPrettyPrinter();
-  }
+  PostgreSQLClient psqlClient;
 
   public FTPProcessing(Credentials credentials, String key) throws IOException {
     this.key = key;
     this.creds = credentials;
-    connect();
+    this.ftp = createClient();
+  }
+
+  public FTPProcessing(PostgreSQLClient psqlClient, Credentials credentials, String key)
+      throws IOException {
+    this.key = key;
+    this.creds = credentials;
+    this.psqlClient = psqlClient;
+    this.ftp = createClient();
   }
 
   public String getServer() {
@@ -60,44 +65,31 @@ public class FTPProcessing implements AutoCloseable {
     Error, // needs redo
     Open, // as yet undone
     Seen // submitted, not processed, but no need to submit to processor
-  }
+  ;
 
-  /**
-   * If the path does not exist, returns empty map.
-   *
-   * @param path
-   * @return instantiated status map
-   * @throws IOException
-   */
-  public static Map<String, Status> readProcessingStatus(File path) throws IOException {
-    if (!path.exists()) {
-      LOGGER.warn("New status map created.");
-      return new HashMap<>();
+    public Job.State intoJobState() {
+      return switch (this) {
+        case Seen -> Job.State.Queued;
+        case Open -> Job.State.InProgress;
+        case Error -> Job.State.Failed;
+        case Success -> Job.State.Completed;
+      };
     }
-    return OBJECT_READER.readValue(path);
-  }
-
-  /**
-   * write the status map
-   *
-   * @param path
-   * @throws JsonProcessingException
-   * @throws IOException
-   */
-  public static void writeProcessingStatus(Map<String, Status> status, File path)
-      throws JsonProcessingException, IOException {
-    OBJECT_WRITER.writeValue(path, status);
   }
 
   public void reopenIfClosed() throws IOException {
     if (!ftp.isConnected()) {
       ftp.disconnect();
-      connect();
+      ftp = createClient();
     }
   }
 
   @Override
   public void close() {
+    if (psqlClient != null) {
+      psqlClient.close();
+    }
+
     if (ftp.isConnected()) {
       try {
         ftp.disconnect();
@@ -113,101 +105,163 @@ public class FTPProcessing implements AutoCloseable {
    * Synchronize a remote directory and a local directory.
    *
    * @param remoteDirectory
-   * @param localDirectory
-   */
-  public static void synchronize(String remoteDirectory, File localDirectory) {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * Synchronize a remote directory and a local directory.
-   *
-   * @param remoteDirectory
-   * @param processingStatus the file to track the status of each remote/local file. If the file
-   *     does not exist, it will be created
-   * @param initialStatus function to decide initial status of each incoming file (Seen/Open)
    * @param processor
    * @param maximumNumberOfFiles maximum number of files to put through the processor
-   * @throws JsonProcessingException
    * @throws IOException
    */
   public void processRemoteDirectory(
       String remoteDirectory,
-      File processingStatus,
-      Function<FTPFile, Status> initialStatus,
-      Function<File, Status> processor,
+      Map<String, TS<Job>> jobs,
+      Sink<TS<Job>> updateJobSink,
+      FTPProcessingFilter filter,
+      BiFunction<File, String, Status> processor,
       int maximumNumberOfFiles)
-      throws JsonProcessingException, IOException {
-    Map<String, Status> statusMap = readProcessingStatus(processingStatus);
-    // update the status map
-    int newFiles = 0;
-    reopenIfClosed();
-    for (FTPFile file : ftp.listFiles(remoteDirectory)) {
-      Status status = statusMap.get(file.getName());
-      if (status == null) {
-        statusMap.put(file.getName(), initialStatus.apply(file));
-        newFiles++;
-      }
-    }
-    if (newFiles != 0) {
-      writeProcessingStatus(statusMap, processingStatus);
-    }
-    int filesSeen = 0;
-    int done =
-        (int)
-            statusMap.values().stream()
-                .filter(status -> status == Status.Seen || status == Status.Success)
-                .count();
-    for (Map.Entry<String, Status> status : statusMap.entrySet()) {
-      if (status.getValue() == Status.Open || status.getValue() == Status.Error) {
-        // retrieve the remote file, and submit.
-        reopenIfClosed();
-        File tmp = File.createTempFile(prefix(status.getKey()), suffix(status.getKey()));
-        String remoteFile;
-        if (remoteDirectory.endsWith("/")) {
-          remoteFile = remoteDirectory + status.getKey();
-        } else {
-          remoteFile = remoteDirectory + "/" + status.getKey();
-        }
-        if (!retrieveFile(remoteFile, tmp)) {
-          LOGGER.error("Cannot retrieve file {}", remoteFile);
-          status.setValue(Status.Error);
-        } else {
-          status.setValue(processor.apply(tmp));
-          LOGGER.info("Processed {}: status = {}", status.getKey(), status.getValue());
-          filesSeen++;
-        }
+      throws IOException {
 
-        if (!tmp.delete()) {
-          LOGGER.error("Could not delete temp file {}", tmp.getAbsolutePath());
+    reopenIfClosed();
+
+    // First pass
+    for (FTPFile file : ftp.listFiles(remoteDirectory, filter)) {
+      String name = file.getName();
+      Timestamp remoteTimestamp = Timestamp.from(file.getTimestamp().toInstant());
+
+      if (jobs.containsKey(name)) {
+        // If our job is outdated
+        if (jobs.get(name).timestamp().before(remoteTimestamp)) {
+          // Add job to queue and update jobs
+          Job queued = Job.queue(name);
+          updateJobSink.accept(TS.of(queued, remoteTimestamp));
+          jobs.put(name, TS.of(queued, remoteTimestamp));
         }
-        writeProcessingStatus(statusMap, processingStatus);
-        if (filesSeen == maximumNumberOfFiles) {
-          break;
-        }
-        done++;
-        LOGGER.info(
-            String.format(
-                "Done %d/%d, at %.1f%%",
-                done, statusMap.size(), (float) 100 * done / statusMap.size()));
+      } else {
+        Job queued = Job.queue(name);
+        updateJobSink.accept(TS.of(queued, remoteTimestamp));
+        jobs.put(name, TS.of(queued, remoteTimestamp));
       }
     }
+    ;
+
+    AtomicInteger filesSeen = new AtomicInteger();
+    AtomicInteger done =
+        new AtomicInteger(
+            (int)
+                jobs.values().stream()
+                    .filter(ts -> ts.value().getJobState() == Job.State.Completed)
+                    .count());
+
+    Predicate<Map.Entry<String, TS<Job>>> needsWork =
+        (entry) -> {
+          Job.State state = entry.getValue().value().getJobState();
+          return filesSeen.get() <= maximumNumberOfFiles
+              && (state == Job.State.Queued || state == Job.State.Failed);
+        };
+
+    Executor executor = Executors.newFixedThreadPool(10);
+    final List<CompletableFuture<Void>> futures =
+        jobs.entrySet().stream()
+            .filter(needsWork)
+            .map(
+                entry -> {
+                  String key = entry.getKey();
+                  TS<Job> ts = entry.getValue();
+                  Timestamp timestamp = ts.timestamp();
+
+                  return CompletableFuture.supplyAsync(
+                          () -> {
+                            try {
+                              return createClient();
+                            } catch (IOException e) {
+                              throw new RuntimeException(e);
+                            }
+                          },
+                          executor)
+                      .thenApply(
+                          ftpClient -> {
+                            try {
+                              return Pair.of(
+                                  ftpClient, File.createTempFile(prefix(key), suffix(key)));
+                            } catch (IOException e) {
+                              throw new RuntimeException(e);
+                            }
+                          })
+                      .thenApply(
+                          state -> {
+                            FTPClient ftpClient = state.l();
+                            File tempFile = state.r();
+
+                            // retrieve the remote file, and submit.
+                            String remoteFile;
+                            if (remoteDirectory.endsWith("/")) {
+                              remoteFile = remoteDirectory + key;
+                            } else {
+                              remoteFile = remoteDirectory + "/" + key;
+                            }
+                            try {
+                              boolean fileRetrieved = retrieveFile(ftpClient, remoteFile, tempFile);
+                              return Pair.of(fileRetrieved, state);
+                            } catch (IOException e) {
+                              if (!tempFile.delete()) {
+                                LOGGER.error(
+                                    "Could not delete temp file {}", tempFile.getAbsolutePath());
+                              }
+                              updateJobSink.accept(TS.of(Job.failed(key), timestamp));
+                              throw new RuntimeException(e);
+                            }
+                          })
+                      .thenAcceptAsync(
+                          state -> {
+                            boolean fileRetrieved = state.l();
+                            FTPClient ftpClient = state.r().l();
+                            File tempFile = state.r().r();
+
+                            if (!fileRetrieved) {
+                              LOGGER.error("Cannot retrieve file {}", key);
+                              updateJobSink.accept(TS.of(Job.failed(key), timestamp));
+                            } else {
+                              updateJobSink.accept(TS.of(Job.inProgress(key), timestamp));
+                              updateJobSink.accept(
+                                  TS.of(
+                                      new Job(key, processor.apply(tempFile, key).intoJobState()),
+                                      timestamp));
+                              LOGGER.info("Processed {}: state = {}", key, ts);
+                              filesSeen.getAndIncrement();
+                            }
+
+                            if (!tempFile.delete()) {
+                              LOGGER.error(
+                                  "Could not delete temp file {}", tempFile.getAbsolutePath());
+                            }
+                            int currentDone = done.incrementAndGet();
+                            LOGGER.info(
+                                String.format(
+                                    "Done %d/%d, at %.1f%%",
+                                    currentDone,
+                                    jobs.size(),
+                                    (float) 100 * currentDone / jobs.size()));
+                            updateJobSink.accept(TS.of(Job.completed(key), timestamp));
+
+                            try {
+                              ftpClient.disconnect();
+                            } catch (IOException e) {
+                              throw new RuntimeException(e);
+                            }
+                          });
+                })
+            .toList();
+
+    futures.forEach(CompletableFuture::join);
   }
 
   private boolean retrieveFile(String remoteFile, File localFile) throws IOException {
     FileOutputStream fos = new FileOutputStream(localFile);
-    InputStream inputStream = ftp.retrieveFileStream(remoteFile);
-    if (inputStream == null) {
-      LOGGER.error(String.format("Retrieving remote file %s ended in null", remoteFile));
-      System.exit(1);
-    } else {
-      IOUtils.copy(inputStream, fos);
-      fos.flush();
-      fos.close();
-      inputStream.close();
-      ftp.disconnect();
-    }
+    ftp.retrieveFile(remoteFile, fos);
     return true;
+  }
+
+  private boolean retrieveFile(FTPClient client, String remoteFile, File localFile)
+      throws IOException {
+    FileOutputStream fos = new FileOutputStream(localFile);
+    return client.retrieveFile(remoteFile, fos);
   }
 
   private static String prefix(String name) {
@@ -218,7 +272,7 @@ public class FTPProcessing implements AutoCloseable {
     return name.substring(0, dot);
   }
 
-  private static String suffix(String name) {
+  static String suffix(String name) {
     int dot = name.lastIndexOf('.');
     if (dot == -1) {
       return "tmp";
@@ -235,34 +289,12 @@ public class FTPProcessing implements AutoCloseable {
     return name.substring(dot);
   }
 
-  public static Function<FTPFile, Status> skipExtensions(String... extensions) {
-    Set<String> ext = new HashSet<>();
-    Collections.addAll(ext, extensions);
-    return new SkipExtension(ext);
-  }
-
-  @Generated
-  @Value
-  private static class SkipExtension implements Function<FTPFile, Status> {
-    Set<String> extensions;
-
-    @Override
-    public Status apply(FTPFile t) {
-      if (extensions.contains(suffix(t.getName()))) {
-        return Status.Seen; // skip
-      } else {
-        return Status.Open;
-      }
-    }
-  }
-
-  private void connect() throws IOException {
-    ftp = new FTPClient();
+  private FTPClient createClient() throws IOException {
+    FTPClient ftp = new FTPClient();
     ftp.connect(getServer());
     // extremely important
     ftp.setFileType(FTPClient.BINARY_FILE_TYPE);
-    ftp.setBufferSize(1024 * 1024);
-    // ftp.enterLocalPassiveMode();
+    ftp.setBufferSize(-1);
 
     LOGGER.info("Connected to {}.", getServer());
     LOGGER.info(ftp.getReplyString());
@@ -277,10 +309,12 @@ public class FTPProcessing implements AutoCloseable {
     }
 
     ftp.login(getUser(), getPassword());
+    ftp.enterLocalPassiveMode();
+    return ftp;
   }
 
-  public static boolean retrieve(String href, File file) throws IOException {
-    URL url = new URL(href);
+  public static boolean retrieve(String href, File file) throws IOException, URISyntaxException {
+    URL url = URI.create(href).parseServerAuthority().toURL();
     String path = url.getFile();
     String server = url.getHost();
     Credentials credentials = new Credentials();

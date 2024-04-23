@@ -1,9 +1,12 @@
 package org.curieo.driver;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
+import java.util.HashMap;
+import org.curieo.consumer.Sink;
+import org.curieo.model.Job;
+import org.curieo.model.TS;
 import org.curieo.retrieve.ftp.FTPProcessing;
+import org.curieo.retrieve.ftp.FTPProcessingFilter;
 import org.curieo.utils.Credentials;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -14,15 +17,16 @@ class FTPTests {
   @Tag("slow")
   void testListing() throws IOException {
     Credentials creds = Credentials.defaults();
+
+    Sink<TS<Job>> jobSink = new Sink.Noop<>();
     try (FTPProcessing ftpProc = new FTPProcessing(creds, "pubmedcommons")) {
-      File processingStatus = File.createTempFile("processingStatus", ".json");
-      Files.write(processingStatus.toPath(), "{}".getBytes());
       ftpProc.processRemoteDirectory(
           creds.get("pubmedcommons", "remotepath"),
-          processingStatus,
-          FTPProcessing.skipExtensions("md5"),
-          file -> {
-            System.out.printf("File %s\n", file.getName());
+          new HashMap<>(),
+          jobSink,
+          FTPProcessingFilter.IgnoreExtensions("md5", "html"),
+          (file, name) -> {
+            System.out.printf("File %s, job name: %s\n", file.getName(), name);
             return FTPProcessing.Status.Seen;
           },
           Integer.MAX_VALUE);

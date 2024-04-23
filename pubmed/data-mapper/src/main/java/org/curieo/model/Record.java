@@ -10,6 +10,9 @@ import java.util.Optional;
 import org.apache.commons.collections4.ListUtils;
 
 public interface Record {
+
+  String getOrigin();
+
   List<Text> getAbstractText();
 
   List<Text> getTitles();
@@ -30,6 +33,11 @@ public interface Record {
 
   List<Metadata> getIdentifiers();
 
+  /** If we know the identifier is a valid number this is a useful util * */
+  default Long getNumericIdentifier() throws NumberFormatException {
+    return Long.parseLong(getIdentifier());
+  }
+
   default List<LinkedField<Authorship>> toAuthorships() {
     throw new UnsupportedOperationException("Not defined for standard records.");
   }
@@ -45,7 +53,7 @@ public interface Record {
     List<LinkedField<Reference>> list = new ArrayList<>();
 
     for (int ordinal = 0; ordinal < ListUtils.emptyIfNull(getReferences()).size(); ordinal++) {
-      list.add(new LinkedField<>(ordinal, getIdentifier(), getReferences().get(ordinal)));
+      list.add(new LinkedField<>(ordinal, getNumericIdentifier(), getReferences().get(ordinal)));
     }
     return list;
   }
@@ -53,13 +61,13 @@ public interface Record {
   default List<Metadata> toLinks(String source, String target) {
     Optional<String> sourceOpt =
         this.getIdentifiers().stream()
-            .filter(m -> m.getKey().equals(source))
-            .map(Metadata::getValue)
+            .filter(m -> m.key().equals(source))
+            .map(Metadata::value)
             .findFirst();
     Optional<String> targetOpt =
         this.getIdentifiers().stream()
-            .filter(m -> m.getKey().equals(target))
-            .map(Metadata::getValue)
+            .filter(m -> m.key().equals(target))
+            .map(Metadata::value)
             .findFirst();
 
     if (sourceOpt.isPresent() && targetOpt.isPresent()) {
