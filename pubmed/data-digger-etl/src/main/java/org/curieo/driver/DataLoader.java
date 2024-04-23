@@ -15,7 +15,6 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.net.ftp.FTPFile;
 import org.curieo.consumer.*;
 import org.curieo.elastic.Client;
 import org.curieo.elastic.ElasticConsumer;
@@ -24,7 +23,8 @@ import org.curieo.embed.SentenceEmbeddingService;
 import org.curieo.model.*;
 import org.curieo.model.Record;
 import org.curieo.retrieve.ftp.FTPProcessing;
-import org.curieo.sources.SourceStreamReader;
+import org.curieo.retrieve.ftp.FTPProcessingFilter;
+import org.curieo.sources.SourceReader;
 import org.curieo.utils.Config;
 import org.curieo.utils.Credentials;
 import org.slf4j.Logger;
@@ -140,7 +140,7 @@ public record DataLoader(
     String credpath = parse.getOptionValue(credentialsOpt, Config.CREDENTIALS_PATH);
     Credentials credentials = Credentials.read(new File(credpath));
     String application = parse.getOptionValue('d', "pubmed");
-    String sourceType = parse.getOptionValue('y', SourceStreamReader.PUBMED);
+    String sourceType = parse.getOptionValue('y', SourceReader.PUBMED);
     String index = parse.getOptionValue('i');
     int maximumNumberOfRecords = getIntOption(parse, maxFiles).orElse(Integer.MAX_VALUE);
     int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);
@@ -234,7 +234,7 @@ public record DataLoader(
           credentials.get(application, "remotepath"),
           jobs,
           jobsSink,
-          (FTPFile ftpFile) -> ftpFile.getName().toLowerCase().endsWith(".xml.gz"),
+          FTPProcessingFilter.ValidExtension(".xml.gz"),
           loader::processFile,
           maximumNumberOfRecords);
     }
@@ -252,17 +252,18 @@ public record DataLoader(
       AtomicInteger count = new AtomicInteger();
       AtomicInteger countRejected = new AtomicInteger();
       long startTimeInMillis = System.currentTimeMillis();
+
       try {
-        SourceStreamReader.get(sourceType).stream(file, name)
-            .forEach(
-                r -> {
-                  count.getAndIncrement();
-                  if (checkYear(r)) {
-                    sink.accept(r);
-                  } else {
-                    countRejected.getAndIncrement();
-                  }
-                });
+        final Iterable<Record> reader = SourceReader.getReader(sourceType).read(file, name);
+        reader.forEach(
+            r -> {
+              count.getAndIncrement();
+              if (checkYear(r)) {
+                sink.accept(r);
+              } else {
+                countRejected.getAndIncrement();
+              }
+            });
 
         LOGGER.info("Seen {} records - rejected {} by year filter", count, countRejected);
 
@@ -274,14 +275,15 @@ public record DataLoader(
             String.format(Locale.US, "%.1f", (float) (endTimeInMillis - startTimeInMillis) / 1000),
             String.format(
                 Locale.US, "%.2f", (float) (endTimeInMillis - startTimeInMillis) / count.get()));
+
         return FTPProcessing.Status.Success;
       } catch (Exception e) {
         LOGGER.error(String.format("Failed to process file %s", path), e);
         return FTPProcessing.Status.Error;
       }
-    } else {
-      return FTPProcessing.Status.Seen;
     }
+
+    return FTPProcessing.Status.Seen;
   }
 
   public static Sink<Record> getElasticConsumer(

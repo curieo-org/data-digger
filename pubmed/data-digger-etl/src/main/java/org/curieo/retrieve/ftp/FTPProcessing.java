@@ -10,7 +10,6 @@ import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPReply;
@@ -33,7 +32,7 @@ public class FTPProcessing implements AutoCloseable {
   public FTPProcessing(Credentials credentials, String key) throws IOException {
     this.key = key;
     this.creds = credentials;
-    connect();
+    this.ftp = createClient();
   }
 
   public FTPProcessing(PostgreSQLClient psqlClient, Credentials credentials, String key)
@@ -41,7 +40,7 @@ public class FTPProcessing implements AutoCloseable {
     this.key = key;
     this.creds = credentials;
     this.psqlClient = psqlClient;
-    connect();
+    this.ftp = createClient();
   }
 
   public String getServer() {
@@ -76,12 +75,16 @@ public class FTPProcessing implements AutoCloseable {
   public void reopenIfClosed() throws IOException {
     if (!ftp.isConnected()) {
       ftp.disconnect();
-      connect();
+      ftp = createClient();
     }
   }
 
   @Override
   public void close() {
+    if (psqlClient != null) {
+      psqlClient.close();
+    }
+
     if (ftp.isConnected()) {
       try {
         ftp.disconnect();
@@ -105,7 +108,7 @@ public class FTPProcessing implements AutoCloseable {
       String remoteDirectory,
       Map<String, TS<Job>> jobs,
       Sink<TS<Job>> updateJobSink,
-      Function<FTPFile, Boolean> filter,
+      FTPProcessingFilter filter,
       BiFunction<File, String, Status> processor,
       int maximumNumberOfFiles)
       throws IOException {
@@ -113,26 +116,25 @@ public class FTPProcessing implements AutoCloseable {
     reopenIfClosed();
 
     // First pass
-    for (FTPFile file : ftp.listFiles(remoteDirectory)) {
-      if (filter.apply(file)) {
-        String name = file.getName();
-        Timestamp remoteTimestamp = Timestamp.from(file.getTimestamp().toInstant());
+    for (FTPFile file : ftp.listFiles(remoteDirectory, filter)) {
+      String name = file.getName();
+      Timestamp remoteTimestamp = Timestamp.from(file.getTimestamp().toInstant());
 
-        if (jobs.containsKey(name)) {
-          // If our job is outdated
-          if (jobs.get(name).timestamp().before(remoteTimestamp)) {
-            // Add job to queue and update jobs
-            Job queued = Job.queue(name);
-            updateJobSink.accept(TS.of(queued, remoteTimestamp));
-            jobs.put(name, TS.of(queued, remoteTimestamp));
-          }
-        } else {
+      if (jobs.containsKey(name)) {
+        // If our job is outdated
+        if (jobs.get(name).timestamp().before(remoteTimestamp)) {
+          // Add job to queue and update jobs
           Job queued = Job.queue(name);
           updateJobSink.accept(TS.of(queued, remoteTimestamp));
           jobs.put(name, TS.of(queued, remoteTimestamp));
         }
+      } else {
+        Job queued = Job.queue(name);
+        updateJobSink.accept(TS.of(queued, remoteTimestamp));
+        jobs.put(name, TS.of(queued, remoteTimestamp));
       }
     }
+    ;
 
     AtomicInteger filesSeen = new AtomicInteger();
     AtomicInteger done =
@@ -142,62 +144,62 @@ public class FTPProcessing implements AutoCloseable {
                     .filter(ts -> ts.value().getJobState() == Job.State.Completed)
                     .count());
 
-    jobs.entrySet().stream()
-        .parallel()
-        .forEach(
-            state -> {
-              String key = state.getKey();
-              TS<Job> ts = state.getValue();
-              Timestamp timestamp = ts.timestamp();
-              Job job = ts.value();
+    jobs.forEach(
+        (key, ts) -> {
+          Timestamp timestamp = ts.timestamp();
+          Job job = ts.value();
 
-              if (job.getJobState() != Job.State.Queued && job.getJobState() != Job.State.Failed) {
-                return;
+          if (job.getJobState() != Job.State.Queued && job.getJobState() != Job.State.Failed) {
+            return;
+          }
+          if (filesSeen.get() >= maximumNumberOfFiles) {
+            return;
+          }
+          File tmp = null;
+          try {
+            // retrieve the remote file, and submit.
+            FTPClient ftpClient = createClient();
+            tmp = File.createTempFile(prefix(key), suffix(key));
+            String remoteFile;
+            if (remoteDirectory.endsWith("/")) {
+              remoteFile = remoteDirectory + key;
+            } else {
+              remoteFile = remoteDirectory + "/" + key;
+            }
+
+            if (!retrieveFile(ftpClient, remoteFile, tmp)) {
+              LOGGER.error("Cannot retrieve file {}", remoteFile);
+              updateJobSink.accept(TS.of(Job.failed(key), timestamp));
+            } else {
+              updateJobSink.accept(TS.of(Job.inProgress(key), timestamp));
+              updateJobSink.accept(
+                  TS.of(new Job(key, processor.apply(tmp, key).intoJobState()), timestamp));
+              LOGGER.info("Processed {}: state = {}", key, ts);
+              filesSeen.getAndIncrement();
+            }
+
+            if (!tmp.delete()) {
+              LOGGER.error("Could not delete temp file {}", tmp.getAbsolutePath());
+            }
+
+            int currentDone = done.incrementAndGet();
+            LOGGER.info(
+                String.format(
+                    "Done %d/%d, at %.1f%%",
+                    currentDone, jobs.size(), (float) 100 * currentDone / jobs.size()));
+            updateJobSink.accept(TS.of(Job.completed(key), timestamp));
+            ftpClient.disconnect();
+
+          } catch (Exception e) {
+            if (tmp != null) {
+              if (!tmp.delete()) {
+                LOGGER.error("Could not delete temp file {}", tmp.getAbsolutePath());
               }
-              if (filesSeen.get() >= maximumNumberOfFiles) {
-                return;
-              }
-
-              try {
-                // retrieve the remote file, and submit.
-                FTPClient ftpClient = createClient();
-                File tmp = File.createTempFile(prefix(key), suffix(key));
-                String remoteFile;
-                if (remoteDirectory.endsWith("/")) {
-                  remoteFile = remoteDirectory + key;
-                } else {
-                  remoteFile = remoteDirectory + "/" + key;
-                }
-
-                if (!retrieveFile(ftpClient, remoteFile, tmp)) {
-                  LOGGER.error("Cannot retrieve file {}", remoteFile);
-                  updateJobSink.accept(TS.of(Job.failed(key), timestamp));
-                } else {
-                  updateJobSink.accept(TS.of(Job.inProgress(key), timestamp));
-                  updateJobSink.accept(
-                      TS.of(new Job(key, processor.apply(tmp, key).intoJobState()), timestamp));
-                  LOGGER.info("Processed {}: state = {}", key, ts);
-                  filesSeen.getAndIncrement();
-                }
-
-                if (!tmp.delete()) {
-                  LOGGER.error("Could not delete temp file {}", tmp.getAbsolutePath());
-                }
-
-                int currentDone = done.incrementAndGet();
-                LOGGER.info(
-                    String.format(
-                        "Done %d/%d, at %.1f%%",
-                        currentDone, jobs.size(), (float) 100 * currentDone / jobs.size()));
-                updateJobSink.accept(TS.of(Job.completed(key), timestamp));
-                ftpClient.disconnect();
-
-              } catch (IOException e) {
-                updateJobSink.accept(TS.of(Job.failed(key), timestamp));
-                throw new RuntimeException(e);
-              }
-            });
-
+            }
+            updateJobSink.accept(TS.of(Job.failed(key), timestamp));
+            throw new RuntimeException(e);
+          }
+        });
     close();
   }
 
@@ -221,7 +223,7 @@ public class FTPProcessing implements AutoCloseable {
     return name.substring(0, dot);
   }
 
-  private static String suffix(String name) {
+  static String suffix(String name) {
     int dot = name.lastIndexOf('.');
     if (dot == -1) {
       return "tmp";
@@ -238,23 +240,12 @@ public class FTPProcessing implements AutoCloseable {
     return name.substring(dot);
   }
 
-  public static Function<FTPFile, Boolean> skipExtensions(String... extensions) {
-    Set<String> ext = new HashSet<>();
-    Collections.addAll(ext, extensions);
-    return (t) -> ext.contains(suffix(t.getName()));
-  }
-
-  private void connect() throws IOException {
-    ftp = createClient();
-  }
-
   private FTPClient createClient() throws IOException {
     FTPClient ftp = new FTPClient();
     ftp.connect(getServer());
     // extremely important
     ftp.setFileType(FTPClient.BINARY_FILE_TYPE);
-    ftp.setBufferSize(1024 * 1024);
-    // ftp.enterLocalPassiveMode();
+    ftp.setBufferSize(-1);
 
     LOGGER.info("Connected to {}.", getServer());
     LOGGER.info(ftp.getReplyString());
@@ -269,6 +260,7 @@ public class FTPProcessing implements AutoCloseable {
     }
 
     ftp.login(getUser(), getPassword());
+    ftp.enterLocalPassiveMode();
     return ftp;
   }
 

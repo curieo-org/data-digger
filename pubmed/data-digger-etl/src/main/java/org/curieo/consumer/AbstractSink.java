@@ -79,6 +79,13 @@ class AbstractSink<T> implements Sink<T> {
     if (insertions > 0) {
       executeAndClearBatch();
     }
+    try {
+      if (!statement.isClosed()) {
+        statement.close();
+      }
+    } catch (SQLException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public int getTotalCount() {

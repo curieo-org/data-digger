@@ -36,6 +36,17 @@ public class PostgreSQLClient implements AutoCloseable {
     ds.setJdbcUrl(dbUrl);
     ds.setUsername(user);
     ds.setPassword(password);
+    ds.setMinimumIdle(10);
+    ds.setMaximumPoolSize(45);
+    // ds.setKeepaliveTime(60000);
+    // ds.setIdleTimeout(120000);
+    // ds.setLeakDetectionThreshold(150000);
+    // ds.setMaxLifetime(180000);
+    // ds.setConnectionTimeout(3000);
+    // ds.setValidationTimeout(2500);
+    ds.setRegisterMbeans(true);
+    ds.setAllowPoolSuspension(false);
+    ds.setAutoCommit(true);
 
     connectionString = dbUrl;
     dataSource = ds;
@@ -46,7 +57,9 @@ public class PostgreSQLClient implements AutoCloseable {
   }
 
   public PreparedStatement prepareStatement(String sql) throws SQLException {
-    return getConnection().prepareStatement(sql);
+    PreparedStatement prepStmt = getConnection().prepareStatement(sql);
+    prepStmt.closeOnCompletion();
+    return prepStmt;
   }
 
   public void execute(String sql) throws SQLException {
