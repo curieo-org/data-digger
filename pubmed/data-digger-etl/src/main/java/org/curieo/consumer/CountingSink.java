@@ -14,15 +14,15 @@ import org.slf4j.LoggerFactory;
 @Generated
 @Value
 @AllArgsConstructor
-public class CountingConsumer<T, Y> implements Sink<T> {
-  private static final Logger LOGGER = LoggerFactory.getLogger(CountingConsumer.class);
+public class CountingSink<T, Y> implements Sink<T> {
+  private static final Logger LOGGER = LoggerFactory.getLogger(CountingSink.class);
   int loggingInterval;
   Map<Y, Integer> track;
   AtomicInteger count;
   Function<T, Y> mapper;
   BiFunction<Y, Integer, String> formatter;
 
-  public CountingConsumer(int li, Function<T, Y> mapper, BiFunction<Y, Integer, String> formatter) {
+  public CountingSink(int li, Function<T, Y> mapper, BiFunction<Y, Integer, String> formatter) {
     this(li, new ConcurrentHashMap<>(), new AtomicInteger(), mapper, formatter);
   }
 

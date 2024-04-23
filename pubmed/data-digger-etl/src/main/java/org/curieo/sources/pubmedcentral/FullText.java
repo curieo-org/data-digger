@@ -5,10 +5,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
-import java.net.URLEncoder;
+import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -29,14 +26,11 @@ import org.curieo.sources.TarExtractor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Generated
-@Value
-public class FullText {
+public record FullText(String oaiService) {
   public static final String GZIPPED_TAR_FORMAT = "tgz";
   public static final String XML_EXTENSION = "xml";
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FullText.class);
-  String oaiService;
   private static XMLInputFactory XMLINPUTFACTORY = XMLInputFactory.newInstance();
   private static final QName ID_ATTRIBUTE = new QName("id");
   private static final QName CITATION_ATTRIBUTE = new QName("citation");
@@ -55,7 +49,7 @@ public class FullText {
    * @throws IOException
    * @throws XMLStreamException
    */
-  public String getJats(String pmcId) throws IOException, XMLStreamException {
+  public String getJats(String pmcId) throws IOException, XMLStreamException, URISyntaxException {
     File file = getFullText(pmcId, GZIPPED_TAR_FORMAT);
     if (file == null) {
       LOGGER.warn("Cannot retrieve {}", pmcId);
@@ -81,7 +75,8 @@ public class FullText {
    * @throws IOException
    * @throws XMLStreamException
    */
-  public File getFullText(String pmcId, String format) throws IOException, XMLStreamException {
+  public File getFullText(String pmcId, String format)
+      throws IOException, XMLStreamException, URISyntaxException {
     Record record = getRecord(pmcId);
     if (record == null) {
       return null;
