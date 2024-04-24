@@ -96,7 +96,7 @@ This process needs daily runs to stay up-to-date.
 Data from [https://bulkdata.uspto.gov/](https://bulkdata.uspto.gov/).
 
 # Data Storage
-Into Elastic and PostgreSQL currently.
+Into PostgreSQL currently.
 
 ## PostgreSQL
 

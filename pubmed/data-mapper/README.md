@@ -53,6 +53,3 @@ This process needs daily runs to stay up-to-date.
 
 ### USPTO
 Data from [https://bulkdata.uspto.gov/](https://bulkdata.uspto.gov/).
-
-# Data Feed
-Into Elastic - currently.
