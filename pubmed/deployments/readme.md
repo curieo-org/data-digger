@@ -13,7 +13,7 @@ NAMESPACE=<namespace>
 kubectl delete jobs pubmed-baseline-job -n $NAMESPACE
 
 # Image generation and deployment
-./deployments/baseline_ecr.sh
+make baseline -f deployments/Makefile
 kubectl apply -f deployments/baseline_job.yaml -n $NAMESPACE
 
 # View the logs
@@ -30,7 +30,7 @@ NAMESPACE=<namespace>
 kubectl delete cronjobs pubmed-updates-cronjob -n $NAMESPACE
 
 # Image generation and deployment
-./deployments/updates_ecr.sh
+make updates -f deployments/Makefile
 kubectl apply -f deployments/updates_cronjob.yaml -n $NAMESPACE
 
 # View the logs
