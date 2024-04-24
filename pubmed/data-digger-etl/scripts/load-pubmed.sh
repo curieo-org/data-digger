@@ -44,3 +44,5 @@ case $1 in
         echo "No operation selected."
     ;;
 esac
+
+echo "Process completed!"
