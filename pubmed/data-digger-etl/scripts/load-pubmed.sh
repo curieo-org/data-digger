@@ -20,7 +20,7 @@ case $1 in
         echo "Pubmed updates (full records) to postgres"
         STORE_LINKS="--link-table pubmed=pmc pubmed=doi"
         STORE_LINKS="--link-table LinkTable:pubmed=pmc PubmedDOI:pubmed=doi"
-        ARGS="-d updates --full-records --references pubmed --batch-size 100 --use-keys $STORE_LINKS"
+        ARGS="-d pubmed-updates --full-records --references pubmed --batch-size 100 --use-keys $STORE_LINKS"
         $CMD $ARGS
     ;;
 
@@ -36,7 +36,7 @@ case $1 in
     # testing with different batch sizes
     pubmed-updates-2-postgres-20-1000)
         echo "Pubmed updates (full records) to postgres"
-        ARGS="-d updates --full-records --maximum-files 20 --batch-size 1000"
+        ARGS="-d pubmed-updates --full-records --maximum-files 20 --batch-size 1000"
         $CMD $ARGS
     ;;
     
