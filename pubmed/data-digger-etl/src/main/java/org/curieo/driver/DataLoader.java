@@ -35,24 +35,9 @@ public record DataLoader(
   public static final int LOGGING_INTERVAL = 1000;
   private static final Logger LOGGER = LoggerFactory.getLogger(DataLoader.class);
 
-  static Option batchSizeOption() {
-    return Option.builder()
-        .option("b")
-        .longOpt("batch-size")
-        .hasArg()
-        .desc("the size of batches to be submitted to the SQL database")
-        .type(Integer.class)
-        .build();
-  }
-
-  static Option useKeysOption() {
-    return Option.builder().option("k").longOpt("use-keys").required(false).build();
-  }
-
   public static void main(String[] args) throws ParseException, IOException, SQLException {
     Options options =
         new Options()
-            .addOption(credentialsOption)
             .addOption(firstYearOption)
             .addOption(lastYearOption)
             .addOption(batchSizeOption)
@@ -61,14 +46,12 @@ public record DataLoader(
                     "y", "source type", true, "source type - can currently only be \"pubmed\""))
             .addOption(
                 new Option("d", "data-set", true, "data set to load (defined in credentials)"))
-            .addOption(postgresUser)
             .addOption(maxFiles)
             .addOption(new Option("f", "full-records", false, "full records to sql database"))
             .addOption(new Option("a", "authors", false, "authors to sql database"))
             .addOption(references)
             .addOption(linkTable)
-            .addOption(useKeysOption)
-            .addOption(new Option("t", "status-tracker", true, "path to file that tracks status"));
+            .addOption(useKeysOption);
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
     Config config = new Config();

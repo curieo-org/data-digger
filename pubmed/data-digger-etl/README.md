@@ -38,6 +38,7 @@ From the root folder, run the `load-pubmed.sh` script. This script will scrape t
 ```
 
 Options:
+
 3. `pubmed-baseline-2-postgres`
 4. `pubmed-updates-2-postgres`
 5. `pubmed-updates-2-postgres-20-100`

@@ -138,7 +138,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
         new ArrayList<>(
             Arrays.asList(
                 FieldSpec.identity(sourceIdentifier, ExtractType.BigInteger),
-                new FieldSpec(targetIdentifier, ExtractType.String, 20)));
+                new FieldSpec(targetIdentifier, ExtractType.String, IDENTIFIER_LENGTH)));
 
     createTable(tableName, fieldSpecs);
     PreparedStatement upsert = upsertStatement(tableName, fieldSpecs, sourceIdentifier);
