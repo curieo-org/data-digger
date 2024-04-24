@@ -21,8 +21,13 @@ cp .env.template .env
 If you are using local postgresql, use `host.docker.internal` in place of `127.0.0.1` in the postgres credentials.
 
 ```sh
-docker build  -f Dockerfile_Baseline -t data-digger-pubmed-baseline .
-docker run -d -v config:/config data-digger-pubmed-baseline
+# Baseline
+docker build -f deployments/Dockerfile_Baseline -t data-digger-pubmed-baseline .
+docker run data-digger-pubmed-baseline
+
+# Updates
+docker build -f deployments/Dockerfile_Updates -t data-digger-pubmed-updates .
+docker run data-digger-pubmed-updates
 ```
 
 ### Without Docker
@@ -48,11 +53,10 @@ From the root folder, run the `load-pubmed.sh` script. This script will scrape t
 ```
 
 Options:
-3. `pubmed-baseline-2-postgres`
-4. `pubmed-updates-2-postgres`
-5. `pubmed-updates-2-postgres-20-100`
-6. `pubmed-updates-2-postgres-20-1000`
-7. `pubmed-updates-2-both`
+1. `pubmed-baseline-2-postgres`
+2. `pubmed-updates-2-postgres`
+3. `pubmedcentral-test`
+4. `pubmed-updates-2-postgres-20-1000`
 
 ## General Overview
 The general purpose of this module is to retrieve data from any data source, map it to the right format, and then store it into data stores that are fit for downstream purposes.
