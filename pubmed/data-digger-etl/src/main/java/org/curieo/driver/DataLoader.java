@@ -91,7 +91,7 @@ public record DataLoader(
     // store link table
     if (parse.hasOption(linkTable)) {
       for (String ltopt : parse.getOptionValues(linkTable)) {
-      LinkTableOption lto = LinkTableOption.parse(ltopt);
+        LinkTableOption lto = LinkTableOption.parse(ltopt);
         Sink<Record> asink =
             new MapSink<>(
                 r -> r.toLinks(lto.getSource(), lto.getTarget()),
@@ -109,15 +109,16 @@ public record DataLoader(
             sourceType,
             sink);
 
-    String remotePath = switch (job) {
-      case "baseline" -> config.baseline_remote_path;
-      case "updates" -> config.updates_remote_path;
-      case "commons" -> config.commons_remote_path;
+    String remotePath = null;
+    switch (job) {
+      case "pubmed-baseline" -> remotePath = config.baseline_remote_path;
+      case "pubmed-updates" -> remotePath = config.updates_remote_path;
+      case "pubmed-commons" -> remotePath = config.commons_remote_path;
       default -> {
-        LOGGER.error("Cannot find application {} in environment", job);
+        LOGGER.error("Invalid job name: {}", job);
         System.exit(1);
       }
-    };
+    }
 
     try (FTPProcessing ftpProcessing = new FTPProcessing(config)) {
       Map<String, TS<Task>> tasks =

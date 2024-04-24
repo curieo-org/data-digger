@@ -8,12 +8,12 @@ import java.util.stream.Collectors;
 import lombok.Generated;
 import org.curieo.model.Authorship;
 import org.curieo.model.FullTextRecord;
-import org.curieo.model.Task;
 import org.curieo.model.LinkedField;
 import org.curieo.model.Metadata;
 import org.curieo.model.Reference;
 import org.curieo.model.StandardRecord;
 import org.curieo.model.TS;
+import org.curieo.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

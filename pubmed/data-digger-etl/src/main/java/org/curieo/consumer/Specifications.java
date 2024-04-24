@@ -207,7 +207,7 @@ class FieldSpec implements ToSql, SpecKey {
       }
       return content;
     }
-    LOGGER.info("Trimming field {} to size {} down from {}", field, maximum, content.length());
+    LOGGER.debug("Trimming field {} to size {} down from {}", field, maximum, content.length());
     return content.substring(0, maximum);
   }
 
