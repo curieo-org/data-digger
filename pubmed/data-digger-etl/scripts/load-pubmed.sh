@@ -19,8 +19,8 @@ case $1 in
     pubmed-updates-2-postgres)
         echo "Pubmed updates (full records) to postgres"
         STORE_LINKS="--link-table pubmed=pmc pubmed=doi"
-        STORE_LINKS="--link-table pubmed=pmc"
-        ARGS="-d updates --full-records --references pubmed --batch-size 100 --use-keys $STORE_LINKS"
+        STORE_LINKS="--link-table LinkTable:pubmed=pmc PubmedDOI:pubmed=doi"
+        ARGS="-c $CREDS -d pubmed-updates -t $STATUS -p $POSTGRESUSER --full-records --references pubmed  --batch-size 100 --use-keys $STORE_LINKS"
         $CMD $ARGS
     ;;
 

@@ -21,7 +21,6 @@ import org.curieo.model.LinkedField;
 import org.curieo.model.Metadata;
 import org.curieo.model.Record;
 import org.curieo.model.Reference;
-import org.curieo.model.Reference.ReferenceBuilder;
 import org.curieo.model.Text;
 import org.curieo.sources.Source;
 
@@ -239,17 +238,18 @@ public class PubmedRecord implements Record {
   public static List<Reference> readReferenceList(XMLEventReader reader) throws XMLStreamException {
     // read the record
     List<Reference> references = new ArrayList<>();
-    ReferenceBuilder builder = Reference.builder();
+    String citation = null;
+    List<Metadata> identifiers = new ArrayList<>();
     while (reader.hasNext()) {
       XMLEvent event = reader.nextEvent();
       if (event.isStartElement()) {
         StartElement startElement = event.asStartElement();
         switch (startElement.getName().getLocalPart()) {
           case "Citation":
-            builder = builder.citation(readText(reader, "Citation"));
+            citation = readText(reader, "Citation");
             break;
           case PubmedRecord.ARTICLEID_TAG:
-            builder = builder.identifier(PubmedRecord.readArticleId(reader, startElement));
+            identifiers.add(PubmedRecord.readArticleId(reader, startElement));
             break;
           default:
             break;
@@ -259,8 +259,9 @@ public class PubmedRecord implements Record {
         EndElement endElement = event.asEndElement();
         switch (endElement.getName().getLocalPart()) {
           case REFERENCE_TAG:
-            references.add(builder.build());
-            builder = Reference.builder();
+            references.add(new Reference(citation, new ArrayList<>(identifiers)));
+            citation = null;
+            identifiers.clear();
             break;
           case PubmedRecord.REFERENCELIST_TAG:
             return references;

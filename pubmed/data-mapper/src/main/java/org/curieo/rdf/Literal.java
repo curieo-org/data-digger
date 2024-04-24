@@ -16,8 +16,6 @@ public class Literal {
   private String language;
   private String dataType;
 
-  public Literal() {}
-
   public Literal(Integer d) {
     this(Integer.toString(d), null, XS + "int");
   }

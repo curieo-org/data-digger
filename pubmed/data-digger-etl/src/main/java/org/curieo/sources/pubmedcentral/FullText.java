@@ -2,10 +2,12 @@ package org.curieo.sources.pubmedcentral;
 
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.*;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -23,12 +25,14 @@ import lombok.Generated;
 import lombok.Value;
 import org.curieo.retrieve.ftp.FTPProcessing;
 import org.curieo.sources.TarExtractor;
+import org.curieo.utils.URIHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public record FullText(String oaiService) {
   public static final String GZIPPED_TAR_FORMAT = "tgz";
   public static final String XML_EXTENSION = "xml";
+  public static final String OAI_SERVICE = "https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi";
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FullText.class);
   private static XMLInputFactory XMLINPUTFACTORY = XMLInputFactory.newInstance();
@@ -81,42 +85,20 @@ public record FullText(String oaiService) {
     if (record == null) {
       return null;
     }
-    String href =
-        record.links.stream()
-            .filter(link -> link.getFormat().equals(format))
-            .map(Link::getHref)
-            .findFirst()
-            .orElse(null);
-    if (href == null) {
-      LOGGER.warn("Format {} not available for PMC {}", format, pmcId);
-      return null;
-    }
-    File file = File.createTempFile(pmcId, format);
-    try (FileOutputStream fos = new FileOutputStream(file)) {
-      if (href.startsWith("ftp://")) {
-        if (!FTPProcessing.retrieve(href, file)) {
-          LOGGER.warn("Could not download {} not available for PMC {}", href, pmcId);
-        }
-      } else {
-        URL url = new URL(href); // + "?id=" + pmcId);
+    Link link =
+        record.links.stream().filter(l -> l.getFormat().equals(format)).findFirst().orElse(null);
+    return retrieveFile(pmcId, link);
+  }
 
-        URLConnection urlcon = url.openConnection();
-        HttpURLConnection con = (HttpURLConnection) urlcon;
-        con.setRequestMethod("GET");
-        int status = con.getResponseCode();
-        if (status != 200) {
-          LOGGER.warn("No response for PMC {}", pmcId);
-          return null;
-        }
-        byte[] buffer = new byte[4096];
-        try (InputStream s = con.getInputStream()) {
-          int read;
-          while ((read = s.read(buffer)) != 0) {
-            fos.write(buffer, 0, read);
-          }
-        }
-        con.disconnect();
+  public File retrieveFile(String pmcId, Link link)
+      throws IOException, XMLStreamException, URISyntaxException {
+    File file = File.createTempFile(pmcId, link.getFormat());
+    if (link.getHref().startsWith("ftp://")) {
+      if (!FTPProcessing.retrieve(link.getHref(), file)) {
+        LOGGER.warn("Could not download {} not available for PMC {}", link.getHref(), pmcId);
       }
+    } else {
+      URIHandler.writeHTTPURL(link.getHref(), file);
     }
     return file;
   }
@@ -131,7 +113,7 @@ public record FullText(String oaiService) {
    * @throws XMLStreamException
    */
   public Record getRecord(String pmcId) throws IOException, XMLStreamException {
-    URL url = new URL(oaiService); // + "?id=" + pmcId);
+    URL url = URI.create(oaiService).toURL(); // + "?id=" + pmcId);
 
     HttpURLConnection con = (HttpURLConnection) url.openConnection();
     con.setRequestMethod("GET");

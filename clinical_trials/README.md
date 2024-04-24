@@ -1,7 +1,7 @@
 # Clinical Trial Data Pipeline
 
 ## Overview
-This directory contains the code and documentation for updating the new clinical trial data to the exiting postgres and qdrant vector database.
+This directory contains the code and documentation for updating the new clinical trial data to the exipting postgres and qdrant vector database.
 
 ## Setup
 
@@ -21,6 +21,7 @@ This directory contains the code and documentation for updating the new clinical
 Setup the embedding service by following the instructions in the [text-embeddings-inference](https://github.com/huggingface/text-embeddings-inference/tree/main) repository.
 
 If you want use in local then do the following steps:
+
 ```
 git clone git@github.com:huggingface/text-embeddings-inference.git
 cd text-embeddings-inference
@@ -57,6 +58,7 @@ docker run -p 5431:5432 --name aact_cloud_db -d aact_cloud_db
 
 ### Running the pipeline
 Run the following command to update the clinical trial data in the database:
+
 ```
 poetry run main
 ```

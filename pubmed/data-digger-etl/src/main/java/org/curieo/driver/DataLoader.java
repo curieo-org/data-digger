@@ -1,9 +1,12 @@
 package org.curieo.driver;
 
+import static org.curieo.driver.OptionDefinitions.*;
+
 import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -47,51 +50,9 @@ public record DataLoader(
   }
 
   public static void main(String[] args) throws ParseException, IOException, SQLException {
-    Option batchSizeOption = batchSizeOption();
-    Option useKeys = useKeysOption();
-    Option maxFiles =
-        Option.builder()
-            .option("m")
-            .longOpt("maximum-files")
-            .hasArg()
-            .desc("maximum number of records to process")
-            .type(Integer.class)
-            .build();
-    Option firstYearOption =
-        Option.builder()
-            .option("f")
-            .longOpt("first-year")
-            .hasArg()
-            .desc("first year (inclusive)")
-            .type(Integer.class)
-            .build();
-    Option lastYearOption =
-        Option.builder()
-            .option("l")
-            .longOpt("last-year")
-            .hasArg()
-            .desc("last year (inclusive)")
-            .type(Integer.class)
-            .build();
-    Option references =
-        Option.builder()
-            .option("r")
-            .longOpt("references")
-            .desc("references to sql database (specify types, e.g. \"pubmed\")")
-            .required(false)
-            .hasArgs()
-            .build();
-    Option linkTable =
-        Option.builder()
-            .option("l")
-            .longOpt("link-table")
-            .desc("create a link table for links between x=y")
-            .required(false)
-            .hasArgs()
-            .build();
-
     Options options =
         new Options()
+            .addOption(credentialsOption)
             .addOption(firstYearOption)
             .addOption(lastYearOption)
             .addOption(batchSizeOption)
@@ -100,12 +61,14 @@ public record DataLoader(
                     "y", "source type", true, "source type - can currently only be \"pubmed\""))
             .addOption(
                 new Option("d", "data-set", true, "data set to load (defined in credentials)"))
+            .addOption(postgresUser)
             .addOption(maxFiles)
             .addOption(new Option("f", "full-records", false, "full records to sql database"))
             .addOption(new Option("a", "authors", false, "authors to sql database"))
             .addOption(references)
             .addOption(linkTable)
-            .addOption(useKeys);
+            .addOption(useKeysOption)
+            .addOption(new Option("t", "status-tracker", true, "path to file that tracks status"));
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
     Config config = new Config();
@@ -119,7 +82,7 @@ public record DataLoader(
 
     PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config);
     SQLSinkFactory sqlSinkFactory =
-        new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeys));
+        new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeysOption));
 
     jobsSink = sqlSinkFactory.createJobsSink();
     // store authorships
@@ -144,16 +107,13 @@ public record DataLoader(
 
     // store link table
     if (parse.hasOption(linkTable)) {
-      String[] sourceTargets = parse.getOptionValues(linkTable);
-      for (String sourceTarget : sourceTargets) {
-        String[] st = sourceTarget.split("=");
-        if (st.length != 2) {
-          LOGGER.warn("Arguments to {} need to be of the shape A=B", linkTable.getLongOpt());
-          System.exit(1);
-        }
+      for (String ltopt : parse.getOptionValues(linkTable)) {
+        LinkTableOption lto = LinkTableOption.parse(ltopt);
         Sink<Record> asink =
             new MapSink<>(
-                r -> r.toLinks(st[0], st[1]), sqlSinkFactory.createLinkTable(st[0], st[1]));
+                r -> r.toLinks(lto.getSource(), lto.getTarget()),
+                sqlSinkFactory.createLinkoutTable(
+                    lto.getTable(), lto.getSource(), lto.getTarget()));
         tsink = tsink.concatenate(asink);
       }
     }
@@ -242,14 +202,5 @@ public record DataLoader(
     Integer year = sr.getYear();
     if (year == null) return false;
     return !((firstYear != null && year < firstYear) || (lastYear != null && year > lastYear));
-  }
-
-  static Optional<Integer> getIntOption(CommandLine cmd, Option option) {
-    if (!cmd.hasOption(option)) return Optional.empty();
-    try {
-      return Optional.of(Integer.parseInt(cmd.getOptionValue(option)));
-    } catch (NumberFormatException e) {
-      return Optional.empty();
-    }
   }
 }

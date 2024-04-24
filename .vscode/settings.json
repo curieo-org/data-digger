@@ -6,5 +6,6 @@
         "pmid",
         "Pubmed",
         "spon"
-    ]
+    ],
+    "java.compile.nullAnalysis.mode": "disabled"
 }

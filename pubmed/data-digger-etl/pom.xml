@@ -70,6 +70,11 @@
 	    <version>${commons-text.version}</version>
 	</dependency>
 	<dependency>
+	    <groupId>com.opencsv</groupId>
+	    <artifactId>opencsv</artifactId>
+	    <version>5.8</version>
+	</dependency>
+	<dependency>
 	    <groupId>com.github.jsonld-java</groupId>
 	    <artifactId>jsonld-java</artifactId>
 	    <version>${jsonld-java.version}</version>
