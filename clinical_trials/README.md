@@ -1,7 +1,7 @@
 # Clinical Trial Data Pipeline
 
 ## Overview
-This directory contains the code and documentation for updating the new clinical trial data to the exipting postgres and qdrant vector database.
+This directory contains the code and documentation for updating the new clinical trial data to the existing postgres and qdrant vector database.
 
 ## Setup
 
