@@ -19,9 +19,6 @@ public class OptionDefinitions {
           .desc("postgresql user")
           .build();
 
-  static Option credentialsOption =
-      new Option("c", "credentials", true, "Path to credentials file");
-
   static Option batchSizeOption =
       Option.builder()
           .option("b")
