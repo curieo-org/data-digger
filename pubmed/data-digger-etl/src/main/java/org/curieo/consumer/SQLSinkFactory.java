@@ -8,6 +8,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.Generated;
 import org.curieo.model.Authorship;
+import org.curieo.model.FullTextJob;
 import org.curieo.model.FullTextRecord;
 import org.curieo.model.Job;
 import org.curieo.model.LinkedField;
@@ -40,8 +41,31 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     List<FieldSpec> fieldSpecs = spec.fields();
     List<Extract<TS<Job>>> extracts = new ArrayList<>();
     extracts.add(fieldSpecs.get(0).extractString(ts -> ts.value().getName()));
-    extracts.add(fieldSpecs.get(1).extractInt(ts -> ts.value().getJobStateInner()));
+    extracts.add(fieldSpecs.get(1).extractInt(ts -> ts.value().getJobState().getInner()));
     extracts.add(fieldSpecs.get(2).extractTimestamp(TS::timestamp));
+
+    return createAbstractSink(extracts, upsert);
+  }
+
+  public Sink<TS<FullTextJob>> createFullTextJobsSink(String tableName) throws SQLException {
+    StorageSpec spec =
+        StorageSpec.of(
+            new FieldSpec("identifier", ExtractType.String, 60, true),
+            new FieldSpec("location", ExtractType.String, 200),
+            new FieldSpec("year", ExtractType.SmallInt),
+            new FieldSpec("state", ExtractType.SmallInt),
+            FieldSpec.timestamp("timestamp"));
+
+    createTable(tableName, spec.fields());
+    PreparedStatement upsert = upsertStatement(tableName, spec.fields(), "identifier");
+
+    List<FieldSpec> fieldSpecs = spec.fields();
+    List<Extract<TS<FullTextJob>>> extracts = new ArrayList<>();
+    extracts.add(fieldSpecs.get(0).extractString(ts -> ts.value().getIdentifier()));
+    extracts.add(fieldSpecs.get(1).extractString(ts -> ts.value().getLocation()));
+    extracts.add(fieldSpecs.get(2).extractInt(ts -> ts.value().getJobState().getInner()));
+    extracts.add(fieldSpecs.get(3).extractInt(ts -> ts.value().getYear()));
+    extracts.add(fieldSpecs.get(4).extractTimestamp(TS::timestamp));
 
     return createAbstractSink(extracts, upsert);
   }
@@ -182,6 +206,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     List<FieldSpec> fieldSpecs =
         Arrays.asList(
             new FieldSpec("Identifier", ExtractType.String, 20, useKeys),
+            new FieldSpec("Year", ExtractType.SmallInt),
             new FieldSpec("Record", ExtractType.Text, 0));
     createTable(tableName, fieldSpecs);
     PreparedStatement insert = insertStatement(tableName, fieldSpecs);
@@ -191,7 +216,8 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
 
     List<Extract<FullTextRecord>> extracts = new ArrayList<>();
     extracts.add(fieldSpecs.get(0).extractString(FullTextRecord::getIdentifier));
-    extracts.add(fieldSpecs.get(1).extractString(FullTextRecord::getContent));
+    extracts.add(fieldSpecs.get(1).extractInt(FullTextRecord::getYear));
+    extracts.add(fieldSpecs.get(2).extractString(FullTextRecord::getContent));
 
     return createAbstractSink(extracts, insert, batchSize);
   }

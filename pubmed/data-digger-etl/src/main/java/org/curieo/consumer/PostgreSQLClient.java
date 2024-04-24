@@ -5,6 +5,7 @@ import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import org.curieo.model.Job;
 import org.curieo.model.TS;
 import org.curieo.utils.Config;
@@ -15,7 +16,7 @@ import org.slf4j.LoggerFactory;
 /**
  * This class encapsulates the database connection to PostgreSQL server using JDBC.
  *
- * @author M Doornenbal for Curieo Technologies BV
+ * @author Curieo Technologies BV
  */
 public class PostgreSQLClient implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(PostgreSQLClient.class);
@@ -97,8 +98,26 @@ public class PostgreSQLClient implements AutoCloseable {
   }
 
   public static Map<String, TS<Job>> retrieveJobs(Connection connection) throws SQLException {
+    return retrieveItems(
+        connection,
+        "select name, state, timestamp from jobs",
+        PostgreSQLClient::mapJob,
+        jb -> jb.value().getName());
+  }
 
-    Map<String, TS<Job>> jobs = new HashMap<>();
+  private static TS<Job> mapJob(ResultSet rs) throws SQLException {
+    Job job = new Job(rs.getString(1), Job.State.fromInt(rs.getInt(2)));
+    return new TS<>(job, rs.getTimestamp(3));
+  }
+
+  public static <T> Map<String, T> retrieveItems(
+      Connection connection,
+      String query,
+      ThrowingFunction<ResultSet, T> recordMapper,
+      Function<T, String> keyMapper)
+      throws SQLException {
+
+    Map<String, T> jobs = new HashMap<>();
 
     // https://jdbc.postgresql.org/documentation/query/#getting-results-based-on-a-cursor
     boolean autocommit = connection.getAutoCommit();
@@ -109,15 +128,8 @@ public class PostgreSQLClient implements AutoCloseable {
     statement.setFetchSize(100);
     try (ResultSet resultSet = statement.executeQuery("select name, state, timestamp from jobs")) {
       while (resultSet.next()) {
-
-        Job job =
-            Job.builder()
-                .name(resultSet.getString(1))
-                .jobState(Job.State.fromInt(resultSet.getInt(2)))
-                .build();
-
-        TS<Job> jobTs = new TS<>(job, resultSet.getTimestamp(3));
-        jobs.put(job.getName(), jobTs);
+        T item = recordMapper.apply(resultSet);
+        jobs.put(keyMapper.apply(item), item);
       }
     }
     connection.setAutoCommit(autocommit); // back to original value
@@ -188,5 +200,10 @@ public class PostgreSQLClient implements AutoCloseable {
   @Override
   public void close() {
     dataSource.close();
+  }
+
+  @FunctionalInterface
+  public static interface ThrowingFunction<F, T> {
+    T apply(F t) throws SQLException;
   }
 }

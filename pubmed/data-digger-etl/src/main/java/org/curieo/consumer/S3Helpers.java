@@ -1,4 +1,4 @@
-package org.curieo.driver;
+package org.curieo.consumer;
 
 import java.util.Optional;
 import org.curieo.utils.Config;

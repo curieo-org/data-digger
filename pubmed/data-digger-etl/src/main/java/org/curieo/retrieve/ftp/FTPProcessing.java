@@ -124,7 +124,6 @@ public class FTPProcessing implements AutoCloseable {
         jobs.put(name, TS.of(queued, remoteTimestamp));
       }
     }
-    ;
 
     AtomicInteger filesSeen = new AtomicInteger();
     AtomicInteger done =
