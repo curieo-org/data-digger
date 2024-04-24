@@ -1,0 +1,13 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pubmed-baseline-job
+spec:
+  template:
+    metadata:
+      name: pubmed-baseline-job
+    spec:
+      containers:
+      - name: pubmed-baseline
+        image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-baseline:latest
+      restartPolicy: OnFailure

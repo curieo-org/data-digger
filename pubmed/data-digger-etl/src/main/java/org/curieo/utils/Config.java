@@ -16,9 +16,6 @@ public class Config {
   public String postgres_user;
   public String postgres_password;
 
-  public String openai_organization;
-  public String openai_key;
-
   private Dotenv dotenv;
 
   public Config() {
@@ -36,9 +33,6 @@ public class Config {
     postgres_database = getEnv("POSTGRES_DATABASE", true, null);
     postgres_user = getEnv("POSTGRES_USER", true, null);
     postgres_password = getEnv("POSTGRES_PASSWORD", true, null);
-
-    openai_organization = getEnv("OPENAI_ORGANIZATION", false, "");
-    openai_key = getEnv("OPENAI_KEY", false, "");
   }
 
   private String getEnv(String key, boolean required, String defaultValue) {
