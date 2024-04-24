@@ -106,12 +106,6 @@
 	    <artifactId>commons-collections4</artifactId>
 	    <version>${commons-collections.version}</version>
 	</dependency>
-	<!-- dependency of the elastic client (https://central.sonatype.com/artifact/co.elastic.clients/elasticsearch-java/overview) -->
-    <dependency>
-      <groupId>co.elastic.clients</groupId>
-      <artifactId>elasticsearch-java</artifactId>
-      <version>8.13.2</version>
-    </dependency>
 	<!-- fastest XML parser in town -->
 	<dependency>
 	    <groupId>com.fasterxml</groupId>
@@ -127,6 +121,11 @@
 	    <groupId>org.postgresql</groupId>
 	    <artifactId>postgresql</artifactId>
 	    <version>${postgresql.version}</version>
+	</dependency>
+	<dependency>
+		<groupId>io.github.cdimascio</groupId>
+		<artifactId>dotenv-java</artifactId>
+		<version>3.0.0</version>
 	</dependency>
 
   </dependencies>

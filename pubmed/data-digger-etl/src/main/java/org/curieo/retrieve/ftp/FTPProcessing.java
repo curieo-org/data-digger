@@ -21,7 +21,7 @@ import org.curieo.consumer.PostgreSQLClient;
 import org.curieo.consumer.Sink;
 import org.curieo.model.Job;
 import org.curieo.model.TS;
-import org.curieo.utils.Credentials;
+import org.curieo.utils.Config;
 import org.curieo.utils.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,35 +29,20 @@ import org.slf4j.LoggerFactory;
 public class FTPProcessing implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(FTPProcessing.class);
 
-  Credentials creds;
+  Config config;
   String key;
   FTPClient ftp;
   PostgreSQLClient psqlClient;
 
-  public FTPProcessing(Credentials credentials, String key) throws IOException {
-    this.key = key;
-    this.creds = credentials;
+  public FTPProcessing(Config config) throws IOException {
+    this.config = config;
     this.ftp = createClient();
   }
 
-  public FTPProcessing(PostgreSQLClient psqlClient, Credentials credentials, String key)
-      throws IOException {
-    this.key = key;
-    this.creds = credentials;
+  public FTPProcessing(PostgreSQLClient psqlClient, Config config) throws IOException {
+    this.config = config;
     this.psqlClient = psqlClient;
     this.ftp = createClient();
-  }
-
-  public String getServer() {
-    return creds.get(key, "server");
-  }
-
-  public String getUser() {
-    return creds.get(key, "user");
-  }
-
-  public String getPassword() {
-    return creds.get(key, "password");
   }
 
   public enum Status {
@@ -291,12 +276,12 @@ public class FTPProcessing implements AutoCloseable {
 
   private FTPClient createClient() throws IOException {
     FTPClient ftp = new FTPClient();
-    ftp.connect(getServer());
+    ftp.connect(config.pubmed_ftp_server);
     // extremely important
     ftp.setFileType(FTPClient.BINARY_FILE_TYPE);
     ftp.setBufferSize(-1);
 
-    LOGGER.info("Connected to {}.", getServer());
+    LOGGER.info("Connected to {}.", config.pubmed_ftp_server);
     LOGGER.info(ftp.getReplyString());
 
     // After connection attempt, you should check the reply code to verify
@@ -308,7 +293,7 @@ public class FTPProcessing implements AutoCloseable {
       LOGGER.error("FTP server refused connection.");
     }
 
-    ftp.login(getUser(), getPassword());
+    ftp.login(config.pubmed_ftp_user, config.pubmed_ftp_password);
     ftp.enterLocalPassiveMode();
     return ftp;
   }
@@ -317,11 +302,11 @@ public class FTPProcessing implements AutoCloseable {
     URL url = URI.create(href).parseServerAuthority().toURL();
     String path = url.getFile();
     String server = url.getHost();
-    Credentials credentials = new Credentials();
-    credentials.add("dummy", "server", server);
-    credentials.add("dummy", "user", "anonymous");
-    credentials.add("dummy", "password", "anonymous");
-    try (FTPProcessing ftp = new FTPProcessing(credentials, "dummy")) {
+    Config config = new Config();
+    config.pubmed_ftp_server = server;
+    config.pubmed_ftp_user = "anonymous";
+    config.pubmed_ftp_password = "anonymous";
+    try (FTPProcessing ftp = new FTPProcessing(config)) {
       return ftp.retrieveFile(path, file);
     }
   }

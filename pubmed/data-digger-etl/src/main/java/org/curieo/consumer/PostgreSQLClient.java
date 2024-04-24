@@ -6,7 +6,7 @@ import java.util.*;
 import org.curieo.model.Job;
 import org.curieo.model.TS;
 import org.curieo.rdf.HashSet;
-import org.curieo.utils.Credentials;
+import org.curieo.utils.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,12 +68,10 @@ public class PostgreSQLClient implements AutoCloseable {
     }
   }
 
-  public static PostgreSQLClient getPostgreSQLClient(Credentials credentials, String postgresuser)
-      throws SQLException {
-    postgresuser = "postgres-" + postgresuser;
-    String user = credentials.need(postgresuser, "user");
-    String database = credentials.need(postgresuser, "database");
-    String password = credentials.need(postgresuser, "password");
+  public static PostgreSQLClient getPostgreSQLClient(Config config) throws SQLException {
+    String user = config.postgres_user;
+    String database = config.postgres_database;
+    String password = config.postgres_password;
     return new PostgreSQLClient(database, user, password);
   }
 
