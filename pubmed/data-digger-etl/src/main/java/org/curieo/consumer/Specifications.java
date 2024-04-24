@@ -202,9 +202,6 @@ class FieldSpec implements ToSql, SpecKey {
 
   static String trimField(String field, String content, int maximum) {
     if (content == null || content.length() <= maximum) {
-      if (content != null && content.isEmpty()) {
-        throw new RuntimeException("Content is empty for field: " + field);
-      }
       return content;
     }
     LOGGER.debug("Trimming field {} to size {} down from {}", field, maximum, content.length());
