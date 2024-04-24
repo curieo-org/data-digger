@@ -32,6 +32,15 @@ case $1 in
         ARGS="$QUERY --table-name PMCFullText --use-keys "
         $CMD $ARGS
     ;;
+    # testing with full-text
+    pubmedcentral-s3-seed)
+        echo "Pubmed Central to S3 storage"
+        SEED_QUERY="select l.pmc, null, r.year, 0, l.timestamp FROM linktable l join records r on r.identifier = l.pubmed"
+        CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
+        QUERY="--query $SEED_QUERY"
+        ARGS="$QUERY --job-table-name fulltextdownloads --use-aws "
+        $CMD $ARGS
+    ;;
 
     # testing with different batch sizes
     pubmed-updates-2-postgres-20-1000)

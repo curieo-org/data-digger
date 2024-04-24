@@ -246,10 +246,11 @@ public class DataLoaderPMC {
   private static TS<FullTextJob> mapFullTextJob(ResultSet rs) throws SQLException {
     FullTextJob job =
         new FullTextJob(
+            // name, location, year, state, timestamp
             rs.getString(1), rs.getString(2), rs.getInt(3), Job.State.fromInt(rs.getInt(4)));
     return new TS<>(job, rs.getTimestamp(5));
   }
 
   private static final String FULL_TEXT_JOB_QUERY_TEMPLATE =
-      "SELECT name, state, location, timestamp FROM %s";
+      "SELECT identifier, state, year, location, timestamp FROM %s";
 }

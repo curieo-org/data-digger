@@ -126,7 +126,7 @@ public class PostgreSQLClient implements AutoCloseable {
     Statement statement =
         connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
     statement.setFetchSize(100);
-    try (ResultSet resultSet = statement.executeQuery("select name, state, timestamp from jobs")) {
+    try (ResultSet resultSet = statement.executeQuery(query)) {
       while (resultSet.next()) {
         T item = recordMapper.apply(resultSet);
         jobs.put(keyMapper.apply(item), item);
