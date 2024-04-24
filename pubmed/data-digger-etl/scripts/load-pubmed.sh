@@ -32,7 +32,9 @@ case $1 in
         ARGS="$QUERY --table-name PMCFullText --use-keys "
         $CMD $ARGS
     ;;
-    # testing with full-text
+
+    # retrieve pubmed central full text, seeded by the "linktable" produced during a Pubmed Run
+    # the seed queries can (and must) change
     pubmedcentral-s3-seed)
         echo "Pubmed Central to S3 storage"
         SEED_QUERY="select l.pmc, null, r.year, 0, l.timestamp FROM linktable l join records r on r.identifier = l.pubmed"

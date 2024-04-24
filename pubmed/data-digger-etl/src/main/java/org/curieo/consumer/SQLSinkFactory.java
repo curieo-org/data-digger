@@ -1,6 +1,7 @@
 package org.curieo.consumer;
 
-import java.sql.*;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -16,13 +17,10 @@ import org.curieo.model.Metadata;
 import org.curieo.model.Reference;
 import org.curieo.model.StandardRecord;
 import org.curieo.model.TS;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** Class to create record consumers into an SQL database. */
 @Generated
 public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean useKeys) {
-  private static final Logger LOGGER = LoggerFactory.getLogger(SQLSinkFactory.class);
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int IDENTIFIER_LENGTH = 100;
 
@@ -63,8 +61,8 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     List<Extract<TS<FullTextJob>>> extracts = new ArrayList<>();
     extracts.add(fieldSpecs.get(0).extractString(ts -> ts.value().getIdentifier()));
     extracts.add(fieldSpecs.get(1).extractString(ts -> ts.value().getLocation()));
-    extracts.add(fieldSpecs.get(2).extractInt(ts -> ts.value().getJobState().getInner()));
-    extracts.add(fieldSpecs.get(3).extractInt(ts -> ts.value().getYear()));
+    extracts.add(fieldSpecs.get(2).extractInt(ts -> ts.value().getYear()));
+    extracts.add(fieldSpecs.get(3).extractInt(ts -> ts.value().getJobState().getInner()));
     extracts.add(fieldSpecs.get(4).extractTimestamp(TS::timestamp));
 
     return createAbstractSink(extracts, upsert);

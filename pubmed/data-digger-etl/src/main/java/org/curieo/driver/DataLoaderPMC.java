@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -162,7 +161,7 @@ public class DataLoaderPMC {
           Job.State state = entry.getValue().value().getJobState();
           return (state == Job.State.Queued || state == Job.State.Failed);
         };
-
+    /*
     for (Map.Entry<String, TS<FullTextJob>> pmc : jobs.entrySet()) {
       if (needsWork.test(pmc)) {
         String content = ft.getJats(pmc.getKey());
@@ -171,7 +170,7 @@ public class DataLoaderPMC {
           sink.accept(new FullTextRecord(pmc.getKey(), year, content));
         }
       }
-    }
+    }*/
 
     final int jobsSize = jobs.size();
     Executor executor = Executors.newFixedThreadPool(10);
@@ -180,9 +179,6 @@ public class DataLoaderPMC {
             .filter(needsWork)
             .map(
                 entry -> {
-                  TS<FullTextJob> ts = entry.getValue();
-                  Timestamp timestamp = ts.timestamp();
-
                   return CompletableFuture.supplyAsync(
                           () -> supplyJats(ft, entry.getKey()), executor)
                       .thenAcceptAsync(
@@ -190,8 +186,7 @@ public class DataLoaderPMC {
                               processJats(
                                   jats,
                                   entry.getKey(),
-                                  ts,
-                                  timestamp,
+                                  entry.getValue(),
                                   filesSeen,
                                   done,
                                   jobsSize,
@@ -215,7 +210,6 @@ public class DataLoaderPMC {
       String jats,
       String key,
       TS<FullTextJob> ts,
-      Timestamp timestamp,
       AtomicInteger filesSeen,
       AtomicInteger done,
       int jobsSize,
@@ -224,13 +218,13 @@ public class DataLoaderPMC {
     {
       if (jats == null) {
         LOGGER.error("Cannot retrieve file {}", key);
-        jobsSink.accept(TS.of(ts.value().failed(), timestamp));
+        jobsSink.accept(TS.of(ts.value().failed(), ts.timestamp()));
       } else {
         FullTextRecord ftr = new FullTextRecord(key, ts.value().getYear(), jats);
         String location = ftr.computeLocation();
         sink.accept(ftr);
         FullTextJob completed = ts.value().completed(location);
-        jobsSink.accept(TS.of(completed, timestamp));
+        jobsSink.accept(TS.of(completed, ts.timestamp()));
         LOGGER.info("Processed {}: state = {}", key, ts);
         filesSeen.getAndIncrement();
       }
