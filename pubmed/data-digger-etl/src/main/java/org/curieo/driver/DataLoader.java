@@ -61,13 +61,13 @@ public record DataLoader(
     int maximumNumberOfRecords = getIntOption(parse, maxFiles).orElse(Integer.MAX_VALUE);
     int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);
 
-    Sink<Record> tsink = new Sink.Noop<>();
-
     PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config);
     SQLSinkFactory sqlSinkFactory =
         new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeysOption));
 
     Sink<TS<Task>> tasksSink = sqlSinkFactory.createTasksSink();
+    Sink<Record> tsink = new Sink.Noop<>();
+
     // store authorships
     if (parse.hasOption('a')) {
       Sink<Record> asink =

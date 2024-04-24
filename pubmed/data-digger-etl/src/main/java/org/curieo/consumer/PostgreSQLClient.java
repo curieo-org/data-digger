@@ -5,6 +5,7 @@ import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import org.curieo.model.TS;
 import org.curieo.model.Task;
 import org.curieo.utils.Config;
@@ -15,7 +16,7 @@ import org.slf4j.LoggerFactory;
 /**
  * This class encapsulates the database connection to PostgreSQL server using JDBC.
  *
- * @author M Doornenbal for Curieo Technologies BV
+ * @author Curieo Technologies BV
  */
 public class PostgreSQLClient implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(PostgreSQLClient.class);
@@ -96,10 +97,27 @@ public class PostgreSQLClient implements AutoCloseable {
     return keys;
   }
 
-  public static Map<String, TS<Task>> retrieveJobTasks(Connection connection, String group)
+  public static Map<String, TS<Task>> retrieveJobTasks(Connection connection, String job) throws SQLException {
+    return retrieveItems(
+        connection,
+        "select name, state, timestamp from jobs",
+        PostgreSQLClient::mapTask,
+        ts -> ts.value().name());
+  }
+
+  private static TS<Task> mapTask(ResultSet rs) throws SQLException {
+    Task task = new Task(rs.getString(1), Task.State.fromInt(rs.getInt(2)), rs.getString(3));
+    return new TS<>(task, rs.getTimestamp(4));
+  }
+
+  public static <T> Map<String, T> retrieveItems(
+      Connection connection,
+      String query,
+      ThrowingFunction<ResultSet, T> recordMapper,
+      Function<T, String> keyMapper)
       throws SQLException {
 
-    Map<String, TS<Task>> tasks = new HashMap<>();
+    Map<String, T> items = new HashMap<>();
 
     // https://jdbc.postgresql.org/documentation/query/#getting-results-based-on-a-cursor
     boolean autocommit = connection.getAutoCommit();
@@ -108,23 +126,14 @@ public class PostgreSQLClient implements AutoCloseable {
     Statement statement =
         connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
     statement.setFetchSize(100);
-    String query =
-        String.format(
-            "select name, state, timestamp from tasks where job = '%s'", escapeSingleQuotes(group));
     try (ResultSet resultSet = statement.executeQuery(query)) {
       while (resultSet.next()) {
-        Task task =
-            new Task(
-                resultSet.getString(1),
-                Task.State.fromInt(resultSet.getInt(2)),
-                resultSet.getString(3));
-
-        TS<Task> jobTs = new TS<>(task, resultSet.getTimestamp(3));
-        tasks.put(task.name(), jobTs);
+        T item = recordMapper.apply(resultSet);
+        items.put(keyMapper.apply(item), item);
       }
     }
     connection.setAutoCommit(autocommit); // back to original value
-    return tasks;
+    return items;
   }
 
   /**
@@ -191,5 +200,10 @@ public class PostgreSQLClient implements AutoCloseable {
   @Override
   public void close() {
     dataSource.close();
+  }
+
+  @FunctionalInterface
+  public static interface ThrowingFunction<F, T> {
+    T apply(F t) throws SQLException;
   }
 }

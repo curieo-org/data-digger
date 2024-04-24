@@ -41,11 +41,11 @@ public class Config {
     openai_key = getEnv("OPENAI_KEY", false, "");
   }
 
-  private String getEnv(String key, boolean required, String defaultValue) {
+  public String getEnv(String key, boolean required, String defaultValue) {
     String value = this.dotenv.get(key);
 
     if (value == null && required) {
-      System.err.println("Environment variable %s is not set" + key);
+      System.err.println("Environment variable %s is not set: " + key);
       System.exit(1);
     }
 
