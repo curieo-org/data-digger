@@ -27,51 +27,11 @@ Currently only pubmed parsing is supported. All records are supposedly implement
 ### Mapping
 We map `PubmedRecord` to `StandardRecord` for serialization purposes.
 We map `PubmedRecord` to `Authorship` to be able to store authorships per record.
-We map `StandardRecord` to `Embeddings` through an embeddingsservice to store embeddings.
 
 ### Storage
 Storage is encapsulated in `Consumer` classes (extended to `Sink` for some extra admin tasks).
 
 * SQLConsumer : storing in database
-* ElasticConsumer : storing in elastic search
-
-
-## Configuration
-
-* If you want to Set up and configure an Elastic Search Database, e.g. in a local docker or on a remote server.
-* Credentials for all services call must be stored in a hidden `json` file in your root folder, `.credentials.json`. This file has the following format (e.g. for ElasticSearch connectivity)
-
-
-```json
-{
-  "elastic" : {
-    "url" : "http://127.0.0.1:9200",
-    "server": "127.0.0.1",
-    "port" : "9200",
-    "apiKey" : "<SECRET>",
-    "fingerprint": "<SECRET>",
-    "user": "elastic",
-    "password": "<SECRET>"
-  },
-  "pubmed": {
-    "server" : "ftp.ncbi.nlm.nih.gov",
-    "remotepath": "/pubmed/baseline/",
-    "user" : "anonymous",
-    "password" : "does not matter"
-  }
-}
-
-```
-
-The application will search for these credentials to access Elastic.
-
-The script will scrape a remote handle to import data into the specified database.
-
-See the [load-pubmed.sh](../data-digger-etl/scripts/load-pubmed.sh) script for the example.
-
-The script maintains a status file that records progress on the overall scraping process.
-
-
 
 ## Content Sources
 Now represented are:
@@ -80,7 +40,6 @@ Now represented are:
 
 Under development are:
 - Patent data (USPTO)
-
 
 Data is normalized to the effect that all data fit into a single database.
 We're aiming to first outdo [ChemSpider](https://www.chemspider.com/).

@@ -6,20 +6,9 @@ import java.sql.SQLException;
 import org.curieo.consumer.*;
 import org.curieo.model.Record;
 import org.curieo.utils.Config;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class DataLoaderTests {
-
-  @Test
-  @Disabled
-  void test() throws IOException {
-    Config config = new Config();
-    String path = config.corpora_folder_path + "pubmed24n1307.xml.gz";
-    Sink<Record> esink = DataLoader.getElasticConsumer(config, "search-curieo", null);
-    DataLoader dataLoader = new DataLoader(0, 3000, "pubmed", esink);
-    dataLoader.processFile(new File(path), "pubmed24n1307.xml.gz");
-  }
 
   @Test
   void testPostgres() throws IOException, SQLException {

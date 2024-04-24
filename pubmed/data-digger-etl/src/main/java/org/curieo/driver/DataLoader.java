@@ -1,14 +1,10 @@
 package org.curieo.driver;
 
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch._types.Result;
 import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -16,10 +12,6 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.curieo.consumer.*;
-import org.curieo.elastic.Client;
-import org.curieo.elastic.ElasticConsumer;
-import org.curieo.embed.EmbeddingService;
-import org.curieo.embed.SentenceEmbeddingService;
 import org.curieo.model.*;
 import org.curieo.model.Record;
 import org.curieo.retrieve.ftp.FTPProcessing;
@@ -103,8 +95,6 @@ public record DataLoader(
             .addOption(firstYearOption)
             .addOption(lastYearOption)
             .addOption(batchSizeOption)
-            .addOption(new Option("i", "index", true, "index in elastic"))
-            .addOption(new Option("e", "embeddings", true, "embeddings server URL"))
             .addOption(
                 new Option(
                     "y", "source type", true, "source type - can currently only be \"pubmed\""))
@@ -115,33 +105,17 @@ public record DataLoader(
             .addOption(new Option("a", "authors", false, "authors to sql database"))
             .addOption(references)
             .addOption(linkTable)
-            .addOption(useKeys)
-            .addOption(new Option("t", "status-tracker", true, "path to file that tracks status"));
+            .addOption(useKeys);
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
     Config config = new Config();
     String application = parse.getOptionValue('d', "baseline");
     String sourceType = parse.getOptionValue('y', SourceReader.PUBMED);
-    String index = parse.getOptionValue('i');
     int maximumNumberOfRecords = getIntOption(parse, maxFiles).orElse(Integer.MAX_VALUE);
     int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);
 
-    SentenceEmbeddingService sentenceEmbeddingService = null;
-    String embeddingsServiceUrl = parse.getOptionValue('e');
-    if (embeddingsServiceUrl != null) {
-      EmbeddingService embeddingService = new EmbeddingService(embeddingsServiceUrl, 1024);
-      if (embeddingService.embed("Test sentence.") == null) {
-        LOGGER.error("Embedding service not live at {}", embeddingsServiceUrl);
-        System.exit(1);
-      }
-      sentenceEmbeddingService = new SentenceEmbeddingService(embeddingService);
-    }
-
     Sink<TS<Job>> jobsSink = new Sink.Noop<>();
     Sink<Record> tsink = new Sink.Noop<>();
-    if (index != null) {
-      tsink = getElasticConsumer(config, index, sentenceEmbeddingService);
-    }
 
     PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config);
     SQLSinkFactory sqlSinkFactory =
@@ -205,11 +179,6 @@ public record DataLoader(
     }
 
     try (FTPProcessing ftpProcessing = new FTPProcessing(config)) {
-      if (parse.getOptionValue('t') == null) {
-        LOGGER.error("You must specify a status tracker file with option --status-tracker");
-        System.exit(1);
-      }
-
       assert postgreSQLClient != null;
       Map<String, TS<Job>> jobs = PostgreSQLClient.retrieveJobs(postgreSQLClient.getConnection());
 
@@ -267,40 +236,6 @@ public record DataLoader(
     }
 
     return FTPProcessing.Status.Seen;
-  }
-
-  public static Sink<Record> getElasticConsumer(
-      Config config, String index, SentenceEmbeddingService sentenceEmbeddingService) {
-    ElasticsearchClient client =
-        new Client(
-                config.elastic_server_url,
-                Integer.parseInt(config.elastic_server_port),
-                config.elastic_server_fingerprint,
-                config.elastic_server_user,
-                config.elastic_server_password)
-            .getClient();
-
-    Function<Record, Result> elasticSink = getElasticSink(index, sentenceEmbeddingService, client);
-
-    BiFunction<Result, Integer, String> formatter =
-        (result, c) -> String.format("Uploaded %d items with result %s", c, result.name());
-    return new CountingSink<>(LOGGING_INTERVAL, elasticSink, formatter);
-  }
-
-  private static Function<Record, Result> getElasticSink(
-      String index, SentenceEmbeddingService sentenceEmbeddingService, ElasticsearchClient client) {
-    Function<Record, StandardRecord> baseOperation = StandardRecord::copy;
-    Function<Record, Result> elasticSink;
-
-    if (sentenceEmbeddingService != null) {
-      ElasticConsumer<StandardRecordWithEmbeddings> ec =
-          new ElasticConsumer<>(client, index, StandardRecordWithEmbeddings::getIdentifier);
-      elasticSink = baseOperation.andThen(sentenceEmbeddingService.andThen(ec));
-    } else {
-      elasticSink =
-          baseOperation.andThen(new ElasticConsumer<>(client, index, Record::getIdentifier));
-    }
-    return elasticSink;
   }
 
   private boolean checkYear(Record sr) {

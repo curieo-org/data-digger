@@ -38,8 +38,6 @@ From the root folder, run the `load-pubmed.sh` script. This script will scrape t
 ```
 
 Options:
-1. `pubmed-2-elastic`
-2. `pubmed-updates-2-elastic`
 3. `pubmed-baseline-2-postgres`
 4. `pubmed-updates-2-postgres`
 5. `pubmed-updates-2-postgres-20-100`
@@ -65,77 +63,15 @@ We map `PubmedRecord` to `StandardRecord` for serialization purposes.
 
 We map `PubmedRecord` to `Authorship` to be able to store authorships per record.
 
-We map `StandardRecord` to `Embeddings` through an embeddingsservice to store embeddings.
-
 ### Storage
 Storage is encapsulated in `Consumer` classes (extended to `Sink` for some extra admin tasks).
 
 * SQLConsumer : storing in database
-* ElasticConsumer : storing in elastic search
-
 
 ## Configuration
-
-* If you want to Set up and configure an Elastic Search Database, e.g. in a local docker or on a remote server.
-* Credentials for all services call must be stored in a hidden `.env` file in the root folder.
-
-The application will search for these credentials to access Elastic.
-
 The script will scrape a remote handle to import data into the specified database.
 
 See the [load-pubmed.sh](./scripts/load-pubmed.sh) script for the example.
-
-The script maintains a status file that records progress on the overall scraping process.
-
-
-## Embeddings service
-The embeddings service needs to be live when you start running the process. The URL location of the Embeddings service must be specified through the `-e` parameter on the command line of the `data-digger-etl` process.
-
-There are two alternatives for bringing an embeddings service to life.
-
-### embeddings_server.py (script)
-For running embeddings that are _not_ covered by huggingface embeddings inference server, you can use a home-made flask app (make sure to have flask installed). This server app is in path `./data-digger-etl/scripts/embeddings_server.py`, and run like so:
-
-```sh
-python3 -m flask --app pubmed/data-digger-etl/scripts/embeddings_server.py run
-```
-
-It can support, e.g. the `all-mpnet-base-v2` embeddings that HF currently does not support.
-
-### text-embeddings-inference (local)
-Clone [text-embeddings-inference](https://github.com/huggingface/text-embeddings-inference). Also build locally on Mac, like so.
-
-
-```sh
-git clone https://github.com/huggingface/text-embeddings-inference
-# To build locally on Mac, do this:
-cargo install --path router -F candle -F meta
-```
-
-The download your model of choice, and run the text router locally; pointing the model to the folder that contains the local model; 
-e.g. like so:
-
-```sh
-git clone https://huggingface.co/avsolatorio/GIST-Embedding-v0
-text-embeddings-router --model-id GIST-Embedding-v0
-```
-This works like a charm.
-
-### text-embeddings-inference (hugging face API)
-Pick one of your liking. As long as the interface is compliant; which means that:
-
-_input_ must be one or more sentences after "inputs";
-
-```json
-{ "inputs": [ "text1", "text2" ] }
-```
-
-_output_ must be one vector per sentence;
-
-```json
-[[0.001, -0.38, ... ], [ 0.234, ... 0.782 ]]
-```
-
 
 ## Content Sources
 Now represented are:
@@ -161,9 +97,6 @@ Data from [https://bulkdata.uspto.gov/](https://bulkdata.uspto.gov/).
 
 # Data Storage
 Into Elastic and PostgreSQL currently.
-
-## Elastic Storage
-You can set up elastic storage remotely or locally.
 
 ## PostgreSQL
 

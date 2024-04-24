@@ -19,12 +19,6 @@ public class Config {
   public String openai_organization;
   public String openai_key;
 
-  public String elastic_server_url;
-  public String elastic_server_port;
-  public String elastic_server_fingerprint;
-  public String elastic_server_user;
-  public String elastic_server_password;
-  public String elastic_apikey;
   private Dotenv dotenv;
 
   public Config() {
@@ -45,13 +39,6 @@ public class Config {
 
     openai_organization = getEnv("OPENAI_ORGANIZATION", false, "");
     openai_key = getEnv("OPENAI_KEY", false, "");
-
-    elastic_server_url = getEnv("ELASTIC_SERVER_URL", false, "127.0.0.1");
-    elastic_server_port = getEnv("ELASTIC_SERVER_PORT", false, "9200");
-    elastic_server_fingerprint = getEnv("ELASTIC_SERVER_FINGERPRINT", false, "anonymous");
-    elastic_server_user = getEnv("ELASTIC_SERVER_USER", false, "anonymous");
-    elastic_server_password = getEnv("ELASTIC_SERVER_PASSWORD", false, "anonymous");
-    elastic_apikey = getEnv("ELASTIC_APIKEY", false, "anonymous");
   }
 
   private String getEnv(String key, boolean required, String defaultValue) {
