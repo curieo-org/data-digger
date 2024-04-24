@@ -4,7 +4,7 @@ This repository takes care of parts of the content data feed that powers curieo 
 
 There is a number of readers here, all of which must be run in live mode to keep the indexes up to date.
 
-(c) 2024 MD for Curieo Technologies BV  
+(c) 2024 Curieo Technologies BV  
 
 
 
@@ -14,13 +14,16 @@ There is a number of readers here, all of which must be run in live mode to keep
 * For local build, make sure you have [Maven](https://maven.apache.org/install.html) installed.
 
 ## Configuration
-Copy the `.env.template` file to `.env` in the root folder and configure the necessary environment variables.
+Copy the `.env.template` file to `.env` in the root folder and configure the necessary environment variables. 
 
 ```sh
 cp .env.template .env
 ```
 
+_(Note that leaving variable values_ empty _in this file resets the value, so if you want to take the value from the system environment, comment out these lines rather than assign to empty.)_ 
+
 * Building locally involves two steps:
+
 ```sh
 # in the root folder (data-digger-java)
 mvn clean install -DskipTests
@@ -65,9 +68,8 @@ We map `PubmedRecord` to `StandardRecord` for serialization purposes.
 We map `PubmedRecord` to `Authorship` to be able to store authorships per record.
 
 ### Storage
-Storage is encapsulated in `Consumer` classes (extended to `Sink` for some extra admin tasks).
+Storage is encapsulated in `Sink` classes, which are an extension to `Consumer`, adding some extra admin handles. On _types_ of storage, see [Data Storage](#data_storage).
 
-* SQLConsumer : storing in database
 
 ## Configuration
 The script will scrape a remote handle to import data into the specified database.
@@ -97,8 +99,52 @@ This process needs daily runs to stay up-to-date.
 Data from [https://bulkdata.uspto.gov/](https://bulkdata.uspto.gov/).
 
 # Data Storage
+<a id="data_storage"></a>
 Into PostgreSQL currently.
 
 ## PostgreSQL
+
+## S3
+Downloading full-text is quite another story from the bulk-files that contain title-abstract-references records. 
+Full-text downloads are different on at least two accounts:
+
+1. **[1B1]** Full-text items are typically downloaded one-by-one (though there are exceptions, notably PLOS)
+2. **[VOL]** Full-text items cannot reasonably be stored locally due to volume
+
+How do we store and keep track of full-text records?
+Each full text record has at least two properties of note:
+
+1. type [JATS/PDF/...]
+1. location (on S3)
+
+The other attributes are _peripheral_ in the sense that one file can have multiple identifiers.
+If we are downloading a PMC file it can possible be identified through DOI, pubmedid and PMCID. 
+
+In storing in a database (postgresql) we keep the job-tracking and the storage of the files together, such that we can move both data and tracking around as a unit. With S3-downloads this is no longer feasible due to **[1B1]** - updating the S3 index every single download doubles the S3-access. Also, in S3-index-files, we _probably_ want to  decouple the identifier-file links, because _some_ files will have a PMC-identifier and _not_ a DOI-identifier _and_ the other way around. So the obvious solution to that is to have multiple index files stored in the S3-bucket, which now gets the following structure:
+
+* ROOT
+	* indexes
+		* pubmed-index.csv
+		* doi-index.csv
+		* pmc-index.csv
+	* data
+		* 2024
+			* ...
+		* 2023
+			* ...
+
+Note that there _will_ be further structuring under data folders (below 2024 etc) as there will be _unfeasible_ numbers of files under these directories.
+
+
+## Job tracking
+
+Practical tracking of jobs and progress is done through a local Postgres database. This database can be synchronized with any and all remote indexes at any point. 
+
+The job definition is a simple table of records with YEAR,IDENTIFIER,STATUS,LOCATION supplied to the algorithm that _knows_ how to deal with the identifier-type at hand (how to retrieve the file), where to store it and so on.
+
+The synchronization of this table with the remote (S3) table is a separate job.
+
+
+
 
 

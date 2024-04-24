@@ -31,6 +31,9 @@ public class OptionDefinitions {
   static Option useKeysOption =
       Option.builder().option("k").longOpt("use-keys").required(false).build();
 
+  static Option awsStorageOption =
+      Option.builder().option("a").longOpt("use-aws").required(false).build();
+
   static Option maxFiles =
       Option.builder()
           .option("m")
