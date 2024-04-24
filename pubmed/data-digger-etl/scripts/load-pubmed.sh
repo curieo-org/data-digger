@@ -7,12 +7,12 @@ JAR="$(ls $DIR/../target/data-digger-*-jar-with-dependencies.jar)"
 
 # compose the command for pubmed loading
 CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoader"
-ARGS="-f 2018 -d baseline"
+ARGS="-f 2018 -d pubmed-baseline"
 
 case $1 in
     pubmed-baseline-2-postgres)
         echo "Pubmed baseline (full records) to postgres"
-        ARGS="-d baseline --full-records --references pubmed --batch-size 100"
+        ARGS="-d pubmed-baseline --full-records --references pubmed --batch-size 100"
         $CMD $ARGS
     ;;
 

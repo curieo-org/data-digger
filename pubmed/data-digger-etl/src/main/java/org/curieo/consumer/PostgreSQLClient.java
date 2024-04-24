@@ -5,8 +5,8 @@ import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import org.curieo.model.Job;
 import org.curieo.model.TS;
+import org.curieo.model.Task;
 import org.curieo.utils.Config;
 import org.curieo.utils.HashSet;
 import org.slf4j.Logger;
@@ -96,9 +96,10 @@ public class PostgreSQLClient implements AutoCloseable {
     return keys;
   }
 
-  public static Map<String, TS<Job>> retrieveJobs(Connection connection) throws SQLException {
+  public static Map<String, TS<Task>> retrieveJobTasks(Connection connection, String group)
+      throws SQLException {
 
-    Map<String, TS<Job>> jobs = new HashMap<>();
+    Map<String, TS<Task>> tasks = new HashMap<>();
 
     // https://jdbc.postgresql.org/documentation/query/#getting-results-based-on-a-cursor
     boolean autocommit = connection.getAutoCommit();
@@ -107,21 +108,23 @@ public class PostgreSQLClient implements AutoCloseable {
     Statement statement =
         connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
     statement.setFetchSize(100);
-    try (ResultSet resultSet = statement.executeQuery("select name, state, timestamp from jobs")) {
+    String query =
+        String.format(
+            "select name, state, timestamp from tasks where job = '%s'", escapeSingleQuotes(group));
+    try (ResultSet resultSet = statement.executeQuery(query)) {
       while (resultSet.next()) {
+        Task task =
+            new Task(
+                resultSet.getString(1),
+                Task.State.fromInt(resultSet.getInt(2)),
+                resultSet.getString(3));
 
-        Job job =
-            Job.builder()
-                .name(resultSet.getString(1))
-                .jobState(Job.State.fromInt(resultSet.getInt(2)))
-                .build();
-
-        TS<Job> jobTs = new TS<>(job, resultSet.getTimestamp(3));
-        jobs.put(job.getName(), jobTs);
+        TS<Task> jobTs = new TS<>(task, resultSet.getTimestamp(3));
+        tasks.put(task.name(), jobTs);
       }
     }
     connection.setAutoCommit(autocommit); // back to original value
-    return jobs;
+    return tasks;
   }
 
   /**

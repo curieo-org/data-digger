@@ -1,11 +1,6 @@
 package org.curieo.utils;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import org.apache.commons.collections4.SetUtils;
 import org.curieo.data.Range;
 
@@ -223,5 +218,32 @@ public class StringUtils {
     } else {
       return new int[] {recover, -1};
     }
+  }
+
+  /**
+   * Checks that the specified string is both not {@code null} and not empty. This method is
+   * designed primarily for doing parameter validation in methods and constructors, as demonstrated
+   * below:
+   *
+   * <blockquote>
+   *
+   * <pre>
+   * public Foo(String bar) {
+   *     this.bar = Objects.requireNonEmpty(bar);
+   * }
+   * </pre>
+   *
+   * </blockquote>
+   *
+   * @param str the object reference to check for nullity
+   * @return {@code str} if not {@code null} and not empty
+   * @throws NullPointerException if {@code str} is {@code null}
+   * @throws NullPointerException if {@code str} is emtpy.
+   */
+  public static String requireNonEmpty(String str) {
+    if (Objects.requireNonNull(str).isEmpty()) {
+      throw new IllegalArgumentException("String is empty");
+    }
+    return str;
   }
 }

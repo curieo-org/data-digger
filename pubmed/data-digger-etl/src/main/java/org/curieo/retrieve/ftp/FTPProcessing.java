@@ -19,8 +19,8 @@ import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPReply;
 import org.curieo.consumer.PostgreSQLClient;
 import org.curieo.consumer.Sink;
-import org.curieo.model.Job;
 import org.curieo.model.TS;
+import org.curieo.model.Task;
 import org.curieo.utils.Config;
 import org.curieo.utils.Pair;
 import org.slf4j.Logger;
@@ -52,12 +52,12 @@ public class FTPProcessing implements AutoCloseable {
     Seen // submitted, not processed, but no need to submit to processor
   ;
 
-    public Job.State intoJobState() {
+    public Task.State intotaskState() {
       return switch (this) {
-        case Seen -> Job.State.Queued;
-        case Open -> Job.State.InProgress;
-        case Error -> Job.State.Failed;
-        case Success -> Job.State.Completed;
+        case Seen -> Task.State.Queued;
+        case Open -> Task.State.InProgress;
+        case Error -> Task.State.Failed;
+        case Success -> Task.State.Completed;
       };
     }
   }
@@ -95,60 +95,67 @@ public class FTPProcessing implements AutoCloseable {
    * @throws IOException
    */
   public void processRemoteDirectory(
+      String job,
       String remoteDirectory,
-      Map<String, TS<Job>> jobs,
-      Sink<TS<Job>> updateJobSink,
+      Map<String, TS<Task>> tasks,
+      Sink<TS<Task>> updateTaskSink,
       FTPProcessingFilter filter,
       BiFunction<File, String, Status> processor,
       int maximumNumberOfFiles)
       throws IOException {
 
-    reopenIfClosed();
+    Objects.requireNonNull(job);
+    assert !job.isEmpty();
+    Objects.requireNonNull(remoteDirectory);
+    assert !remoteDirectory.isEmpty();
+    Objects.requireNonNull(tasks);
+    Objects.requireNonNull(processor);
+    Objects.requireNonNull(filter);
 
+    reopenIfClosed();
     // First pass
     for (FTPFile file : ftp.listFiles(remoteDirectory, filter)) {
       String name = file.getName();
       Timestamp remoteTimestamp = Timestamp.from(file.getTimestamp().toInstant());
 
-      if (jobs.containsKey(name)) {
-        // If our job is outdated
-        if (jobs.get(name).timestamp().before(remoteTimestamp)) {
-          // Add job to queue and update jobs
-          Job queued = Job.queue(name);
-          updateJobSink.accept(TS.of(queued, remoteTimestamp));
-          jobs.put(name, TS.of(queued, remoteTimestamp));
+      if (tasks.containsKey(name)) {
+        // If our task is outdated
+        if (tasks.get(name).timestamp().before(remoteTimestamp)) {
+          // Add task to queue and update tasks
+          Task queued = Task.queue(name, job);
+          updateTaskSink.accept(TS.of(queued, remoteTimestamp));
+          tasks.put(name, TS.of(queued, remoteTimestamp));
         }
       } else {
-        Job queued = Job.queue(name);
-        updateJobSink.accept(TS.of(queued, remoteTimestamp));
-        jobs.put(name, TS.of(queued, remoteTimestamp));
+        Task queued = Task.queue(name, job);
+        updateTaskSink.accept(TS.of(queued, remoteTimestamp));
+        tasks.put(name, TS.of(queued, remoteTimestamp));
       }
     }
-    ;
 
     AtomicInteger filesSeen = new AtomicInteger();
     AtomicInteger done =
         new AtomicInteger(
             (int)
-                jobs.values().stream()
-                    .filter(ts -> ts.value().getJobState() == Job.State.Completed)
+                tasks.values().stream()
+                    .filter(ts -> ts.value().state() == Task.State.Completed)
                     .count());
 
-    Predicate<Map.Entry<String, TS<Job>>> needsWork =
+    Predicate<Map.Entry<String, TS<Task>>> needsWork =
         (entry) -> {
-          Job.State state = entry.getValue().value().getJobState();
+          Task.State state = entry.getValue().value().state();
           return filesSeen.get() <= maximumNumberOfFiles
-              && (state == Job.State.Queued || state == Job.State.Failed);
+              && (state == Task.State.Queued || state == Task.State.Failed);
         };
 
-    Executor executor = Executors.newFixedThreadPool(10);
+    Executor executor = Executors.newFixedThreadPool(15);
     final List<CompletableFuture<Void>> futures =
-        jobs.entrySet().stream()
+        tasks.entrySet().stream()
             .filter(needsWork)
             .map(
                 entry -> {
                   String key = entry.getKey();
-                  TS<Job> ts = entry.getValue();
+                  TS<Task> ts = entry.getValue();
                   Timestamp timestamp = ts.timestamp();
 
                   return CompletableFuture.supplyAsync(
@@ -189,11 +196,11 @@ public class FTPProcessing implements AutoCloseable {
                                 LOGGER.error(
                                     "Could not delete temp file {}", tempFile.getAbsolutePath());
                               }
-                              updateJobSink.accept(TS.of(Job.failed(key), timestamp));
+                              updateTaskSink.accept(TS.of(Task.failed(key, job), timestamp));
                               throw new RuntimeException(e);
                             }
                           })
-                      .thenAcceptAsync(
+                      .thenAccept(
                           state -> {
                             boolean fileRetrieved = state.l();
                             FTPClient ftpClient = state.r().l();
@@ -201,12 +208,13 @@ public class FTPProcessing implements AutoCloseable {
 
                             if (!fileRetrieved) {
                               LOGGER.error("Cannot retrieve file {}", key);
-                              updateJobSink.accept(TS.of(Job.failed(key), timestamp));
+                              updateTaskSink.accept(TS.of(Task.failed(key, job), timestamp));
                             } else {
-                              updateJobSink.accept(TS.of(Job.inProgress(key), timestamp));
-                              updateJobSink.accept(
+                              updateTaskSink.accept(TS.of(Task.inProgress(key, job), timestamp));
+                              updateTaskSink.accept(
                                   TS.of(
-                                      new Job(key, processor.apply(tempFile, key).intoJobState()),
+                                      new Task(
+                                          key, processor.apply(tempFile, key).intotaskState(), job),
                                       timestamp));
                               LOGGER.info("Processed {}: state = {}", key, ts);
                               filesSeen.getAndIncrement();
@@ -221,9 +229,9 @@ public class FTPProcessing implements AutoCloseable {
                                 String.format(
                                     "Done %d/%d, at %.1f%%",
                                     currentDone,
-                                    jobs.size(),
-                                    (float) 100 * currentDone / jobs.size()));
-                            updateJobSink.accept(TS.of(Job.completed(key), timestamp));
+                                    tasks.size(),
+                                    (float) 100 * currentDone / tasks.size()));
+                            updateTaskSink.accept(TS.of(Task.completed(key, job), timestamp));
 
                             try {
                               ftpClient.disconnect();

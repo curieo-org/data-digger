@@ -21,6 +21,7 @@ import org.curieo.retrieve.ftp.FTPProcessing;
 import org.curieo.retrieve.ftp.FTPProcessingFilter;
 import org.curieo.sources.SourceReader;
 import org.curieo.utils.Config;
+import org.curieo.utils.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,19 +56,18 @@ public record DataLoader(
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
     Config config = new Config();
-    String application = parse.getOptionValue('d', "baseline");
+    String job = StringUtils.requireNonEmpty(parse.getOptionValue('d', "pubmed-baseline"));
     String sourceType = parse.getOptionValue('y', SourceReader.PUBMED);
     int maximumNumberOfRecords = getIntOption(parse, maxFiles).orElse(Integer.MAX_VALUE);
     int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);
 
-    Sink<TS<Job>> jobsSink = new Sink.Noop<>();
     Sink<Record> tsink = new Sink.Noop<>();
 
     PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config);
     SQLSinkFactory sqlSinkFactory =
         new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeysOption));
 
-    jobsSink = sqlSinkFactory.createJobsSink();
+    Sink<TS<Task>> tasksSink = sqlSinkFactory.createTasksSink();
     // store authorships
     if (parse.hasOption('a')) {
       Sink<Record> asink =
@@ -91,7 +91,7 @@ public record DataLoader(
     // store link table
     if (parse.hasOption(linkTable)) {
       for (String ltopt : parse.getOptionValues(linkTable)) {
-        LinkTableOption lto = LinkTableOption.parse(ltopt);
+      LinkTableOption lto = LinkTableOption.parse(ltopt);
         Sink<Record> asink =
             new MapSink<>(
                 r -> r.toLinks(lto.getSource(), lto.getTarget()),
@@ -109,26 +109,25 @@ public record DataLoader(
             sourceType,
             sink);
 
-    String remotePath = null;
-    if (application.equals("baseline")) {
-      remotePath = config.baseline_remote_path;
-    } else if (application.equals("updates")) {
-      remotePath = config.updates_remote_path;
-    } else if (application.equals("commons")) {
-      remotePath = config.commons_remote_path;
-    } else {
-      LOGGER.error("Cannot find application {} in environment", application);
-      System.exit(1);
-    }
+    String remotePath = switch (job) {
+      case "baseline" -> config.baseline_remote_path;
+      case "updates" -> config.updates_remote_path;
+      case "commons" -> config.commons_remote_path;
+      default -> {
+        LOGGER.error("Cannot find application {} in environment", job);
+        System.exit(1);
+      }
+    };
 
     try (FTPProcessing ftpProcessing = new FTPProcessing(config)) {
-      assert postgreSQLClient != null;
-      Map<String, TS<Job>> jobs = PostgreSQLClient.retrieveJobs(postgreSQLClient.getConnection());
+      Map<String, TS<Task>> tasks =
+          PostgreSQLClient.retrieveJobTasks(postgreSQLClient.getConnection(), job);
 
       ftpProcessing.processRemoteDirectory(
+          job,
           remotePath,
-          jobs,
-          jobsSink,
+          tasks,
+          tasksSink,
           FTPProcessingFilter.ValidExtension(".xml.gz"),
           loader::processFile,
           maximumNumberOfRecords);
