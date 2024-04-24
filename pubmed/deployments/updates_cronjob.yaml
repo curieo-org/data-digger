@@ -1,0 +1,16 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pubmed-updates-cronjob
+spec:
+  schedule: "0 8 * * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          name: pubmed-updates-cronjob
+        spec:
+          containers:
+          - name: pubmed-updates
+            image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-updates:latest
+          restartPolicy: OnFailure
