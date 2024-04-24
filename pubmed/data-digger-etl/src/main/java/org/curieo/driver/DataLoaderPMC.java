@@ -36,7 +36,7 @@ public class DataLoaderPMC {
   public static final int LOGGING_INTERVAL = 1000;
   private static final Logger LOGGER = LoggerFactory.getLogger(DataLoaderPMC.class);
 
-  // you can specify a year range that you want loaded.
+  // you can specify a source type
   String sourceType;
   Sink<Record> sink;
 

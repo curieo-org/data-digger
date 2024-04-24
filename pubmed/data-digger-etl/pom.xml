@@ -24,10 +24,26 @@
 	<maven-assembly-plugin.version>3.7.1</maven-assembly-plugin.version>
 	<maven-source-plugin.version>3.3.1</maven-source-plugin.version>
 	<maven-release-plugin.version>3.0.1</maven-release-plugin.version>
+    <maven.shade.plugin.version>3.2.1</maven.shade.plugin.version>
 	<maven.surefire.plugin.version>3.2.5</maven.surefire.plugin.version>
 	<maven-jar-plugin.version>3.4.0</maven-jar-plugin.version>
+	
+	<aws.java.sdk.version>2.25.35</aws.java.sdk.version>
   </properties>
 
+  <dependencyManagement>
+	<!-- https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/get-started.html -->
+    <dependencies>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>bom</artifactId>
+            <version>${aws.java.sdk.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+  </dependencyManagement>
+    
   <dependencies>
 	<dependency>
 	    <groupId>data-digger</groupId>
@@ -70,6 +86,16 @@
 	    <version>${commons-text.version}</version>
 	</dependency>
 	<dependency>
+	    <groupId>org.apache.commons</groupId>
+	    <artifactId>commons-lang3</artifactId>
+	    <version>3.14.0</version>
+	</dependency>
+	<dependency>
+	    <groupId>org.apache.commons</groupId>
+	    <artifactId>commons-collections4</artifactId>
+	    <version>${commons-collections.version}</version>
+	</dependency>
+	<dependency>
 	    <groupId>com.opencsv</groupId>
 	    <artifactId>opencsv</artifactId>
 	    <version>5.8</version>
@@ -101,16 +127,6 @@
 	    <artifactId>jackson-annotations</artifactId>
 	    <version>${jackson.version}</version>
 	</dependency>
-	<dependency>
-	    <groupId>org.apache.commons</groupId>
-	    <artifactId>commons-lang3</artifactId>
-	    <version>3.14.0</version>
-	</dependency>
-	<dependency>
-	    <groupId>org.apache.commons</groupId>
-	    <artifactId>commons-collections4</artifactId>
-	    <version>${commons-collections.version}</version>
-	</dependency>
 	<!-- fastest XML parser in town -->
 	<dependency>
 	    <groupId>com.fasterxml</groupId>
@@ -122,6 +138,42 @@
 		<artifactId>HikariCP</artifactId>
 		<version>5.1.0</version>
 	</dependency>
+    <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>s3</artifactId> 
+        <exclusions>
+            <exclusion>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>netty-nio-client</artifactId>
+            </exclusion>
+            <exclusion>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>apache-client</artifactId>
+            </exclusion>
+        </exclusions>
+    </dependency>
+	<!--  Required for identity center authentication. -->
+    <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>sso</artifactId>
+    </dependency>
+
+    <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>ssooidc</artifactId>
+    </dependency>
+
+    <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>apache-client</artifactId>
+        <exclusions>
+            <exclusion>
+                <groupId>commons-logging</groupId>
+                <artifactId>commons-logging</artifactId>
+            </exclusion>
+        </exclusions>
+    </dependency>
+        
 	<dependency>
 	    <groupId>org.postgresql</groupId>
 	    <artifactId>postgresql</artifactId>
@@ -134,6 +186,7 @@
 	</dependency>
 
   </dependencies>
+  
 	<build>
 		<pluginManagement>
 			<plugins>
@@ -201,6 +254,34 @@
 						</execution>
 					</executions>
 				</plugin>
+					
+	            <plugin>
+	                <groupId>org.apache.maven.plugins</groupId>
+	                <artifactId>maven-shade-plugin</artifactId>
+	                <version>${maven.shade.plugin.version}</version>
+	                <configuration>
+	                    <createDependencyReducedPom>false</createDependencyReducedPom>
+	                    <finalName>myapp</finalName>
+	                    <filters>
+	                        <filter>
+	                            <artifact>*:*</artifact>
+	                            <excludes>
+	                                <!-- Suppress module-info.class warning-->
+	                                <exclude>module-info.class</exclude>
+	                            </excludes>
+	                        </filter>
+	                    </filters>
+	                </configuration>
+	                <executions>
+	                    <execution>
+	                        <phase>package</phase>
+	                        <goals>
+	                            <goal>shade</goal>
+	                        </goals>
+	                    </execution>
+	                </executions>
+	            </plugin>
+
 				<plugin>
 					<groupId>org.codehaus.mojo</groupId>
 					<artifactId>buildnumber-maven-plugin</artifactId>
