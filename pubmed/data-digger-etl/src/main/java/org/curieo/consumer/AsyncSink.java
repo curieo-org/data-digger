@@ -4,12 +4,12 @@ import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-public class AsynchSink<T> implements Sink<T> {
+public class AsyncSink<T> implements Sink<T> {
   BlockingQueue<Optional<T>> queue = new ArrayBlockingQueue<>(1000);
   Sink<T> embedded;
   StorageThread storageThread;
 
-  public AsynchSink(Sink<T> sink) {
+  public AsyncSink(Sink<T> sink) {
     this.embedded = sink;
     storageThread = new StorageThread();
     storageThread.start();
@@ -48,8 +48,7 @@ public class AsynchSink<T> implements Sink<T> {
       Optional<T> recordOpt;
       try {
         while ((recordOpt = queue.take()).isPresent()) {
-          T record = recordOpt.get();
-          embedded.accept(record);
+          recordOpt.ifPresent(r -> embedded.accept(r));
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();

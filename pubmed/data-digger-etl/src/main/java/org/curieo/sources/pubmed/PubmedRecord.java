@@ -23,9 +23,7 @@ import org.curieo.model.Record;
 import org.curieo.model.Reference;
 import org.curieo.model.Reference.ReferenceBuilder;
 import org.curieo.model.Text;
-import org.curieo.sources.IdProvider;
 import org.curieo.sources.Source;
-import org.curieo.sources.SourceReader;
 
 @Generated
 @Value
@@ -47,6 +45,8 @@ public class PubmedRecord implements Record {
   public static final String MONTH_TAG = "Month";
   public static final String DAY_TAG = "Day";
   public static final String YEAR_TAG = "Year";
+
+  String origin;
 
   @Singular("abstractTex")
   List<Text> abstractText;
@@ -77,6 +77,11 @@ public class PubmedRecord implements Record {
   }
 
   @Override
+  public String getOrigin() {
+    return origin;
+  }
+
+  @Override
   public List<String> getAuthors() {
     return CollectionUtils.emptyIfNull(getPubmedAuthors()).stream()
         .map(PubmedAuthor::toString)
@@ -91,33 +96,31 @@ public class PubmedRecord implements Record {
       list.add(
           new LinkedField<>(
               ordinal,
-              getIdentifier(),
+              getNumericIdentifier(),
               pubmedAuthors.get(ordinal).toAuthorship(year == null ? 0 : year)));
     }
     return list;
   }
 
-  /**
-   * We're computing a unique identifier by suffixing the PubmedId with a code from the IdProvider
-   */
+  /** Retrieve unique pubmed identifier */
   @Override
   public String getIdentifier() {
-    return IdProvider.identifier(this.getIdentifier("pubmed"), SourceReader.PUBMED);
+    return this.getIdentifier("pubmed");
   }
 
   public String getIdentifier(String type) {
     for (Metadata id : identifiers) {
-      if (id.getKey().equals(type)) {
-        return id.getValue();
+      if (id.key().equals(type)) {
+        return id.value();
       }
     }
     return null;
   }
 
-  public static PubmedRecord read(XMLEventReader reader, XMLEvent current)
+  public static PubmedRecord read(String filename, XMLEventReader reader, XMLEvent current)
       throws XMLStreamException {
     // read the record
-    PubmedRecordBuilder builder = PubmedRecord.builder();
+    PubmedRecordBuilder builder = PubmedRecord.builder().origin(filename);
     while (reader.hasNext()) {
       XMLEvent event = reader.nextEvent();
       if (event.isStartElement()) {

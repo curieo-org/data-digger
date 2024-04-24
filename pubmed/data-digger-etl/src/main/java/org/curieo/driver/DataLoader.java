@@ -1,73 +1,36 @@
 package org.curieo.driver;
 
-import static org.curieo.retrieve.ftp.FTPProcessing.skipExtensions;
-
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch._types.Result;
 import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.Locale;
-import java.util.Optional;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import lombok.Generated;
-import lombok.Value;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.curieo.consumer.AsynchSink;
-import org.curieo.consumer.CountingConsumer;
-import org.curieo.consumer.MapperSink;
-import org.curieo.consumer.MultiSink;
-import org.curieo.consumer.PostgreSQLClient;
-import org.curieo.consumer.SQLSinkFactory;
-import org.curieo.consumer.Sink;
-import org.curieo.elastic.Client;
-import org.curieo.elastic.ElasticConsumer;
-import org.curieo.embed.EmbeddingService;
-import org.curieo.embed.SentenceEmbeddingService;
+import org.curieo.consumer.*;
+import org.curieo.model.*;
 import org.curieo.model.Record;
-import org.curieo.model.StandardRecord;
-import org.curieo.model.StandardRecordWithEmbeddings;
 import org.curieo.retrieve.ftp.FTPProcessing;
+import org.curieo.retrieve.ftp.FTPProcessingFilter;
 import org.curieo.sources.SourceReader;
 import org.curieo.utils.Config;
-import org.curieo.utils.Credentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * We need to: - keep track of what we downloaded - download some more - and then upload into the
  * search
+ *
+ * @param firstYear you can specify a year range that you want loaded.
  */
-@Generated
-@Value
-public class DataLoader {
+public record DataLoader(
+    Integer firstYear, Integer lastYear, String sourceType, Sink<Record> sink) {
   public static final int LOGGING_INTERVAL = 1000;
   private static final Logger LOGGER = LoggerFactory.getLogger(DataLoader.class);
-
-  // you can specify a year range that you want loaded.
-  Integer firstYear;
-  Integer lastYear;
-  String sourceType;
-  Sink<Record> sink;
-
-  static Option postgresUser() {
-    return Option.builder()
-        .option("p")
-        .longOpt("postgres-user")
-        .hasArg()
-        .desc("postgresql user")
-        .build();
-  }
-
-  static Option credentialsOption() {
-    return new Option("c", "credentials", true, "Path to credentials file");
-  }
 
   static Option batchSizeOption() {
     return Option.builder()
@@ -84,8 +47,6 @@ public class DataLoader {
   }
 
   public static void main(String[] args) throws ParseException, IOException, SQLException {
-    Option postgresuserOpt = postgresUser();
-    Option credentialsOpt = credentialsOption();
     Option batchSizeOption = batchSizeOption();
     Option useKeys = useKeysOption();
     Option maxFiles =
@@ -131,122 +92,101 @@ public class DataLoader {
 
     Options options =
         new Options()
-            .addOption(credentialsOpt)
             .addOption(firstYearOption)
             .addOption(lastYearOption)
             .addOption(batchSizeOption)
-            .addOption(new Option("i", "index", true, "index in elastic"))
-            .addOption(new Option("e", "embeddings", true, "embeddings server URL"))
             .addOption(
                 new Option(
                     "y", "source type", true, "source type - can currently only be \"pubmed\""))
             .addOption(
                 new Option("d", "data-set", true, "data set to load (defined in credentials)"))
-            .addOption(postgresuserOpt)
             .addOption(maxFiles)
             .addOption(new Option("f", "full-records", false, "full records to sql database"))
             .addOption(new Option("a", "authors", false, "authors to sql database"))
             .addOption(references)
             .addOption(linkTable)
-            .addOption(useKeys)
-            .addOption(new Option("t", "status-tracker", true, "path to file that tracks status"));
+            .addOption(useKeys);
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
-    String credpath = parse.getOptionValue(credentialsOpt, Config.CREDENTIALS_PATH);
-    Credentials credentials = Credentials.read(new File(credpath));
-    String application = parse.getOptionValue('d', "pubmed");
+    Config config = new Config();
+    String application = parse.getOptionValue('d', "baseline");
     String sourceType = parse.getOptionValue('y', SourceReader.PUBMED);
-    String index = parse.getOptionValue('i');
     int maximumNumberOfRecords = getIntOption(parse, maxFiles).orElse(Integer.MAX_VALUE);
     int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);
 
-    SentenceEmbeddingService sentenceEmbeddingService = null;
-    String embeddingsServiceUrl = parse.getOptionValue('e');
-    if (embeddingsServiceUrl != null) {
-      EmbeddingService embeddingService = new EmbeddingService(embeddingsServiceUrl, 1024);
-      if (embeddingService.embed("Test sentence.") == null) {
-        LOGGER.error("Embedding service not live at {}", embeddingsServiceUrl);
-        System.exit(1);
-      }
-      sentenceEmbeddingService = new SentenceEmbeddingService(embeddingService);
+    Sink<TS<Job>> jobsSink = new Sink.Noop<>();
+    Sink<Record> tsink = new Sink.Noop<>();
+
+    PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config);
+    SQLSinkFactory sqlSinkFactory =
+        new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeys));
+
+    jobsSink = sqlSinkFactory.createJobsSink();
+    // store authorships
+    if (parse.hasOption('a')) {
+      Sink<Record> asink =
+          new MapSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
+      tsink = tsink.concatenate(asink);
+    }
+    // store references
+    if (parse.hasOption(references)) {
+      Sink<Record> asink =
+          new MapSink<>(
+              Record::toReferences,
+              sqlSinkFactory.createReferenceSink(parse.getOptionValues(references)));
+      tsink = tsink.concatenate(asink);
+    }
+    // store full records
+    if (parse.hasOption("full-records")) {
+      Sink<Record> asink = new MapSink<>(StandardRecord::copy, sqlSinkFactory.createRecordSink());
+      tsink = tsink.concatenate(asink);
     }
 
-    Sink<Record> tsink = null;
-    if (index != null) {
-      tsink = getElasticConsumer(credentials, index, sentenceEmbeddingService);
-    }
-
-    String postgresuser = parse.getOptionValue(postgresuserOpt, "datadigger");
-
-    PostgreSQLClient postgreSQLClient = null;
-    SQLSinkFactory sqlSinkFactory;
-    if (postgresuser != null) {
-      postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(credentials, postgresuser);
-      sqlSinkFactory =
-          new SQLSinkFactory(postgreSQLClient.getConnection(), batchSize, parse.hasOption(useKeys));
-
-      // store authorships
-      if (parse.hasOption('a')) {
-        Sink<Record> asink =
-            new MultiSink<>(Record::toAuthorships, sqlSinkFactory.createAuthorshipSink());
-        tsink = tsink == null ? asink : tsink.concatenate(asink);
-      }
-      // store references
-      if (parse.hasOption(references)) {
-        Sink<Record> asink =
-            new MultiSink<>(
-                Record::toReferences,
-                sqlSinkFactory.createReferenceSink(parse.getOptionValues(references)));
-        tsink = tsink == null ? asink : tsink.concatenate(asink);
-      }
-      // store full records
-      if (parse.hasOption("full-records")) {
-        Sink<Record> asink =
-            new MapperSink<>(StandardRecord::copy, sqlSinkFactory.createRecordSink());
-        tsink = tsink == null ? asink : tsink.concatenate(asink);
-      }
-
-      // store link table
-      if (parse.hasOption(linkTable)) {
-        String[] sourceTargets = parse.getOptionValues(linkTable);
-        for (String sourceTarget : sourceTargets) {
-          String[] st = sourceTarget.split("=");
-          if (st.length != 2) {
-            LOGGER.warn("Arguments to {} need to be of the shape A=B", linkTable.getLongOpt());
-            System.exit(1);
-          }
-          Sink<Record> asink =
-              new MapperSink<>(
-                  r -> r.toLinks(st[0], st[1]), sqlSinkFactory.createLinkoutTable(st[0], st[1]));
-          tsink = tsink == null ? asink : tsink.concatenate(asink);
+    // store link table
+    if (parse.hasOption(linkTable)) {
+      String[] sourceTargets = parse.getOptionValues(linkTable);
+      for (String sourceTarget : sourceTargets) {
+        String[] st = sourceTarget.split("=");
+        if (st.length != 2) {
+          LOGGER.warn("Arguments to {} need to be of the shape A=B", linkTable.getLongOpt());
+          System.exit(1);
         }
+        Sink<Record> asink =
+            new MapSink<>(
+                r -> r.toLinks(st[0], st[1]), sqlSinkFactory.createLinkTable(st[0], st[1]));
+        tsink = tsink.concatenate(asink);
       }
     }
 
-    final Sink<Record> sink = new AsynchSink<>(tsink);
+    final Sink<Record> sink = new AsyncSink<>(tsink);
     DataLoader loader =
         new DataLoader(
-            getIntOption(parse, firstYearOption).orElse(1900),
+            getIntOption(parse, firstYearOption).orElse(1500),
             getIntOption(parse, lastYearOption).orElse(3000),
             sourceType,
             sink);
 
-    if (!credentials.hasApplication(application)) {
-      LOGGER.error("Cannot find application {} in {}", application, credpath);
+    String remotePath = null;
+    if (application.equals("baseline")) {
+      remotePath = config.baseline_remote_path;
+    } else if (application.equals("updates")) {
+      remotePath = config.updates_remote_path;
+    } else if (application.equals("commons")) {
+      remotePath = config.commons_remote_path;
+    } else {
+      LOGGER.error("Cannot find application {} in environment", application);
       System.exit(1);
     }
 
-    try (FTPProcessing ftpProcessing = new FTPProcessing(credentials, application)) {
-      if (parse.getOptionValue('t') == null) {
-        LOGGER.error("You must specify a status tracker file with option --status-tracker");
-        System.exit(1);
-      }
-      File statusTracker = new File(parse.getOptionValue('t'));
+    try (FTPProcessing ftpProcessing = new FTPProcessing(config)) {
+      assert postgreSQLClient != null;
+      Map<String, TS<Job>> jobs = PostgreSQLClient.retrieveJobs(postgreSQLClient.getConnection());
 
       ftpProcessing.processRemoteDirectory(
-          credentials.get(application, "remotepath"),
-          statusTracker,
-          skipExtensions("md5"),
+          remotePath,
+          jobs,
+          jobsSink,
+          FTPProcessingFilter.ValidExtension(".xml.gz"),
           loader::processFile,
           maximumNumberOfRecords);
     }
@@ -254,26 +194,29 @@ public class DataLoader {
     LOGGER.info(
         "Stored {} records, updated {} records", sink.getTotalCount(), sink.getUpdatedCount());
 
-    if (postgreSQLClient != null) {
-      postgreSQLClient.close();
-    }
+    postgreSQLClient.close();
     System.exit(0);
   }
 
-  public FTPProcessing.Status processFile(File file) {
+  public FTPProcessing.Status processFile(File file, String name) {
     String path = file.getAbsolutePath();
     if (path.toLowerCase().endsWith(".xml.gz")) {
+      AtomicInteger count = new AtomicInteger();
+      AtomicInteger countRejected = new AtomicInteger();
+      long startTimeInMillis = System.currentTimeMillis();
+
       try {
-        long startTimeInMillis = System.currentTimeMillis();
-        int count = 0, countRejected = 0;
-        for (Record r : SourceReader.getReader(sourceType).read(file)) {
-          count++;
-          if (checkYear(r)) {
-            sink.accept(r);
-          } else {
-            countRejected++;
-          }
-        }
+        final Iterable<Record> reader = SourceReader.getReader(sourceType).read(file, name);
+        reader.forEach(
+            r -> {
+              count.getAndIncrement();
+              if (checkYear(r)) {
+                sink.accept(r);
+              } else {
+                countRejected.getAndIncrement();
+              }
+            });
+
         LOGGER.info("Seen {} records - rejected {} by year filter", count, countRejected);
 
         long endTimeInMillis = System.currentTimeMillis();
@@ -283,49 +226,16 @@ public class DataLoader {
             count,
             String.format(Locale.US, "%.1f", (float) (endTimeInMillis - startTimeInMillis) / 1000),
             String.format(
-                Locale.US, "%.2f", (float) (endTimeInMillis - startTimeInMillis) / count));
+                Locale.US, "%.2f", (float) (endTimeInMillis - startTimeInMillis) / count.get()));
+
         return FTPProcessing.Status.Success;
       } catch (Exception e) {
-        LOGGER.error(String.format("Processed file %s", path), e);
+        LOGGER.error(String.format("Failed to process file %s", path), e);
         return FTPProcessing.Status.Error;
       }
-    } else {
-      return FTPProcessing.Status.Seen;
     }
-  }
 
-  public static Sink<Record> getElasticConsumer(
-      Credentials credentials, String index, SentenceEmbeddingService sentenceEmbeddingService) {
-    ElasticsearchClient client =
-        new Client(
-                credentials.get("elastic", "server"),
-                Integer.parseInt(credentials.get("elastic", "port")),
-                credentials.get("elastic", "fingerprint"),
-                credentials.get("elastic", "user"),
-                credentials.get("elastic", "password"))
-            .getClient();
-
-    Function<Record, Result> elasticSink = getElasticSink(index, sentenceEmbeddingService, client);
-
-    BiFunction<Result, Integer, String> formatter =
-        (result, c) -> String.format("Uploaded %d items with result %s", c, result.name());
-    return new CountingConsumer<>(LOGGING_INTERVAL, elasticSink, formatter);
-  }
-
-  private static Function<Record, Result> getElasticSink(
-      String index, SentenceEmbeddingService sentenceEmbeddingService, ElasticsearchClient client) {
-    Function<Record, StandardRecord> baseOperation = StandardRecord::copy;
-    Function<Record, Result> elasticSink;
-
-    if (sentenceEmbeddingService != null) {
-      ElasticConsumer<StandardRecordWithEmbeddings> ec =
-          new ElasticConsumer<>(client, index, StandardRecordWithEmbeddings::getIdentifier);
-      elasticSink = baseOperation.andThen(sentenceEmbeddingService.andThen(ec));
-    } else {
-      elasticSink =
-          baseOperation.andThen(new ElasticConsumer<>(client, index, Record::getIdentifier));
-    }
-    return elasticSink;
+    return FTPProcessing.Status.Seen;
   }
 
   private boolean checkYear(Record sr) {

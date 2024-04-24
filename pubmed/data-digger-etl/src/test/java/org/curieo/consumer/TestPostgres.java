@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import org.curieo.utils.Credentials;
+import org.curieo.utils.Config;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -16,10 +16,10 @@ class TestPostgres {
   @Test
   @Tag("slow")
   void testCreateDb() throws IOException, SQLException {
-    Credentials creds = Credentials.defaults();
+    Config config = new Config();
 
-    String user = creds.get("postgres-datadigger", "user");
-    String password = creds.get("postgres-datadigger", "password");
+    String user = config.postgres_user;
+    String password = config.postgres_password;
     try (PostgreSQLClient client = new PostgreSQLClient(null, user, password)) {
       client.createDatabase("test", OnExistSilentNoOp);
       assertThrows(RuntimeException.class, () -> client.createDatabase("test", OnExistFail));
@@ -29,14 +29,14 @@ class TestPostgres {
 
   @Test
   void testCursor() throws IOException, SQLException {
-    Credentials creds = Credentials.defaults();
+    Config config = new Config();
 
     String select = "SELECT identifier FROM records";
     String create = "DECLARE cursor_name CURSOR FOR " + select;
     String open = "OPEN cursor_name ";
     String fetch = "FETCH 10000 FROM cursor_name";
     String close = "CLOSE cursor_name ";
-    try (PostgreSQLClient client = PostgreSQLClient.getPostgreSQLClient(creds, "datadigger")) {
+    try (PostgreSQLClient client = PostgreSQLClient.getPostgreSQLClient(config)) {
       int count;
       try (Statement statement = client.getConnection().createStatement()) {
         client.getConnection().setAutoCommit(false);

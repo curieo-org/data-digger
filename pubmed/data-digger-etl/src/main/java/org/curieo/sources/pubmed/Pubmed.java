@@ -14,15 +14,17 @@ import javax.xml.stream.events.XMLEvent;
 
 public class Pubmed {
 
-  public static Iterable<PubmedRecord> read(File file) throws IOException, XMLStreamException {
-    return new PubmedReader(file);
+  public static Iterable<PubmedRecord> read(File file, String jobName)
+      throws IOException, XMLStreamException {
+    return new PubmedReader(file, jobName);
   }
 
   private static class PubmedReader implements Iterable<PubmedRecord> {
     XMLInputFactory xmlInputFactory = XMLInputFactory.newInstance();
     XMLEventReader reader;
+    String filename;
 
-    public PubmedReader(File file) throws IOException, XMLStreamException {
+    public PubmedReader(File file, String jobName) throws IOException, XMLStreamException {
       FileInputStream bais = new FileInputStream(file);
       InputStream stream;
       if (file.getAbsolutePath().toLowerCase().endsWith(".gz")) {
@@ -30,6 +32,7 @@ public class Pubmed {
       } else {
         stream = bais;
       }
+      filename = jobName;
       reader = xmlInputFactory.createXMLEventReader(stream);
     }
 
@@ -53,7 +56,7 @@ public class Pubmed {
           if (nextEvent.isStartElement()) {
             StartElement startElement = nextEvent.asStartElement();
             if (startElement.getName().getLocalPart().equals(PubmedRecord.RECORD_TAG)) {
-              return PubmedRecord.read(reader, nextEvent);
+              return PubmedRecord.read(filename, reader, nextEvent);
             }
           }
         }

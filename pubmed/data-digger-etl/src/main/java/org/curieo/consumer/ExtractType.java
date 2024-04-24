@@ -5,13 +5,14 @@ enum ExtractType {
   String("VARCHAR"),
   Integer("INT"),
   SmallInt("SMALLINT"),
+  BigInteger("BIGINT"),
   Text("TEXT"),
   Timestamp("TIMESTAMP");
 
   final String sqlType;
 
-  ExtractType(String s) {
-    sqlType = s;
+  ExtractType(String sqlType) {
+    this.sqlType = sqlType;
   }
 
   String getSqlType() {
