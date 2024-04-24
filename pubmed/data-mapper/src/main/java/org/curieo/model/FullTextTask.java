@@ -3,26 +3,26 @@ package org.curieo.model;
 import org.apache.commons.lang3.StringUtils;
 
 /** The SyncProgress model keeps track of progress made syncing with a source */
-public class FullTextJob implements JobState {
+public class FullTextTask implements TaskState {
   // position in sequence of authors of publication
   String identifier;
   String location;
   Integer year;
   State jobState;
 
-  public FullTextJob(String identifier, String location, Integer year, State state) {
+  public FullTextTask(String identifier, String location, Integer year, State state) {
     this.identifier = identifier;
     this.location = location;
     this.year = year;
     this.jobState = state;
   }
 
-  public FullTextJob failed() {
-    return new FullTextJob(this.identifier, this.location, this.year, State.Failed);
+  public FullTextTask failed() {
+    return new FullTextTask(this.identifier, this.location, this.year, State.Failed);
   }
 
-  public FullTextJob completed(String location) {
-    return new FullTextJob(this.identifier, location, this.year, State.Completed);
+  public FullTextTask completed(String location) {
+    return new FullTextTask(this.identifier, location, this.year, State.Completed);
   }
 
   @Override
@@ -43,7 +43,7 @@ public class FullTextJob implements JobState {
   }
 
   @Override
-  public State getJobState() {
+  public State getTaskState() {
     return jobState;
   }
 }

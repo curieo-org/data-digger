@@ -8,14 +8,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 import lombok.Generated;
 import org.curieo.model.Authorship;
-import org.curieo.model.FullTextJob;
 import org.curieo.model.FullTextRecord;
+import org.curieo.model.FullTextTask;
 import org.curieo.model.LinkedField;
 import org.curieo.model.Metadata;
+import org.curieo.model.PubmedTask;
 import org.curieo.model.Reference;
 import org.curieo.model.StandardRecord;
 import org.curieo.model.TS;
-import org.curieo.model.Task;
 
 /** Class to create record consumers into an SQL database. */
 @Generated
@@ -23,7 +23,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int IDENTIFIER_LENGTH = 100;
 
-  public Sink<TS<Task>> createTasksSink() throws SQLException {
+  public Sink<TS<PubmedTask>> createTasksSink() throws SQLException {
 
     FieldSpec name =
         FieldSpec.builder().field("name").type(ExtractType.String).size(60).nullable(false).build();
@@ -43,7 +43,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
         upsertStatement(specification.name(), specification.fields(), "name", "job");
 
     List<FieldSpec> fieldSpecs = specification.fields();
-    List<Extract<TS<Task>>> extracts = new ArrayList<>();
+    List<Extract<TS<PubmedTask>>> extracts = new ArrayList<>();
     extracts.add(fieldSpecs.get(1).extractString(ts -> ts.value().name()));
     extracts.add(fieldSpecs.get(2).extractInt(ts -> ts.value().state().getInner()));
     extracts.add(fieldSpecs.get(3).extractString(ts -> ts.value().job()));
@@ -52,27 +52,26 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     return createAbstractSink(extracts, upsert);
   }
 
-  public Sink<TS<FullTextJob>> createFullTextJobsSink(String tableName) throws SQLException {
+  public Sink<TS<FullTextTask>> createFullTextTasksSink(String tableName) throws SQLException {
     TableSpec tableSpec =
         TableSpec.of(
             tableName,
             List.of(
-            new FieldSpec("identifier", ExtractType.String, 60, true),
-            new FieldSpec("location", ExtractType.String, 200),
-            new FieldSpec("year", ExtractType.SmallInt),
-            new FieldSpec("state", ExtractType.SmallInt),
-            FieldSpec.timestamp("timestamp"))
-        );
+                new FieldSpec("identifier", ExtractType.String, 60, true),
+                new FieldSpec("location", ExtractType.String, 200),
+                new FieldSpec("year", ExtractType.SmallInt),
+                new FieldSpec("state", ExtractType.SmallInt),
+                FieldSpec.timestamp("timestamp")));
 
     createTable(tableSpec);
     PreparedStatement upsert = upsertStatement(tableName, tableSpec.fields(), "identifier");
 
     List<FieldSpec> fieldSpecs = tableSpec.fields();
-    List<Extract<TS<FullTextJob>>> extracts = new ArrayList<>();
+    List<Extract<TS<FullTextTask>>> extracts = new ArrayList<>();
     extracts.add(fieldSpecs.get(0).extractString(ts -> ts.value().getIdentifier()));
     extracts.add(fieldSpecs.get(1).extractString(ts -> ts.value().getLocation()));
     extracts.add(fieldSpecs.get(2).extractInt(ts -> ts.value().getYear()));
-    extracts.add(fieldSpecs.get(3).extractInt(ts -> ts.value().getJobState().getInner()));
+    extracts.add(fieldSpecs.get(3).extractInt(ts -> ts.value().getTaskState().getInner()));
     extracts.add(fieldSpecs.get(4).extractTimestamp(TS::timestamp));
 
     return createAbstractSink(extracts, upsert);

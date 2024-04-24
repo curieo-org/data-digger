@@ -6,8 +6,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import org.curieo.model.PubmedTask;
 import org.curieo.model.TS;
-import org.curieo.model.Task;
 import org.curieo.utils.Config;
 import org.curieo.utils.HashSet;
 import org.slf4j.Logger;
@@ -97,16 +97,17 @@ public class PostgreSQLClient implements AutoCloseable {
     return keys;
   }
 
-  public static Map<String, TS<Task>> retrieveJobTasks(Connection connection, String job) throws SQLException {
-    return retrieveItems(
-        connection,
-        "select name, state, timestamp from jobs",
-        PostgreSQLClient::mapTask,
-        ts -> ts.value().name());
+  public static Map<String, TS<PubmedTask>> retrieveJobTasks(Connection connection, String job)
+      throws SQLException {
+    String query =
+        String.format(
+            "select name, state, timestamp from tasks where job = '%s'", escapeSingleQuotes(job));
+    return retrieveItems(connection, query, PostgreSQLClient::mapTask, ts -> ts.value().name());
   }
 
-  private static TS<Task> mapTask(ResultSet rs) throws SQLException {
-    Task task = new Task(rs.getString(1), Task.State.fromInt(rs.getInt(2)), rs.getString(3));
+  private static TS<PubmedTask> mapTask(ResultSet rs) throws SQLException {
+    PubmedTask task =
+        new PubmedTask(rs.getString(1), PubmedTask.State.fromInt(rs.getInt(2)), rs.getString(3));
     return new TS<>(task, rs.getTimestamp(4));
   }
 

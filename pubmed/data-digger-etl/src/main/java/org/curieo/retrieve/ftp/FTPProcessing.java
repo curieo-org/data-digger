@@ -19,8 +19,8 @@ import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPReply;
 import org.curieo.consumer.PostgreSQLClient;
 import org.curieo.consumer.Sink;
+import org.curieo.model.PubmedTask;
 import org.curieo.model.TS;
-import org.curieo.model.Task;
 import org.curieo.utils.Config;
 import org.curieo.utils.Pair;
 import org.slf4j.Logger;
@@ -52,12 +52,12 @@ public class FTPProcessing implements AutoCloseable {
     Seen // submitted, not processed, but no need to submit to processor
   ;
 
-    public Task.State intotaskState() {
+    public PubmedTask.State intotaskState() {
       return switch (this) {
-        case Seen -> Task.State.Queued;
-        case Open -> Task.State.InProgress;
-        case Error -> Task.State.Failed;
-        case Success -> Task.State.Completed;
+        case Seen -> PubmedTask.State.Queued;
+        case Open -> PubmedTask.State.InProgress;
+        case Error -> PubmedTask.State.Failed;
+        case Success -> PubmedTask.State.Completed;
       };
     }
   }
@@ -97,8 +97,8 @@ public class FTPProcessing implements AutoCloseable {
   public void processRemoteDirectory(
       String job,
       String remoteDirectory,
-      Map<String, TS<Task>> tasks,
-      Sink<TS<Task>> updateTaskSink,
+      Map<String, TS<PubmedTask>> tasks,
+      Sink<TS<PubmedTask>> updateTaskSink,
       FTPProcessingFilter filter,
       BiFunction<File, String, Status> processor,
       int maximumNumberOfFiles)
@@ -122,12 +122,12 @@ public class FTPProcessing implements AutoCloseable {
         // If our task is outdated
         if (tasks.get(name).timestamp().before(remoteTimestamp)) {
           // Add task to queue and update tasks
-          Task queued = Task.queue(name, job);
+          PubmedTask queued = PubmedTask.queue(name, job);
           updateTaskSink.accept(TS.of(queued, remoteTimestamp));
           tasks.put(name, TS.of(queued, remoteTimestamp));
         }
       } else {
-        Task queued = Task.queue(name, job);
+        PubmedTask queued = PubmedTask.queue(name, job);
         updateTaskSink.accept(TS.of(queued, remoteTimestamp));
         tasks.put(name, TS.of(queued, remoteTimestamp));
       }
@@ -138,14 +138,14 @@ public class FTPProcessing implements AutoCloseable {
         new AtomicInteger(
             (int)
                 tasks.values().stream()
-                    .filter(ts -> ts.value().state() == Task.State.Completed)
+                    .filter(ts -> ts.value().state() == PubmedTask.State.Completed)
                     .count());
 
-    Predicate<Map.Entry<String, TS<Task>>> needsWork =
+    Predicate<Map.Entry<String, TS<PubmedTask>>> needsWork =
         (entry) -> {
-          Task.State state = entry.getValue().value().state();
+          PubmedTask.State state = entry.getValue().value().state();
           return filesSeen.get() <= maximumNumberOfFiles
-              && (state == Task.State.Queued || state == Task.State.Failed);
+              && (state == PubmedTask.State.Queued || state == PubmedTask.State.Failed);
         };
 
     Executor executor = Executors.newFixedThreadPool(15);
@@ -155,7 +155,7 @@ public class FTPProcessing implements AutoCloseable {
             .map(
                 entry -> {
                   String key = entry.getKey();
-                  TS<Task> ts = entry.getValue();
+                  TS<PubmedTask> ts = entry.getValue();
                   Timestamp timestamp = ts.timestamp();
 
                   return CompletableFuture.supplyAsync(
@@ -196,7 +196,7 @@ public class FTPProcessing implements AutoCloseable {
                                 LOGGER.error(
                                     "Could not delete temp file {}", tempFile.getAbsolutePath());
                               }
-                              updateTaskSink.accept(TS.of(Task.failed(key, job), timestamp));
+                              updateTaskSink.accept(TS.of(PubmedTask.failed(key, job), timestamp));
                               throw new RuntimeException(e);
                             }
                           })
@@ -208,12 +208,13 @@ public class FTPProcessing implements AutoCloseable {
 
                             if (!fileRetrieved) {
                               LOGGER.error("Cannot retrieve file {}", key);
-                              updateTaskSink.accept(TS.of(Task.failed(key, job), timestamp));
+                              updateTaskSink.accept(TS.of(PubmedTask.failed(key, job), timestamp));
                             } else {
-                              updateTaskSink.accept(TS.of(Task.inProgress(key, job), timestamp));
+                              updateTaskSink.accept(
+                                  TS.of(PubmedTask.inProgress(key, job), timestamp));
                               updateTaskSink.accept(
                                   TS.of(
-                                      new Task(
+                                      new PubmedTask(
                                           key, processor.apply(tempFile, key).intotaskState(), job),
                                       timestamp));
                               LOGGER.info("Processed {}: state = {}", key, ts);
@@ -231,7 +232,7 @@ public class FTPProcessing implements AutoCloseable {
                                     currentDone,
                                     tasks.size(),
                                     (float) 100 * currentDone / tasks.size()));
-                            updateTaskSink.accept(TS.of(Task.completed(key, job), timestamp));
+                            updateTaskSink.accept(TS.of(PubmedTask.completed(key, job), timestamp));
 
                             try {
                               ftpClient.disconnect();

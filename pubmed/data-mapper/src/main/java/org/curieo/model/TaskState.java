@@ -1,10 +1,10 @@
 package org.curieo.model;
 
-public interface JobState {
+public interface TaskState {
 
-  State getJobState();
+  State getTaskState();
 
-  public enum State {
+  enum State {
     Queued(0),
     InProgress(1),
     Completed(2),

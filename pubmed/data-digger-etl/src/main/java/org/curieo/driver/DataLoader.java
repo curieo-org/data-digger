@@ -65,7 +65,7 @@ public record DataLoader(
     SQLSinkFactory sqlSinkFactory =
         new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeysOption));
 
-    Sink<TS<Task>> tasksSink = sqlSinkFactory.createTasksSink();
+    Sink<TS<PubmedTask>> tasksSink = sqlSinkFactory.createTasksSink();
     Sink<Record> tsink = new Sink.Noop<>();
 
     // store authorships
@@ -121,7 +121,7 @@ public record DataLoader(
     }
 
     try (FTPProcessing ftpProcessing = new FTPProcessing(config)) {
-      Map<String, TS<Task>> tasks =
+      Map<String, TS<PubmedTask>> tasks =
           PostgreSQLClient.retrieveJobTasks(postgreSQLClient.getConnection(), job);
 
       ftpProcessing.processRemoteDirectory(
