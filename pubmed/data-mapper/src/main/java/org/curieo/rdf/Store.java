@@ -22,6 +22,7 @@ import java.util.stream.Stream;
 import org.apache.commons.collections4.IterableUtils;
 import org.apache.commons.collections4.SetUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.curieo.utils.HashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

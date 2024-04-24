@@ -1,10 +1,20 @@
 package org.curieo.consumer;
 
 import java.sql.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.Generated;
-import org.curieo.model.*;
+import org.curieo.model.Authorship;
+import org.curieo.model.FullTextRecord;
+import org.curieo.model.Job;
+import org.curieo.model.LinkedField;
+import org.curieo.model.Metadata;
+import org.curieo.model.Reference;
+import org.curieo.model.StandardRecord;
+import org.curieo.model.TS;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,6 +23,7 @@ import org.slf4j.LoggerFactory;
 public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean useKeys) {
   private static final Logger LOGGER = LoggerFactory.getLogger(SQLSinkFactory.class);
   public static final int DEFAULT_BATCH_SIZE = 100;
+  public static final int IDENTIFIER_LENGTH = 100;
 
   public Sink<TS<Job>> createJobsSink() throws SQLException {
     StorageSpec spec =
@@ -115,19 +126,19 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
   }
 
   /**
+   * @param tableName name for the table
    * @param sourceIdentifier
    * @param targetIdentifier
    * @return
    * @throws SQLException
    */
-  public Sink<List<Metadata>> createLinkTable(String sourceIdentifier, String targetIdentifier)
-      throws SQLException {
-    String tableName = "LinkTable";
+  public Sink<List<Metadata>> createLinkoutTable(
+      String tableName, String sourceIdentifier, String targetIdentifier) throws SQLException {
     List<FieldSpec> fieldSpecs =
         new ArrayList<>(
             Arrays.asList(
                 FieldSpec.identity(sourceIdentifier, ExtractType.BigInteger),
-                new FieldSpec(targetIdentifier, ExtractType.String, 20)));
+                new FieldSpec(targetIdentifier, ExtractType.String, IDENTIFIER_LENGTH)));
 
     createTable(tableName, fieldSpecs);
     PreparedStatement upsert = upsertStatement(tableName, fieldSpecs, sourceIdentifier);

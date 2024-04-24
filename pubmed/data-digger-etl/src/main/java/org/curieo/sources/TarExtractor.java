@@ -44,6 +44,13 @@ public class TarExtractor {
     return returnFile;
   }
 
+  public static List<File> untarAndDelete(File file, boolean gzip) throws IOException {
+    Path destination = Files.createTempDirectory("tmpdir");
+    List<File> files = untar(file, destination, gzip);
+    FileUtils.deleteDirectory(destination.toFile());
+    return files;
+  }
+
   public static List<File> untar(File file, Path destination, boolean gzip) throws IOException {
     List<File> files = new ArrayList<>();
     Files.createDirectories(destination);

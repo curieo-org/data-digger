@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.curieo.utils.HashSet;
 import org.junit.jupiter.api.Test;
 
 class RdfTests {

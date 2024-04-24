@@ -1,4 +1,4 @@
-package org.curieo.rdf;
+package org.curieo.utils;
 
 /*
  * Copyright 2009 Google Inc.

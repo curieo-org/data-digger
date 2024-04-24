@@ -1,12 +1,14 @@
 package org.curieo.driver;
 
-import static org.curieo.driver.DataLoader.*;
+import static org.curieo.driver.OptionDefinitions.*;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
 import java.util.Set;
 import javax.xml.stream.XMLStreamException;
+import lombok.Generated;
+import lombok.Value;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -27,81 +29,77 @@ import org.slf4j.LoggerFactory;
 /**
  * We need to: - keep track of what we downloaded - download some more - and then upload into the
  * search
- *
- * @param sourceType you can specify a year range that you want loaded.
  */
-public record DataLoaderPMC(String sourceType, Sink<Record> sink) {
+@Generated
+@Value
+public class DataLoaderPMC {
   public static final int LOGGING_INTERVAL = 1000;
   private static final Logger LOGGER = LoggerFactory.getLogger(DataLoaderPMC.class);
-  private static final String OAI_SERVICE = "https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi";
 
-  static Option queryOption() {
-    return Option.builder()
-        .option("q")
-        .longOpt("query")
-        .hasArgs()
-        .desc("query for retrieving the PMCs that you want to download")
-        .build();
-  }
+  // you can specify a year range that you want loaded.
+  String sourceType;
+  Sink<Record> sink;
 
-  static Option oaiOption() {
-    return Option.builder().option("o").longOpt("oai-service").hasArg().desc("oai-service").build();
-  }
+  static Option queryOption =
+      Option.builder()
+          .option("q")
+          .longOpt("query")
+          .hasArgs()
+          .desc("query for retrieving the PMCs that you want to download")
+          .build();
 
-  static Option tableNameOption() {
-    return Option.builder()
-        .option("t")
-        .longOpt("table-name")
-        .hasArg()
-        .desc("table name for storing full text")
-        .build();
-  }
+  static Option oaiOption =
+      Option.builder().option("o").longOpt("oai-service").hasArg().desc("oai-service").build();
+
+  static Option tableNameOption =
+      Option.builder()
+          .option("t")
+          .longOpt("table-name")
+          .hasArg()
+          .desc("table name for storing full text")
+          .build();
 
   public static void main(String[] args)
       throws ParseException, IOException, SQLException, XMLStreamException, URISyntaxException {
-    Option batchSizeOption = batchSizeOption();
-    Option oaiOption = oaiOption();
-    Option useKeys = useKeysOption();
-    Option queryOpt = queryOption();
-    Option tableNameOpt = tableNameOption();
     Options options =
         new Options()
             .addOption(batchSizeOption)
             .addOption(oaiOption)
-            .addOption(queryOpt)
-            .addOption(tableNameOpt)
-            .addOption(useKeys);
+            .addOption(queryOption)
+            .addOption(tableNameOption)
+            .addOption(useKeysOption);
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
-    Config config = new Config();
     int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);
+    Config config = new Config();
 
-    FullText ft = new FullText(parse.getOptionValue(oaiOption, OAI_SERVICE));
-    PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config);
-    SQLSinkFactory sqlSinkFactory =
-        new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeys));
-    if (!parse.hasOption(queryOpt)) {
-      LOGGER.error("You must specify the --query option");
-      System.exit(1);
-    }
-    String query = String.join(" ", parse.getOptionValues("query"));
-    Set<String> todo =
-        PostgreSQLClient.retrieveSetOfStrings(postgreSQLClient.getConnection(), query);
-    LOGGER.info(query);
-    String tableName = parse.getOptionValue(tableNameOpt, "FullText");
-    final Sink<FullTextRecord> sink = new AsyncSink<>(sqlSinkFactory.createPMCSink(tableName));
-    for (String pmc : todo) {
-      String content = ft.getJats(pmc);
-      if (content != null) {
-        sink.accept(new FullTextRecord(pmc, content));
+    FullText ft = new FullText(parse.getOptionValue(oaiOption, FullText.OAI_SERVICE));
+    try (PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config)) {
+
+      SQLSinkFactory sqlSinkFactory =
+          new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeysOption));
+      if (!parse.hasOption(queryOption)) {
+        LOGGER.error("You must specify the --query option");
+        System.exit(1);
       }
+      String query = String.join(" ", parse.getOptionValues(queryOption));
+      Set<String> todo =
+          PostgreSQLClient.retrieveSetOfStrings(postgreSQLClient.getConnection(), query);
+      LOGGER.info(query);
+      String tableName = parse.getOptionValue(tableNameOption, "FullText");
+      final Sink<FullTextRecord> sink = new AsyncSink<>(sqlSinkFactory.createPMCSink(tableName));
+      for (String pmc : todo) {
+        String content = ft.getJats(pmc);
+        if (content != null) {
+          sink.accept(new FullTextRecord(pmc, content));
+        }
+      }
+
+      sink.finalCall();
+      LOGGER.info(
+          "Stored {} records, updated {} records", sink.getTotalCount(), sink.getUpdatedCount());
     }
 
-    sink.finalCall();
-    LOGGER.info(
-        "Stored {} records, updated {} records", sink.getTotalCount(), sink.getUpdatedCount());
-
-    postgreSQLClient.close();
     System.exit(0);
   }
 }

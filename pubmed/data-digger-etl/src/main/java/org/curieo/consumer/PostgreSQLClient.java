@@ -2,11 +2,13 @@ package org.curieo.consumer;
 
 import com.zaxxer.hikari.HikariDataSource;
 import java.sql.*;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import org.curieo.model.Job;
 import org.curieo.model.TS;
-import org.curieo.rdf.HashSet;
 import org.curieo.utils.Config;
+import org.curieo.utils.HashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
