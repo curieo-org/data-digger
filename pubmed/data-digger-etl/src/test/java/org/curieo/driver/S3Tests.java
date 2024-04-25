@@ -20,7 +20,7 @@ public class S3Tests {
   void testS3ReadWriteDelete() throws IOException {
     String message = "Ground control to Major Tom";
     Config config = new Config();
-    String bucket = config.getEnv("AWS_STORAGE_BUCKET", true, null);
+    String bucket = config.aws_storage_bucket;
     S3Client client = S3Helpers.getS3Client(config);
     assertNotNull(client);
 

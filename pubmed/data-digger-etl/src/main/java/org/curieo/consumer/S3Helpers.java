@@ -22,7 +22,7 @@ public class S3Helpers {
 
   // https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/services/s3/S3Client.html
   public static S3Client getS3Client(Config config) {
-    Region region = Region.of(config.getEnv("AWS_REGION", false, null));
+    Region region = Region.of(config.aws_region);
     return S3Client.builder()
         .credentialsProvider(new ConfigCredentialsProvider(config))
         .region(region)

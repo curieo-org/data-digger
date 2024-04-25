@@ -16,6 +16,9 @@ public class Config {
   public String postgres_user;
   public String postgres_password;
 
+  public String aws_storage_bucket;
+  public String aws_region;
+
   private String environment = System.getenv("ENVIRONMENT");
 
   public Config() {
@@ -35,9 +38,12 @@ public class Config {
     postgres_database = getEnv("POSTGRES_DATABASE", true, null);
     postgres_user = getEnv("POSTGRES_USER", true, null);
     postgres_password = getEnv("POSTGRES_PASSWORD", true, null);
+
+    aws_storage_bucket = getEnv("AWS_STORAGE_BUCKET", true, null);
+    aws_region = getEnv("AWS_REGION", true, null);
   }
 
-  private String getEnv(String key, boolean required, String defaultValue) {
+  public String getEnv(String key, boolean required, String defaultValue) {
     String value = System.getenv(key);
 
     if (value == null && required) {
