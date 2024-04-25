@@ -9,7 +9,6 @@ import java.sql.Timestamp;
 import java.util.Iterator;
 import java.util.function.Function;
 import java.util.stream.StreamSupport;
-import org.curieo.consumer.AWSStorageSink;
 import org.curieo.consumer.S3Helpers;
 import org.curieo.consumer.Sink;
 import org.curieo.model.FullTextTask;
@@ -35,7 +34,7 @@ public class Synchronize {
   public static record S3(S3Client s3, String bucketName) {
 
     public S3(Config config) {
-      this(S3Helpers.getS3Client(config), config.getEnv(AWSStorageSink.BUCKET_ENV_VAR, true, null));
+      this(S3Helpers.getS3Client(config), config.aws_storage_bucket);
     }
 
     public <T, Y> PutObjectResponse synchronizeRemoteWithLocal(

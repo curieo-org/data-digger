@@ -8,7 +8,6 @@ import software.amazon.awssdk.services.s3.S3Client;
 
 /** Class to store records in an S3 bucket directory. */
 public class AWSStorageSink implements Sink<FullTextRecord> {
-  public static final String BUCKET_ENV_VAR = "AWS_STORAGE_BUCKET";
   public static final int DEFAULT_BATCH_SIZE = 100;
   private final S3Client client;
   private final String bucket;
