@@ -41,7 +41,7 @@ public class Config {
     String value = System.getenv(key);
 
     if (value == null && required) {
-      System.err.println("Environment variable %s is not set" + key);
+      System.err.println("Environment variable %s is not set: " + key);
       System.exit(1);
     }
 

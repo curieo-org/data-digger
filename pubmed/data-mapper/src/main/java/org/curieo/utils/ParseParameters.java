@@ -111,8 +111,12 @@ public abstract class ParseParameters {
   public abstract void uneat(char c);
 
   public void expect(char c) {
+    expect(c, "Expecting character %c at this point");
+  }
+
+  public void expect(char c, String message) {
     if (done() || next() != c) {
-      throw exception(String.format("Excepting character %c at this point", c));
+      throw exception(String.format(message, c));
     }
   }
 }

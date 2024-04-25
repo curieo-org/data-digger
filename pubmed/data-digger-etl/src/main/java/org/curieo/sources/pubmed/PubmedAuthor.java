@@ -95,13 +95,6 @@ public class PubmedAuthor {
       }
     }
 
-    return Authorship.builder()
-        .foreName(foreName)
-        .lastName(lastName)
-        .initials(initials)
-        .affiliations(affiliationProcessed)
-        .yearActive(year)
-        .emailAddress(email)
-        .build();
+    return new Authorship(foreName, lastName, initials, affiliationProcessed, year, email);
   }
 }

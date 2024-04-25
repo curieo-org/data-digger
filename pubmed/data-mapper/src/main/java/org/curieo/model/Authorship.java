@@ -2,6 +2,7 @@ package org.curieo.model;
 
 import java.util.ArrayList;
 import java.util.List;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.Generated;
@@ -13,6 +14,7 @@ import org.apache.commons.lang3.StringUtils;
 @Generated
 @Data
 @Builder
+@AllArgsConstructor
 public class Authorship {
   // position in sequence of authors of publication
   String foreName;

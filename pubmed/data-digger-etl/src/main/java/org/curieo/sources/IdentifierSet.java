@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-import org.curieo.rdf.HashSet;
+import org.curieo.utils.HashSet;
 
 public class IdentifierSet implements Set<String> {
   private final Map<String, BinArray> data = new HashMap<>();

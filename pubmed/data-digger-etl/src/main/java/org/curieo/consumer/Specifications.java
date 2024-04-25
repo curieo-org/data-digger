@@ -1,30 +1,95 @@
 package org.curieo.consumer;
 
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
-import lombok.AllArgsConstructor;
-import lombok.Generated;
-import lombok.Value;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import lombok.*;
+import org.curieo.utils.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-record StorageSpec(List<FieldSpec> fields) {
-  public static StorageSpec of(FieldSpec... fields) {
-    return new StorageSpec(List.of(fields));
+record TableSpec(String name, List<FieldSpec> fields, List<Constraint> constraints)
+    implements ToSql {
+
+  public TableSpec {
+    StringUtils.requireNonEmpty(name);
+    Objects.requireNonNull(fields);
+    Objects.requireNonNull(constraints);
   }
 
-  public void add(FieldSpec field) {
+  public static TableSpec of(String name, List<FieldSpec> fields, Constraint... constraints) {
+    return new TableSpec(name, new ArrayList<>(fields), List.of(constraints));
+  }
+
+  public void addField(FieldSpec field) {
     fields.add(field);
+  }
+
+  public void addField(int index, FieldSpec field) {
+    fields.add(index, field);
+  }
+
+  @Override
+  public String toSql() {
+    boolean missingIdentityColumn = fields.stream().noneMatch(FieldSpec::isIdentityColumn);
+    boolean missingTimestamp = fields.stream().noneMatch(FieldSpec::isTimestamp);
+    if (missingIdentityColumn) {
+      addField(0, FieldSpec.identity(ExtractType.BigInteger));
+    }
+    if (missingTimestamp) {
+      addField(FieldSpec.timestamp("timestamp", "now()"));
+    }
+    return String.format(
+        "CREATE TABLE IF NOT EXISTS %s (%s)",
+        name,
+        Stream.concat(
+                fields.stream().map(ToSql::toSql),
+                constraints.stream().map(Constraint::toConstraint))
+            .collect(Collectors.joining(", ")));
   }
 }
 
-@Generated
+interface ToSql {
+  String toSql();
+}
+
+interface SpecKey {
+  String key();
+}
+
+interface Constraint extends ToSql {
+  String toConstraint();
+
+  @Override
+  default String toSql() {
+    return toConstraint();
+  }
+}
+
+record CompositeUniqueKey(List<SpecKey> keys) implements Constraint {
+  public CompositeUniqueKey {
+    Objects.requireNonNull(keys);
+  }
+
+  public static CompositeUniqueKey of(SpecKey... keys) {
+    return new CompositeUniqueKey(List.of(keys));
+  }
+
+  @Override
+  public String toConstraint() {
+    return String.format(
+        "unique (%s)", keys.stream().map(SpecKey::key).collect(Collectors.joining(", ")));
+  }
+}
+
 @Value
-@AllArgsConstructor
-class FieldSpec {
+@Builder
+class FieldSpec implements ToSql, SpecKey {
   private static final Logger LOGGER = LoggerFactory.getLogger(FieldSpec.class);
 
   String field;
@@ -32,34 +97,47 @@ class FieldSpec {
   int size;
   // if the field must be kept unique
   boolean unique;
+  // if the field is non-null or not.
+  boolean nullable;
   String defaultValue;
-
+  // Generally only applicable to primary keys.
+  // If identity type is null it is not an identity type.
   IdentityType identityType;
 
   enum IdentityType {
     Generated,
-    Manual,
-    NA
+    Manual
   }
 
-  public boolean isTimestamp() {
-    return type == ExtractType.Timestamp;
-  }
+  FieldSpec(
+      String field,
+      ExtractType type,
+      int size,
+      boolean unique,
+      boolean nullable,
+      String defaultValue,
+      IdentityType identityType) {
+    this.field = StringUtils.requireNonEmpty(field);
+    this.type = Objects.requireNonNull(type);
+    this.size = size;
+    this.unique = unique;
+    this.nullable = nullable;
+    this.defaultValue = Objects.requireNonNullElse(defaultValue, "");
+    this.identityType = identityType;
 
-  public boolean isIdentityColumn() {
-    return identityType != IdentityType.NA;
+    if (size == 0 && (this.type == ExtractType.String || this.type == ExtractType.List)) {
+      throw new IllegalArgumentException("VARCHAR types must have a size specified");
+    }
   }
 
   FieldSpec(String field, ExtractType type) {
-    this(field, type, 0, false, "", IdentityType.NA);
-    if (type == ExtractType.String || type == ExtractType.List)
-      throw new IllegalArgumentException("VARCHAR types must have a size specified");
+    this(field, type, 0, false, true, "", null);
   }
 
   static FieldSpec identity(ExtractType type) {
     switch (type) {
       case SmallInt, Integer, BigInteger -> {
-        return new FieldSpec("id", type, 0, false, "", IdentityType.Generated);
+        return new FieldSpec("id", type, 0, false, false, "", IdentityType.Generated);
       }
       default ->
           throw new IllegalArgumentException(
@@ -67,28 +145,32 @@ class FieldSpec {
     }
   }
 
-  static FieldSpec identity(String field, ExtractType type) {
-    return new FieldSpec(field, type, 0, true, "", IdentityType.Manual);
+  static FieldSpec unique(String field, ExtractType type) {
+    return new FieldSpec(field, type, 0, true, false, "", IdentityType.Manual);
   }
 
   static FieldSpec timestamp(String field, String defaultValue) {
-    return new FieldSpec(field, ExtractType.Timestamp, 0, false, defaultValue, IdentityType.NA);
+    return new FieldSpec(field, ExtractType.Timestamp, 0, false, false, defaultValue, null);
   }
 
   static FieldSpec timestamp(String field) {
-    return new FieldSpec(field, ExtractType.Timestamp, 0, false, "", IdentityType.NA);
+    return new FieldSpec(field, ExtractType.Timestamp, 0, false, false, "", null);
   }
 
   FieldSpec(String field, ExtractType type, int size, boolean unique) {
-    this(field, type, size, unique, "", IdentityType.NA);
-    if (type != ExtractType.String && type != ExtractType.List)
-      throw new IllegalArgumentException("Only VARCHAR types can have a size specified");
+    this(field, type, size, unique, false, "", null);
   }
 
   FieldSpec(String field, ExtractType type, int size) {
-    this(field, type, size, false, "", IdentityType.NA);
-    if (type != ExtractType.String && type != ExtractType.List)
-      throw new IllegalArgumentException("Only VARCHAR types can have a size specified");
+    this(field, type, size, false, false, "", null);
+  }
+
+  public boolean isTimestamp() {
+    return type == ExtractType.Timestamp;
+  }
+
+  public boolean isIdentityColumn() {
+    return identityType != null;
   }
 
   <T> Extract<T> extractString(Function<T, String> f) {
@@ -118,25 +200,6 @@ class FieldSpec {
     return new Extract<>(this, null, null, null, null, f);
   }
 
-  public String toSql() {
-    switch (identityType) {
-      case Generated:
-        return String.format(
-            "%s %s %s", field, type.getSqlType(), "GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY");
-      case Manual:
-        return String.format("%s %s %s", field, type.getSqlType(), "PRIMARY KEY");
-      case NA:
-        break;
-    }
-    return String.format(
-        "%s %s%s %s %s",
-        field,
-        type.getSqlType(),
-        size == 0 ? "" : String.format("(%d)", size),
-        unique ? "unique" : "",
-        Objects.equals(defaultValue, "") ? "" : String.format("DEFAULT %s", defaultValue));
-  }
-
   static String trimField(String field, String content, int maximum) {
     if (content == null || content.length() <= maximum) {
       return content;
@@ -147,6 +210,7 @@ class FieldSpec {
 
   private record TrimToSize<T>(int size, Function<T, String> extract, String field)
       implements Function<T, String> {
+
     @Override
     public String apply(T t) {
       return trimField(field, extract.apply(t), size);
@@ -165,5 +229,30 @@ class FieldSpec {
       if (s == null) return null;
       return s.stream().map(v -> trimField(field, v, size)).toList();
     }
+  }
+
+  @Override
+  public String toSql() {
+    if (identityType == IdentityType.Generated) {
+      return String.format(
+          "%s %s %s", field, type.getSqlType(), "GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY");
+    } else if (identityType == IdentityType.Manual) {
+      return String.format("%s %s %s", field, type.getSqlType(), "PRIMARY KEY");
+    }
+    return String.format(
+        "%s %s%s %s %s %s",
+        field,
+        type.getSqlType(),
+        size == 0 ? "" : String.format("(%d)", size),
+        unique ? "unique" : "",
+        nullable ? "" : "not null",
+        (defaultValue == null || defaultValue.isEmpty())
+            ? ""
+            : String.format("DEFAULT %s", defaultValue));
+  }
+
+  @Override
+  public String key() {
+    return field;
   }
 }

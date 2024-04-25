@@ -1,5 +1,7 @@
 package org.curieo.sources;
 
+import static org.apache.commons.lang3.StringUtils.rightPad;
+
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -31,9 +33,11 @@ public class TarExtractor {
     String[] split = name.split("\\.", 2);
     File returnFile;
     if (split.length == 2) {
-      returnFile = File.createTempFile(split[0], split[1]);
+      // WHO KNEW? java.lang.IllegalArgumentException: Prefix string "hs" too short: length must be
+      // at least 3
+      returnFile = File.createTempFile(rightPad(split[0], 3, 'x'), split[1]);
     } else {
-      returnFile = File.createTempFile(split[0], "x");
+      returnFile = File.createTempFile(rightPad(split[0], 3, 'x'), "x");
     }
     if (target.getAbsolutePath().equals(returnFile.getAbsolutePath())) {
       throw new IllegalArgumentException("huh?!");
@@ -42,6 +46,13 @@ public class TarExtractor {
     Files.copy(target.toPath(), returnFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
     FileUtils.deleteDirectory(destination.toFile());
     return returnFile;
+  }
+
+  public static List<File> untarAndDelete(File file, boolean gzip) throws IOException {
+    Path destination = Files.createTempDirectory("tmpdir");
+    List<File> files = untar(file, destination, gzip);
+    FileUtils.deleteDirectory(destination.toFile());
+    return files;
   }
 
   public static List<File> untar(File file, Path destination, boolean gzip) throws IOException {

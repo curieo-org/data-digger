@@ -3,7 +3,6 @@ package org.curieo.utils;
 import java.util.Random;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.curieo.rdf.HashSet;
 import org.junit.jupiter.api.Test;
 
 class TrieTest {

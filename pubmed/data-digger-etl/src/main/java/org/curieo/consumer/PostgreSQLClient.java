@@ -2,18 +2,21 @@ package org.curieo.consumer;
 
 import com.zaxxer.hikari.HikariDataSource;
 import java.sql.*;
-import java.util.*;
-import org.curieo.model.Job;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import org.curieo.model.PubmedTask;
 import org.curieo.model.TS;
-import org.curieo.rdf.HashSet;
 import org.curieo.utils.Config;
+import org.curieo.utils.HashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * This class encapsulates the database connection to PostgreSQL server using JDBC.
  *
- * @author M Doornenbal for Curieo Technologies BV
+ * @author Curieo Technologies BV
  */
 public class PostgreSQLClient implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(PostgreSQLClient.class);
@@ -94,9 +97,29 @@ public class PostgreSQLClient implements AutoCloseable {
     return keys;
   }
 
-  public static Map<String, TS<Job>> retrieveJobs(Connection connection) throws SQLException {
+  public static Map<String, TS<PubmedTask>> retrieveJobTasks(Connection connection, String job)
+      throws SQLException {
+    String query =
+        String.format(
+            "select name, state, job, timestamp from tasks where job = '%s'",
+            escapeSingleQuotes(job));
+    return retrieveItems(connection, query, PostgreSQLClient::mapTask, ts -> ts.value().name());
+  }
 
-    Map<String, TS<Job>> jobs = new HashMap<>();
+  private static TS<PubmedTask> mapTask(ResultSet rs) throws SQLException {
+    PubmedTask task =
+        new PubmedTask(rs.getString(1), PubmedTask.State.fromInt(rs.getInt(2)), rs.getString(3));
+    return new TS<>(task, rs.getTimestamp(4));
+  }
+
+  public static <T> Map<String, T> retrieveItems(
+      Connection connection,
+      String query,
+      ThrowingFunction<ResultSet, T> recordMapper,
+      Function<T, String> keyMapper)
+      throws SQLException {
+
+    Map<String, T> items = new HashMap<>();
 
     // https://jdbc.postgresql.org/documentation/query/#getting-results-based-on-a-cursor
     boolean autocommit = connection.getAutoCommit();
@@ -105,21 +128,14 @@ public class PostgreSQLClient implements AutoCloseable {
     Statement statement =
         connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
     statement.setFetchSize(100);
-    try (ResultSet resultSet = statement.executeQuery("select name, state, timestamp from jobs")) {
+    try (ResultSet resultSet = statement.executeQuery(query)) {
       while (resultSet.next()) {
-
-        Job job =
-            Job.builder()
-                .name(resultSet.getString(1))
-                .jobState(Job.State.fromInt(resultSet.getInt(2)))
-                .build();
-
-        TS<Job> jobTs = new TS<>(job, resultSet.getTimestamp(3));
-        jobs.put(job.getName(), jobTs);
+        T item = recordMapper.apply(resultSet);
+        items.put(keyMapper.apply(item), item);
       }
     }
     connection.setAutoCommit(autocommit); // back to original value
-    return jobs;
+    return items;
   }
 
   /**
@@ -186,5 +202,10 @@ public class PostgreSQLClient implements AutoCloseable {
   @Override
   public void close() {
     dataSource.close();
+  }
+
+  @FunctionalInterface
+  public static interface ThrowingFunction<F, T> {
+    T apply(F t) throws SQLException;
   }
 }
