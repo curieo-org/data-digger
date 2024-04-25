@@ -20,10 +20,11 @@ public class Config {
   public String aws_region;
 
   private String environment = System.getenv("ENVIRONMENT");
+  private Dotenv dotenv;
 
   public Config() {
-    if (!environment.equals("production")) {
-      Dotenv.configure().systemProperties().load();
+    if (environment == null || !environment.equals("production")) {
+      dotenv = Dotenv.load();
     }
 
     pubmed_ftp_server = getEnv("PUBMED_FTP_SERVER", false, "ftp.ncbi.nlm.nih.gov");
@@ -44,7 +45,13 @@ public class Config {
   }
 
   public String getEnv(String key, boolean required, String defaultValue) {
-    String value = System.getenv(key);
+    String value;
+
+    if (environment == null || !environment.equals("production")) {
+      value = dotenv.get(key);
+    } else {
+      value = System.getenv(key);
+    }
 
     if (value == null && required) {
       System.err.println("Environment variable %s is not set: " + key);

@@ -32,4 +32,15 @@ spec:
                 name: pubmed-datadigger-config
                 key: POSTGRES_PASSWORD
                 optional: false
+          - name: AWS_STORAGE_BUCKET
+            valueFrom:
+              configMapKeyRef:
+                name: pubmed-datadigger-config
+                key: AWS_STORAGE_BUCKET
+                optional: false
+          - name: AWS_REGION
+            valueFrom:
+              configMapKeyRef:
+                name: pubmed-datadigger-config
+                key: AWS_REGION
       restartPolicy: OnFailure

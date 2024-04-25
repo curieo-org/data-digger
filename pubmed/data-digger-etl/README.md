@@ -21,13 +21,15 @@ cp .env.template .env
 If you are using local postgresql, use `host.docker.internal` in place of `127.0.0.1` in the postgres credentials.
 
 ```sh
+# Create Docker container
+docker build -t data-digger-pubmed .
+docker run --name data-digger-pubmed -d data-digger-pubmed
+
 # Baseline
-docker build -f deployments/Dockerfile_Baseline -t data-digger-pubmed-baseline .
-docker run data-digger-pubmed-baseline
+docker exec -it data-digger-pubmed /bin/bash -c "./data-digger-etl/scripts/load-pubmed.sh pubmed-baseline-2-postgres"
 
 # Updates
-docker build -f deployments/Dockerfile_Updates -t data-digger-pubmed-updates .
-docker run data-digger-pubmed-updates
+docker exec -it data-digger-pubmed /bin/bash -c "./data-digger-etl/scripts/load-pubmed.sh pubmed-updates-2-postgres"
 ```
 
 ### Without Docker
