@@ -45,14 +45,18 @@ case $1 in
     ;;
 
     # synchronize the status of pubmed central full text, uploads with the remote path
-    pubmedcentral-s3-synchronize)
+    pubmedcentral-s3-synchronize) 
+        PM_QUERIES="$DIR/create-ft-pubmed-tasks.sql $DIR/fill-ft-pubmed-tasks.sql"
         echo "Pubmed Central to S3 storage synchronization"
         CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
+        QUERY="--execute-query $PM_QUERIES"
         SYNCHRONIZE="--synchronize data/indexes/pmc-index.tsv"
         ARGS="$SYNCHRONIZE --job-table-name fulltextdownloads"
+        SYNCHRONIZE="--synchronize data/indexes/pubmed-index.tsv"
+        ARGS="$SYNCHRONIZE $QUERY --job-table-name fulltextdownloads_pm"
         $CMD $ARGS
     ;;
-    
+
     # testing with different batch sizes
     pubmed-updates-2-postgres-20-1000)
         echo "Pubmed updates (full records) to postgres"
