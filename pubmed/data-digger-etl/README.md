@@ -98,6 +98,18 @@ This process needs daily runs to stay up-to-date.
 ### USPTO
 Data from [https://bulkdata.uspto.gov/](https://bulkdata.uspto.gov/).
 
+### Full-text sources
+
+While downloading pubmed (or other public) data, we can create tables with links between pubmed records and Pubmed-Central (PMC) records, and links between pubmed records and DOI-identifiers. 
+PMC records are (often) available in full text through either or both of these identifiers.
+
+#### PMC
+PMC data is available through the [NIH OAI service](https://www.ncbi.nlm.nih.gov/pmc/tools/oai/). We get, through that service, a `record` containing links to both or either of a `tgz` and a `pdf` file, available over an FTP service. The `tgz` file contains the images of the document as well as the text representation in JATS format.
+
+This can then be retrieved, a which stage it is deposited in an S3 bucket for future processing. 
+
+
+
 # Data Storage
 <a id="data_storage"></a>
 Into PostgreSQL currently.
@@ -143,6 +155,16 @@ Practical tracking of jobs and progress is done through a local Postgres databas
 The job definition is a simple table of records with YEAR,IDENTIFIER,STATUS,LOCATION supplied to the algorithm that _knows_ how to deal with the identifier-type at hand (how to retrieve the file), where to store it and so on.
 
 The synchronization of this table with the remote (S3) table is a separate job.
+
+The best way forward is this:
+
+* create a table with jobs
+	* the 'seed' query goes something lik 
+* download
+* synchronize the jobs table through queries with remote indexes
+	* this synchronization goes both ways 
+		- if a file is reported present in the remote index, post it to the local file, 
+		- if a file is reported present by the local jobs table, add it to remote
 
 
 

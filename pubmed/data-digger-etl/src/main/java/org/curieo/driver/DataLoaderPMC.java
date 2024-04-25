@@ -1,9 +1,12 @@
 package org.curieo.driver;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.curieo.driver.OptionDefinitions.*;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -86,6 +89,7 @@ public class DataLoaderPMC {
             .addOption(taskTableOption)
             .addOption(awsStorageOption)
             .addOption(tableNameOption)
+            .addOption(executeQueryOption)
             .addOption(useKeysOption);
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
@@ -95,6 +99,12 @@ public class DataLoaderPMC {
     FullText ft = new FullText(parse.getOptionValue(oaiOption, FullText.OAI_SERVICE));
     try (PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config)) {
 
+      // do what needs to be done
+      if (parse.hasOption(executeQueryOption)) {
+        for (String q : parse.getOptionValues(executeQueryOption)) {
+          postgreSQLClient.execute(new String(Files.readAllBytes(new File(q).toPath()), UTF_8));
+        }
+      }
       SQLSinkFactory sqlSinkFactory =
           new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeysOption));
       String query = null;
@@ -157,16 +167,6 @@ public class DataLoaderPMC {
           TaskState.State state = entry.getValue().value().getTaskState();
           return (state == TaskState.State.Queued || state == TaskState.State.Failed);
         };
-    /*
-    for (Map.Entry<String, TS<FullTextJob>> pmc : tasks.entrySet()) {
-      if (needsWork.test(pmc)) {
-        String content = ft.getJats(pmc.getKey());
-        Integer year = pmc.getValue().value().getYear();
-        if (content != null) {
-          sink.accept(new FullTextRecord(pmc.getKey(), year, content));
-        }
-      }
-    }*/
 
     final int tasksSize = tasks.size();
     Executor executor = Executors.newFixedThreadPool(10);
@@ -242,5 +242,5 @@ public class DataLoaderPMC {
   }
 
   private static final String FULL_TEXT_JOB_QUERY_TEMPLATE =
-      "SELECT identifier, state, year, location, timestamp FROM %s";
+      "SELECT identifier, location, year, state, timestamp FROM %s";
 }

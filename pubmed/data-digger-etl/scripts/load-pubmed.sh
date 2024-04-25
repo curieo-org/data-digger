@@ -37,9 +37,9 @@ case $1 in
     # the seed queries can (and must) change
     pubmedcentral-s3-seed)
         echo "Pubmed Central to S3 storage"
-        SEED_QUERY="select l.pmc, null, r.year, 0, l.timestamp FROM linktable l join records r on r.identifier = l.pubmed"
+        SEED_QUERY=$DIR/prime-ft-pmc-download.sql
         CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
-        QUERY="--query $SEED_QUERY"
+        QUERY="--execute-query $SEED_QUERY"
         ARGS="$QUERY --job-table-name fulltextdownloads --use-aws "
         $CMD $ARGS
     ;;

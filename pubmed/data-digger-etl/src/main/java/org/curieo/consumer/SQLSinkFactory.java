@@ -68,11 +68,11 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
 
     List<FieldSpec> fieldSpecs = tableSpec.fields();
     List<Extract<TS<FullTextTask>>> extracts = new ArrayList<>();
-    extracts.add(fieldSpecs.get(0).extractString(ts -> ts.value().getIdentifier()));
-    extracts.add(fieldSpecs.get(1).extractString(ts -> ts.value().getLocation()));
-    extracts.add(fieldSpecs.get(2).extractInt(ts -> ts.value().getYear()));
-    extracts.add(fieldSpecs.get(3).extractInt(ts -> ts.value().getTaskState().getInner()));
-    extracts.add(fieldSpecs.get(4).extractTimestamp(TS::timestamp));
+    extracts.add(fieldSpecs.get(1).extractString(ts -> ts.value().getIdentifier()));
+    extracts.add(fieldSpecs.get(2).extractString(ts -> ts.value().getLocation()));
+    extracts.add(fieldSpecs.get(3).extractInt(ts -> ts.value().getYear()));
+    extracts.add(fieldSpecs.get(4).extractInt(ts -> ts.value().getTaskState().getInner()));
+    extracts.add(fieldSpecs.get(5).extractTimestamp(TS::timestamp));
 
     return createAbstractSink(extracts, upsert);
   }

@@ -28,6 +28,14 @@ public class OptionDefinitions {
           .type(Integer.class)
           .build();
 
+  static Option executeQueryOption =
+      Option.builder()
+          .option("e")
+          .longOpt("execute-query")
+          .hasArgs()
+          .desc("execute these queries (in files) before anything else")
+          .build();
+
   static Option useKeysOption =
       Option.builder().option("k").longOpt("use-keys").required(false).build();
 
