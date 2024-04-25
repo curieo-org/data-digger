@@ -44,6 +44,15 @@ case $1 in
         $CMD $ARGS
     ;;
 
+    # synchronize the status of pubmed central full text, uploads with the remote path
+    pubmedcentral-s3-synchronize)
+        echo "Pubmed Central to S3 storage synchronization"
+        CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
+        SYNCHRONIZE="--synchronize data/indexes/pmc-index.tsv"
+        ARGS="$SYNCHRONIZE --job-table-name fulltextdownloads"
+        $CMD $ARGS
+    ;;
+    
     # testing with different batch sizes
     pubmed-updates-2-postgres-20-1000)
         echo "Pubmed updates (full records) to postgres"
