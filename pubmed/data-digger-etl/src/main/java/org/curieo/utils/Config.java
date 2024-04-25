@@ -16,13 +16,16 @@ public class Config {
   public String postgres_user;
   public String postgres_password;
 
-  public String openai_organization;
-  public String openai_key;
+  public String aws_storage_bucket;
+  public String aws_region;
 
+  private String environment = System.getenv("ENVIRONMENT");
   private Dotenv dotenv;
 
   public Config() {
-    dotenv = Dotenv.load();
+    if (environment == null || !environment.equals("production")) {
+      dotenv = Dotenv.load();
+    }
 
     pubmed_ftp_server = getEnv("PUBMED_FTP_SERVER", false, "ftp.ncbi.nlm.nih.gov");
     pubmed_ftp_user = getEnv("PUBMED_FTP_USER", false, "anonymous");
@@ -37,12 +40,18 @@ public class Config {
     postgres_user = getEnv("POSTGRES_USER", true, null);
     postgres_password = getEnv("POSTGRES_PASSWORD", true, null);
 
-    openai_organization = getEnv("OPENAI_ORGANIZATION", false, "");
-    openai_key = getEnv("OPENAI_KEY", false, "");
+    aws_storage_bucket = getEnv("AWS_STORAGE_BUCKET", true, null);
+    aws_region = getEnv("AWS_REGION", true, null);
   }
 
   public String getEnv(String key, boolean required, String defaultValue) {
-    String value = this.dotenv.get(key);
+    String value;
+
+    if (environment == null || !environment.equals("production")) {
+      value = dotenv.get(key);
+    } else {
+      value = System.getenv(key);
+    }
 
     if (value == null && required) {
       System.err.println("Environment variable %s is not set: " + key);

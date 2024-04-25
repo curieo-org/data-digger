@@ -16,7 +16,7 @@ public class AWSStorageSink implements Sink<FullTextRecord> {
 
   public AWSStorageSink(Config config) {
     client = S3Helpers.getS3Client(config);
-    bucket = config.getEnv(BUCKET_ENV_VAR, true, null);
+    bucket = config.aws_storage_bucket;
   }
 
   @Override
