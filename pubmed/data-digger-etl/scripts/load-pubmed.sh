@@ -7,12 +7,12 @@ JAR="$(ls $DIR/../target/data-digger-*-jar-with-dependencies.jar)"
 
 # compose the command for pubmed loading
 CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoader"
-ARGS="-f 2018 -d baseline"
+ARGS="-f 2018 -d pubmed-baseline"
 
 case $1 in
     pubmed-baseline-2-postgres)
         echo "Pubmed baseline (full records) to postgres"
-        ARGS="-d baseline --full-records --references pubmed --batch-size 100"
+        ARGS="-d pubmed-baseline --full-records --references pubmed --batch-size 100"
         $CMD $ARGS
     ;;
 
@@ -20,7 +20,7 @@ case $1 in
         echo "Pubmed updates (full records) to postgres"
         STORE_LINKS="--link-table pubmed=pmc pubmed=doi"
         STORE_LINKS="--link-table LinkTable:pubmed=pmc PubmedDOI:pubmed=doi"
-        ARGS="-d updates --full-records --references pubmed --batch-size 100 --use-keys $STORE_LINKS"
+        ARGS="-d pubmed-updates --full-records --references pubmed --batch-size 100 --use-keys $STORE_LINKS"
         $CMD $ARGS
     ;;
 
@@ -47,7 +47,7 @@ case $1 in
     # testing with different batch sizes
     pubmed-updates-2-postgres-20-1000)
         echo "Pubmed updates (full records) to postgres"
-        ARGS="-d updates --full-records --maximum-files 20 --batch-size 1000"
+        ARGS="-d pubmed-updates --full-records --maximum-files 20 --batch-size 1000"
         $CMD $ARGS
     ;;
     

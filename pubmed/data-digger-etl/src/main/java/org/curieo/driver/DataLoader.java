@@ -21,6 +21,7 @@ import org.curieo.retrieve.ftp.FTPProcessing;
 import org.curieo.retrieve.ftp.FTPProcessingFilter;
 import org.curieo.sources.SourceReader;
 import org.curieo.utils.Config;
+import org.curieo.utils.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,7 +56,7 @@ public record DataLoader(
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
     Config config = new Config();
-    String application = parse.getOptionValue('d', "baseline");
+    String job = StringUtils.requireNonEmpty(parse.getOptionValue('d', "pubmed-baseline"));
     String sourceType = parse.getOptionValue('y', SourceReader.PUBMED);
     int maximumNumberOfRecords = getIntOption(parse, maxFiles).orElse(Integer.MAX_VALUE);
     int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);
@@ -64,7 +65,7 @@ public record DataLoader(
     SQLSinkFactory sqlSinkFactory =
         new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeysOption));
 
-    Sink<TS<Job>> jobsSink = sqlSinkFactory.createJobsSink();
+    Sink<TS<PubmedTask>> tasksSink = sqlSinkFactory.createTasksSink();
     Sink<Record> tsink = new Sink.Noop<>();
 
     // store authorships
@@ -109,25 +110,25 @@ public record DataLoader(
             sink);
 
     String remotePath = null;
-    if (application.equals("baseline")) {
-      remotePath = config.baseline_remote_path;
-    } else if (application.equals("updates")) {
-      remotePath = config.updates_remote_path;
-    } else if (application.equals("commons")) {
-      remotePath = config.commons_remote_path;
-    } else {
-      LOGGER.error("Cannot find application {} in environment", application);
-      System.exit(1);
+    switch (job) {
+      case "pubmed-baseline" -> remotePath = config.baseline_remote_path;
+      case "pubmed-updates" -> remotePath = config.updates_remote_path;
+      case "pubmed-commons" -> remotePath = config.commons_remote_path;
+      default -> {
+        LOGGER.error("Invalid job name: {}", job);
+        System.exit(1);
+      }
     }
 
     try (FTPProcessing ftpProcessing = new FTPProcessing(config)) {
-      assert postgreSQLClient != null;
-      Map<String, TS<Job>> jobs = PostgreSQLClient.retrieveJobs(postgreSQLClient.getConnection());
+      Map<String, TS<PubmedTask>> tasks =
+          PostgreSQLClient.retrieveJobTasks(postgreSQLClient.getConnection(), job);
 
       ftpProcessing.processRemoteDirectory(
+          job,
           remotePath,
-          jobs,
-          jobsSink,
+          tasks,
+          tasksSink,
           FTPProcessingFilter.ValidExtension(".xml.gz"),
           loader::processFile,
           maximumNumberOfRecords);

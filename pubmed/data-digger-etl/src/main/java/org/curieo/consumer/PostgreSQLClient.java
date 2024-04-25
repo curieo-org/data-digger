@@ -6,7 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import org.curieo.model.Job;
+import org.curieo.model.PubmedTask;
 import org.curieo.model.TS;
 import org.curieo.utils.Config;
 import org.curieo.utils.HashSet;
@@ -97,17 +97,19 @@ public class PostgreSQLClient implements AutoCloseable {
     return keys;
   }
 
-  public static Map<String, TS<Job>> retrieveJobs(Connection connection) throws SQLException {
-    return retrieveItems(
-        connection,
-        "select name, state, timestamp from jobs",
-        PostgreSQLClient::mapJob,
-        jb -> jb.value().getName());
+  public static Map<String, TS<PubmedTask>> retrieveJobTasks(Connection connection, String job)
+      throws SQLException {
+    String query =
+        String.format(
+            "select name, state, job, timestamp from tasks where job = '%s'",
+            escapeSingleQuotes(job));
+    return retrieveItems(connection, query, PostgreSQLClient::mapTask, ts -> ts.value().name());
   }
 
-  private static TS<Job> mapJob(ResultSet rs) throws SQLException {
-    Job job = new Job(rs.getString(1), Job.State.fromInt(rs.getInt(2)));
-    return new TS<>(job, rs.getTimestamp(3));
+  private static TS<PubmedTask> mapTask(ResultSet rs) throws SQLException {
+    PubmedTask task =
+        new PubmedTask(rs.getString(1), PubmedTask.State.fromInt(rs.getInt(2)), rs.getString(3));
+    return new TS<>(task, rs.getTimestamp(4));
   }
 
   public static <T> Map<String, T> retrieveItems(
@@ -117,7 +119,7 @@ public class PostgreSQLClient implements AutoCloseable {
       Function<T, String> keyMapper)
       throws SQLException {
 
-    Map<String, T> jobs = new HashMap<>();
+    Map<String, T> items = new HashMap<>();
 
     // https://jdbc.postgresql.org/documentation/query/#getting-results-based-on-a-cursor
     boolean autocommit = connection.getAutoCommit();
@@ -129,11 +131,11 @@ public class PostgreSQLClient implements AutoCloseable {
     try (ResultSet resultSet = statement.executeQuery(query)) {
       while (resultSet.next()) {
         T item = recordMapper.apply(resultSet);
-        jobs.put(keyMapper.apply(item), item);
+        items.put(keyMapper.apply(item), item);
       }
     }
     connection.setAutoCommit(autocommit); // back to original value
-    return jobs;
+    return items;
   }
 
   /**

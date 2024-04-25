@@ -5,15 +5,14 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.Generated;
 import org.curieo.model.Authorship;
-import org.curieo.model.FullTextJob;
 import org.curieo.model.FullTextRecord;
-import org.curieo.model.Job;
+import org.curieo.model.FullTextTask;
 import org.curieo.model.LinkedField;
 import org.curieo.model.Metadata;
+import org.curieo.model.PubmedTask;
 import org.curieo.model.Reference;
 import org.curieo.model.StandardRecord;
 import org.curieo.model.TS;
@@ -24,45 +23,55 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int IDENTIFIER_LENGTH = 100;
 
-  public Sink<TS<Job>> createJobsSink() throws SQLException {
-    StorageSpec spec =
-        StorageSpec.of(
-            new FieldSpec("name", ExtractType.String, 60, true),
-            new FieldSpec("state", ExtractType.SmallInt),
-            FieldSpec.timestamp("timestamp"));
+  public Sink<TS<PubmedTask>> createTasksSink() throws SQLException {
 
-    String tableName = "jobs";
+    FieldSpec name =
+        FieldSpec.builder().field("name").type(ExtractType.String).size(60).nullable(false).build();
+    FieldSpec state =
+        FieldSpec.builder().field("state").type(ExtractType.SmallInt).nullable(false).build();
+    FieldSpec groupName =
+        FieldSpec.builder().field("job").type(ExtractType.String).size(60).nullable(false).build();
 
-    createTable(tableName, spec.fields());
-    PreparedStatement upsert = upsertStatement(tableName, spec.fields(), "name");
+    TableSpec specification =
+        TableSpec.of(
+            "tasks",
+            List.of(name, state, groupName, FieldSpec.timestamp("timestamp")),
+            CompositeUniqueKey.of(name, groupName));
 
-    List<FieldSpec> fieldSpecs = spec.fields();
-    List<Extract<TS<Job>>> extracts = new ArrayList<>();
-    extracts.add(fieldSpecs.get(0).extractString(ts -> ts.value().getName()));
-    extracts.add(fieldSpecs.get(1).extractInt(ts -> ts.value().getJobState().getInner()));
-    extracts.add(fieldSpecs.get(2).extractTimestamp(TS::timestamp));
+    createTable(specification);
+    PreparedStatement upsert =
+        upsertStatement(specification.name(), specification.fields(), "name", "job");
+
+    List<FieldSpec> fieldSpecs = specification.fields();
+    List<Extract<TS<PubmedTask>>> extracts = new ArrayList<>();
+    extracts.add(fieldSpecs.get(1).extractString(ts -> ts.value().name()));
+    extracts.add(fieldSpecs.get(2).extractInt(ts -> ts.value().state().getInner()));
+    extracts.add(fieldSpecs.get(3).extractString(ts -> ts.value().job()));
+    extracts.add(fieldSpecs.get(4).extractTimestamp(TS::timestamp));
 
     return createAbstractSink(extracts, upsert);
   }
 
-  public Sink<TS<FullTextJob>> createFullTextJobsSink(String tableName) throws SQLException {
-    StorageSpec spec =
-        StorageSpec.of(
-            new FieldSpec("identifier", ExtractType.String, 60, true),
-            new FieldSpec("location", ExtractType.String, 200),
-            new FieldSpec("year", ExtractType.SmallInt),
-            new FieldSpec("state", ExtractType.SmallInt),
-            FieldSpec.timestamp("timestamp"));
+  public Sink<TS<FullTextTask>> createFullTextTasksSink(String tableName) throws SQLException {
+    TableSpec tableSpec =
+        TableSpec.of(
+            tableName,
+            List.of(
+                new FieldSpec("identifier", ExtractType.String, 60, true),
+                new FieldSpec("location", ExtractType.String, 200),
+                new FieldSpec("year", ExtractType.SmallInt),
+                new FieldSpec("state", ExtractType.SmallInt),
+                FieldSpec.timestamp("timestamp")));
 
-    createTable(tableName, spec.fields());
-    PreparedStatement upsert = upsertStatement(tableName, spec.fields(), "identifier");
+    createTable(tableSpec);
+    PreparedStatement upsert = upsertStatement(tableName, tableSpec.fields(), "identifier");
 
-    List<FieldSpec> fieldSpecs = spec.fields();
-    List<Extract<TS<FullTextJob>>> extracts = new ArrayList<>();
+    List<FieldSpec> fieldSpecs = tableSpec.fields();
+    List<Extract<TS<FullTextTask>>> extracts = new ArrayList<>();
     extracts.add(fieldSpecs.get(0).extractString(ts -> ts.value().getIdentifier()));
     extracts.add(fieldSpecs.get(1).extractString(ts -> ts.value().getLocation()));
     extracts.add(fieldSpecs.get(2).extractInt(ts -> ts.value().getYear()));
-    extracts.add(fieldSpecs.get(3).extractInt(ts -> ts.value().getJobState().getInner()));
+    extracts.add(fieldSpecs.get(3).extractInt(ts -> ts.value().getTaskState().getInner()));
     extracts.add(fieldSpecs.get(4).extractTimestamp(TS::timestamp));
 
     return createAbstractSink(extracts, upsert);
@@ -78,7 +87,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
   public Sink<List<LinkedField<Authorship>>> createAuthorshipSink() throws SQLException {
     List<FieldSpec> fieldSpecs =
         Arrays.asList(
-            FieldSpec.identity("publicationId", ExtractType.BigInteger),
+            FieldSpec.unique("publicationId", ExtractType.BigInteger),
             new FieldSpec("Ordinal", ExtractType.SmallInt),
             new FieldSpec("foreName", ExtractType.String, 40),
             new FieldSpec("lastName", ExtractType.String, 60),
@@ -115,7 +124,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     List<FieldSpec> fieldSpecs =
         new ArrayList<>(
             Arrays.asList(
-                FieldSpec.identity("articleId", ExtractType.BigInteger),
+                FieldSpec.unique("articleId", ExtractType.BigInteger),
                 new FieldSpec("ordinal", ExtractType.Integer),
                 new FieldSpec("citation", ExtractType.String, 500)));
     // a variable number of identifiers
@@ -159,7 +168,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     List<FieldSpec> fieldSpecs =
         new ArrayList<>(
             Arrays.asList(
-                FieldSpec.identity(sourceIdentifier, ExtractType.BigInteger),
+                FieldSpec.unique(sourceIdentifier, ExtractType.BigInteger),
                 new FieldSpec(targetIdentifier, ExtractType.String, IDENTIFIER_LENGTH)));
 
     createTable(tableName, fieldSpecs);
@@ -182,7 +191,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
   public Sink<StandardRecord> createRecordSink() throws SQLException {
     List<FieldSpec> fieldSpecs =
         Arrays.asList(
-            FieldSpec.identity("Identifier", ExtractType.BigInteger),
+            FieldSpec.unique("Identifier", ExtractType.BigInteger),
             new FieldSpec("Year", ExtractType.SmallInt),
             new FieldSpec("Record", ExtractType.Text),
             new FieldSpec("Origin", ExtractType.String, 60));
@@ -220,6 +229,11 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     return createAbstractSink(extracts, insert, batchSize);
   }
 
+  private List<FieldSpec> createTableHelper(TableSpec specification) throws SQLException {
+    psqlClient.execute(specification.toSql());
+    return specification.fields();
+  }
+
   private List<FieldSpec> createTableHelper(
       String tableName, List<FieldSpec> fieldSpecs, ExtractType idType) throws SQLException {
     fieldSpecs = new ArrayList<>(fieldSpecs);
@@ -240,6 +254,10 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     psqlClient.execute(create);
 
     return fieldSpecs;
+  }
+
+  private List<FieldSpec> createTable(TableSpec specification) throws SQLException {
+    return createTableHelper(specification);
   }
 
   private List<FieldSpec> createTable(String tableName, List<FieldSpec> fieldSpecs)
@@ -266,18 +284,26 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
   }
 
   private PreparedStatement upsertStatement(
-      String tableName, List<FieldSpec> fieldSpecs, String conflictColumn) throws SQLException {
+      String tableName, List<FieldSpec> fieldSpecs, String... conflictColumns) throws SQLException {
 
+    // Don't insert/update generative columns
+    List<FieldSpec> fields =
+        fieldSpecs.stream()
+            .filter(
+                f ->
+                    f.getIdentityType() == null
+                        || f.getIdentityType().equals(FieldSpec.IdentityType.Manual))
+            .toList();
     String upsert =
         String.format(
             "insert into %s (%s) VALUES (%s) on conflict (%s) do update set %s;",
             tableName,
-            fieldSpecs.stream().map(FieldSpec::getField).collect(Collectors.joining(", ")),
-            fieldSpecs.stream().map(s -> "?").collect(Collectors.joining(", ")),
-            conflictColumn,
-            fieldSpecs.stream()
+            fields.stream().map(FieldSpec::getField).collect(Collectors.joining(", ")),
+            fields.stream().map(s -> "?").collect(Collectors.joining(", ")),
+            String.join(", ", conflictColumns),
+            fields.stream()
                 .map(FieldSpec::getField)
-                .filter(s -> !Objects.equals(s.toLowerCase(), conflictColumn.toLowerCase()))
+                .filter(s -> Arrays.stream(conflictColumns).noneMatch(c -> c.equalsIgnoreCase(s)))
                 .map(s -> String.format("%s = EXCLUDED.%s", s, s))
                 .collect(Collectors.joining(", ")));
 

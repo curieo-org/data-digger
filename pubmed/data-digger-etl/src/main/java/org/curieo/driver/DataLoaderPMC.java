@@ -27,11 +27,8 @@ import org.curieo.consumer.AsyncSink;
 import org.curieo.consumer.PostgreSQLClient;
 import org.curieo.consumer.SQLSinkFactory;
 import org.curieo.consumer.Sink;
-import org.curieo.model.FullTextJob;
-import org.curieo.model.FullTextRecord;
-import org.curieo.model.Job;
+import org.curieo.model.*;
 import org.curieo.model.Record;
-import org.curieo.model.TS;
 import org.curieo.sources.pubmedcentral.FullText;
 import org.curieo.utils.Config;
 import org.slf4j.Logger;
@@ -57,7 +54,7 @@ public class DataLoaderPMC {
           .longOpt("query")
           .hasArgs()
           .desc(
-              "query for seeding the jobs -- if not specified, it is reading from the job-table name")
+              "query for seeding the tasks -- if not specified, it is reading from the job-table name")
           .build();
 
   static Option oaiOption =
@@ -71,7 +68,7 @@ public class DataLoaderPMC {
           .desc("table name for storing full text")
           .build();
 
-  static Option jobTableOption =
+  static Option taskTableOption =
       Option.builder()
           .option("j")
           .longOpt("job-table-name")
@@ -86,7 +83,7 @@ public class DataLoaderPMC {
             .addOption(batchSizeOption)
             .addOption(oaiOption)
             .addOption(queryOption)
-            .addOption(jobTableOption)
+            .addOption(taskTableOption)
             .addOption(awsStorageOption)
             .addOption(tableNameOption)
             .addOption(useKeysOption);
@@ -108,23 +105,23 @@ public class DataLoaderPMC {
         query = String.join(" ", parse.getOptionValues(queryOption));
       }
 
-      if (!parse.hasOption(jobTableOption)) {
+      if (!parse.hasOption(taskTableOption)) {
         LOGGER.error("You did not specify the --job-table-name option -- sorry, need that");
       }
 
       if (query == null) {
-        query = String.format(FULL_TEXT_JOB_QUERY_TEMPLATE, parse.getOptionValue(jobTableOption));
+        query = String.format(FULL_TEXT_JOB_QUERY_TEMPLATE, parse.getOptionValue(taskTableOption));
       }
 
-      Map<String, TS<FullTextJob>> todo =
+      Map<String, TS<FullTextTask>> todo =
           PostgreSQLClient.retrieveItems(
               postgreSQLClient.getConnection(),
               query,
               DataLoaderPMC::mapFullTextJob,
               j -> j.value().getIdentifier());
       LOGGER.info(query);
-      Sink<TS<FullTextJob>> jobsSink =
-          sqlSinkFactory.createFullTextJobsSink(parse.getOptionValue(jobTableOption));
+      Sink<TS<FullTextTask>> tasksSink =
+          sqlSinkFactory.createFullTextTasksSink(parse.getOptionValue(taskTableOption));
       Sink<FullTextRecord> sink = null;
       if (parse.hasOption(tableNameOption)) {
         String tableName = parse.getOptionValue(tableNameOption, "FullText");
@@ -138,7 +135,7 @@ public class DataLoaderPMC {
         throw new RuntimeException("Define at least 1 sink with --use-aws or --table-name ");
       }
 
-      processAllRecords(todo, jobsSink, sink, ft);
+      processAllRecords(todo, tasksSink, sink, ft);
 
       sink.finalCall();
       LOGGER.info(
@@ -149,20 +146,19 @@ public class DataLoaderPMC {
   }
 
   private static void processAllRecords(
-      Map<String, TS<FullTextJob>> jobs,
-      Sink<TS<FullTextJob>> jobsSink,
+      Map<String, TS<FullTextTask>> tasks,
+      Sink<TS<FullTextTask>> tasksSink,
       Sink<FullTextRecord> sink,
-      FullText ft)
-      throws IOException, XMLStreamException, URISyntaxException {
+      FullText ft) {
     AtomicInteger done = new AtomicInteger(0);
     AtomicInteger filesSeen = new AtomicInteger(0);
-    Predicate<Map.Entry<String, TS<FullTextJob>>> needsWork =
+    Predicate<Map.Entry<String, TS<FullTextTask>>> needsWork =
         (entry) -> {
-          Job.State state = entry.getValue().value().getJobState();
-          return (state == Job.State.Queued || state == Job.State.Failed);
+          TaskState.State state = entry.getValue().value().getTaskState();
+          return (state == TaskState.State.Queued || state == TaskState.State.Failed);
         };
     /*
-    for (Map.Entry<String, TS<FullTextJob>> pmc : jobs.entrySet()) {
+    for (Map.Entry<String, TS<FullTextJob>> pmc : tasks.entrySet()) {
       if (needsWork.test(pmc)) {
         String content = ft.getJats(pmc.getKey());
         Integer year = pmc.getValue().value().getYear();
@@ -172,10 +168,10 @@ public class DataLoaderPMC {
       }
     }*/
 
-    final int jobsSize = jobs.size();
+    final int tasksSize = tasks.size();
     Executor executor = Executors.newFixedThreadPool(10);
     final List<CompletableFuture<Void>> futures =
-        jobs.entrySet().stream()
+        tasks.entrySet().stream()
             .filter(needsWork)
             .map(
                 entry -> {
@@ -189,8 +185,8 @@ public class DataLoaderPMC {
                                   entry.getValue(),
                                   filesSeen,
                                   done,
-                                  jobsSize,
-                                  jobsSink,
+                                  tasksSize,
+                                  tasksSink,
                                   sink));
                 })
             .toList();
@@ -209,22 +205,22 @@ public class DataLoaderPMC {
   private static void processJats(
       String jats,
       String key,
-      TS<FullTextJob> ts,
+      TS<FullTextTask> ts,
       AtomicInteger filesSeen,
       AtomicInteger done,
-      int jobsSize,
-      Sink<TS<FullTextJob>> jobsSink,
+      int tasksSize,
+      Sink<TS<FullTextTask>> tasksSink,
       Sink<FullTextRecord> sink) {
     {
       if (jats == null) {
         LOGGER.error("Cannot retrieve file {}", key);
-        jobsSink.accept(TS.of(ts.value().failed(), ts.timestamp()));
+        tasksSink.accept(TS.of(ts.value().failed(), ts.timestamp()));
       } else {
         FullTextRecord ftr = new FullTextRecord(key, ts.value().getYear(), jats);
         String location = ftr.computeLocation();
         sink.accept(ftr);
-        FullTextJob completed = ts.value().completed(location);
-        jobsSink.accept(TS.of(completed, ts.timestamp()));
+        FullTextTask completed = ts.value().completed(location);
+        tasksSink.accept(TS.of(completed, ts.timestamp()));
         LOGGER.info("Processed {}: state = {}", key, ts);
         filesSeen.getAndIncrement();
       }
@@ -233,15 +229,15 @@ public class DataLoaderPMC {
       LOGGER.info(
           String.format(
               "Done %d/%d, at %.1f%%",
-              currentDone, jobsSize, (float) 100 * currentDone / jobsSize));
+              currentDone, tasksSize, (float) 100 * currentDone / tasksSize));
     }
   }
 
-  private static TS<FullTextJob> mapFullTextJob(ResultSet rs) throws SQLException {
-    FullTextJob job =
-        new FullTextJob(
+  private static TS<FullTextTask> mapFullTextJob(ResultSet rs) throws SQLException {
+    FullTextTask job =
+        new FullTextTask(
             // name, location, year, state, timestamp
-            rs.getString(1), rs.getString(2), rs.getInt(3), Job.State.fromInt(rs.getInt(4)));
+            rs.getString(1), rs.getString(2), rs.getInt(3), TaskState.State.fromInt(rs.getInt(4)));
     return new TS<>(job, rs.getTimestamp(5));
   }
 
