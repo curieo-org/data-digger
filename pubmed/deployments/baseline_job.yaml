@@ -9,5 +9,27 @@ spec:
     spec:
       containers:
       - name: pubmed-baseline
-        image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-baseline:latest
+        image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed:latest
+        command: ["sh", "-c", "./data-digger-etl/scripts/load-pubmed.sh pubmed-baseline-2-postgres"]
+        env:
+          - name: ENVIRONMENT
+            value: "production"
+          - name: POSTGRES_DATABASE
+            valueFrom:
+              configMapKeyRef:
+                name: pubmed-datadigger-config
+                key: POSTGRES_DATABASE
+                optional: false
+          - name: POSTGRES_USER
+            valueFrom:
+              configMapKeyRef:
+                name: pubmed-datadigger-config
+                key: POSTGRES_USER
+                optional: false
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                name: pubmed-datadigger-config
+                key: POSTGRES_PASSWORD
+                optional: false
       restartPolicy: OnFailure

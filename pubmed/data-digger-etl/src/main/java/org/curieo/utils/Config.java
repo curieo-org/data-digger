@@ -16,10 +16,12 @@ public class Config {
   public String postgres_user;
   public String postgres_password;
 
-  private Dotenv dotenv;
+  private String environment = System.getenv("ENVIRONMENT");
 
   public Config() {
-    dotenv = Dotenv.load();
+    if (!environment.equals("production")) {
+      Dotenv.configure().systemProperties().load();
+    }
 
     pubmed_ftp_server = getEnv("PUBMED_FTP_SERVER", false, "ftp.ncbi.nlm.nih.gov");
     pubmed_ftp_user = getEnv("PUBMED_FTP_USER", false, "anonymous");
@@ -36,7 +38,7 @@ public class Config {
   }
 
   private String getEnv(String key, boolean required, String defaultValue) {
-    String value = this.dotenv.get(key);
+    String value = System.getenv(key);
 
     if (value == null && required) {
       System.err.println("Environment variable %s is not set" + key);

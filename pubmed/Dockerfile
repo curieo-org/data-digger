@@ -15,7 +15,3 @@ FROM --platform=linux/amd64 openjdk:21
 
 WORKDIR /usr/src/app
 COPY --from=build /usr/src/app .
-
-COPY .env .
-
-CMD ["sh", "-c", "./data-digger-etl/scripts/load-pubmed.sh pubmed-baseline-2-postgres"]
