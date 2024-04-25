@@ -11,14 +11,12 @@ ARGS="-f 2018 -d pubmed-baseline"
 
 case $1 in
     pubmed-baseline-2-postgres)
-        rm -f config/baseline-status.json || true
         echo "Pubmed baseline (full records) to postgres"
         ARGS="-d pubmed-baseline --full-records --references pubmed --batch-size 100"
         $CMD $ARGS
     ;;
 
     pubmed-updates-2-postgres)
-        rm -f config/updates-status.json || true
         echo "Pubmed updates (full records) to postgres"
         STORE_LINKS="--link-table pubmed=pmc pubmed=doi"
         STORE_LINKS="--link-table LinkTable:pubmed=pmc PubmedDOI:pubmed=doi"
@@ -28,7 +26,6 @@ case $1 in
 
     # testing with full-text
     pubmedcentral-test)
-        rm -f config/updates-status.json || true
         echo "Pubmed Central Test"
         CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
         QUERY="--query SELECT PMC FROM linktable LIMIT 10"
@@ -49,7 +46,6 @@ case $1 in
 
     # testing with different batch sizes
     pubmed-updates-2-postgres-20-1000)
-        rm -f config/updates-status.json || true
         echo "Pubmed updates (full records) to postgres"
         ARGS="-d pubmed-updates --full-records --maximum-files 20 --batch-size 1000"
         $CMD $ARGS
