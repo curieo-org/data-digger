@@ -101,7 +101,8 @@ public class PostgreSQLClient implements AutoCloseable {
       throws SQLException {
     String query =
         String.format(
-            "select name, state, timestamp from tasks where job = '%s'", escapeSingleQuotes(job));
+            "select name, state, job, timestamp from tasks where job = '%s'",
+            escapeSingleQuotes(job));
     return retrieveItems(connection, query, PostgreSQLClient::mapTask, ts -> ts.value().name());
   }
 
