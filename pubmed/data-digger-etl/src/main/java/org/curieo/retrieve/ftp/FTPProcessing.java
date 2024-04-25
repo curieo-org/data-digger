@@ -302,8 +302,8 @@ public class FTPProcessing implements AutoCloseable {
       LOGGER.error("FTP server refused connection.");
     }
 
-    ftp.login(config.pubmed_ftp_user, config.pubmed_ftp_password);
     ftp.enterLocalPassiveMode();
+    ftp.login(config.pubmed_ftp_user, config.pubmed_ftp_password);
     return ftp;
   }
 

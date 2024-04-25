@@ -7,11 +7,7 @@ There is a number of readers here, all of which must be run in live mode to keep
 (c) 2024 Curieo Technologies BV  
 
 
-
 ## Setting up
-
-* Make sure you have a [Java JDK](https://jdk.java.net/21/) installed.
-* For local build, make sure you have [Maven](https://maven.apache.org/install.html) installed.
 
 ## Configuration
 Copy the `.env.template` file to `.env` in the root folder and configure the necessary environment variables. 
@@ -20,6 +16,26 @@ Copy the `.env.template` file to `.env` in the root folder and configure the nec
 cp .env.template .env
 ```
 
+### With Docker
+
+If you are using local postgresql, use `host.docker.internal` in place of `127.0.0.1` in the postgres credentials.
+
+```sh
+# Create Docker container
+docker build -t data-digger-pubmed .
+docker run --name data-digger-pubmed -d data-digger-pubmed
+
+# Baseline
+docker exec -it data-digger-pubmed /bin/bash -c "./data-digger-etl/scripts/load-pubmed.sh pubmed-baseline-2-postgres"
+
+# Updates
+docker exec -it data-digger-pubmed /bin/bash -c "./data-digger-etl/scripts/load-pubmed.sh pubmed-updates-2-postgres"
+```
+
+### Without Docker
+
+* Make sure you have a [Java JDK](https://jdk.java.net/21/) installed.
+* For local build, make sure you have [Maven](https://maven.apache.org/install.html) installed.
 _(Note that leaving variable values_ empty _in this file resets the value, so if you want to take the value from the system environment, comment out these lines rather than assign to empty.)_ 
 
 * Building locally involves two steps:
@@ -41,12 +57,10 @@ From the root folder, run the `load-pubmed.sh` script. This script will scrape t
 ```
 
 Options:
-
-3. `pubmed-baseline-2-postgres`
-4. `pubmed-updates-2-postgres`
-5. `pubmed-updates-2-postgres-20-100`
-6. `pubmed-updates-2-postgres-20-1000`
-7. `pubmed-updates-2-both`
+1. `pubmed-baseline-2-postgres`
+2. `pubmed-updates-2-postgres`
+3. `pubmedcentral-test`
+4. `pubmed-updates-2-postgres-20-1000`
 
 ## General Overview
 The general purpose of this module is to retrieve data from any data source, map it to the right format, and then store it into data stores that are fit for downstream purposes.
