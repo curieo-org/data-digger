@@ -6,7 +6,13 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )" # https://stackoverflow.
 JAR="$(ls $DIR/../target/data-digger-*-jar-with-dependencies.jar)"
 
 # compose the command for pubmed loading
-CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoader"
+# If PROFILER_LIB is defined we add it as an agent.
+if [[ -z "${PROFILER_LIB}" ]]; then
+  CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoader"
+else
+  CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoader -agentpath:$PROFILER_LIB=start,event=cpu,file=profile.html"
+fi
+
 ARGS="-f 2018 -d pubmed-baseline"
 
 case $1 in
