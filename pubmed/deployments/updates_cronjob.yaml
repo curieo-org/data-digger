@@ -13,7 +13,20 @@ spec:
           containers:
           - name: pubmed-updates
             image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed:latest
-            command: ["sh", "-c", "./data-digger-etl/scripts/load-pubmed.sh pubmed-updates-2-postgres"]
+            resources:
+              requests:
+                memory: "16Gi"
+                cpu: "8"
+              limits:
+                memory: "16Gi"
+                cpu: "8"
+            command: ["/bin/sh"]
+            args:
+            - -c
+            - >-
+              ./data-digger-etl/scripts/load-pubmed.sh pubmed-updates-2-postgres &&
+              ./data-digger-etl/scripts/load-pubmed.sh pubmedcentral-s3-seed &&
+              ./data-digger-etl/scripts/load-pubmed.sh pubmedcentral-s3-synchronize
             env:
               - name: ENVIRONMENT
                 value: "production"
@@ -46,4 +59,16 @@ spec:
                   configMapKeyRef:
                     name: pubmed-datadigger-config
                     key: AWS_REGION
+              - name: THREAD_POOL_SIZE
+                valueFrom:
+                  configMapKeyRef:
+                    name: pubmed-datadigger-config
+                    key: THREAD_POOL_SIZE
           restartPolicy: OnFailure
+          nodeSelector:
+            role: large-workloads
+          tolerations:
+          - key: "type"
+            operator: "Equal"
+            value: "large-workloads"
+            effect: "NoSchedule"

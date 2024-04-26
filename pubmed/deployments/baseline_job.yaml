@@ -10,6 +10,13 @@ spec:
       containers:
       - name: pubmed-baseline
         image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed:latest
+        resources:
+          requests:
+            memory: "16Gi"
+            cpu: "8"
+          limits:
+            memory: "16Gi"
+            cpu: "8"
         command: ["sh", "-c", "./data-digger-etl/scripts/load-pubmed.sh pubmed-baseline-2-postgres"]
         env:
           - name: ENVIRONMENT
@@ -43,4 +50,16 @@ spec:
               configMapKeyRef:
                 name: pubmed-datadigger-config
                 key: AWS_REGION
-      restartPolicy: OnFailure
+          - name: THREAD_POOL_SIZE
+            valueFrom:
+              configMapKeyRef:
+                name: pubmed-datadigger-config
+                key: THREAD_POOL_SIZE
+      restartPolicy: Never
+      nodeSelector:
+        role: large-workloads
+      tolerations:
+      - key: "type"
+        operator: "Equal"
+        value: "large-workloads"
+        effect: "NoSchedule"
