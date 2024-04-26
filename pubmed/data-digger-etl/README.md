@@ -16,6 +16,8 @@ Copy the `.env.template` file to `.env` in the root folder and configure the nec
 cp .env.template .env
 ```
 
+_(Note that leaving variable values_ empty _in this file resets the value, so if you want to take the value from the system environment, comment out these lines rather than assign to empty.)_
+
 ### With Docker
 
 If you are using local postgresql, use `host.docker.internal` in place of `127.0.0.1` in the postgres credentials.
@@ -35,8 +37,7 @@ docker exec -it data-digger-pubmed /bin/bash -c "./data-digger-etl/scripts/load-
 ### Without Docker
 
 * Make sure you have a [Java JDK](https://jdk.java.net/21/) installed.
-* For local build, make sure you have [Maven](https://maven.apache.org/install.html) installed.
-_(Note that leaving variable values_ empty _in this file resets the value, so if you want to take the value from the system environment, comment out these lines rather than assign to empty.)_ 
+* For local build, make sure you have [Maven](https://maven.apache.org/install.html) installed. 
 
 * Building locally involves two steps:
 
@@ -53,14 +54,20 @@ The last step will build a 50MB jar that is referenced in the `load-pubmed.sh` s
 From the root folder, run the `load-pubmed.sh` script. This script will scrape the FTP server for new files, parse the files, map the data, and store it in the database.
 
 # Run the script
-./data-digger-etl/scripts/load-pubmed.sh <OPTION>
-```
+The script downloads the data and processes various steps of aggregation in five steps, all triggered by an OPTION.
+
+`./data-digger-etl/scripts/load-pubmed.sh <OPTION>`
 
 Options:
-1. `pubmed-baseline-2-postgres`
-2. `pubmed-updates-2-postgres`
-3. `pubmedcentral-test`
-4. `pubmed-updates-2-postgres-20-1000`
+
+1. `pubmed-baseline-2-postgres` -- once, to start the data collection
+2. `pubmed-updates-2-postgres`  -- daily, to cover pubmed updates
+3. `pubmedcentral-s3-seed`      -- daily, to transfer _new_ pubmed-to-pmc links into the 'todo'-list for pubmed-central downloads
+4. `pubmedcentral-s3-synchronize` -- daily, to synchronize the S3-indexes with the database. 
+4. `pubmed-citation-counts` -- before content selection for `pubmed_ingestion`
+
+Note that the synchronization step can be run at any time. For instance, if the database gets wiped clean and we want to start with a clean slate, it is very useful to run synchronization first, such that data items that are already in S3 will not be downloaded again.
+
 
 ## General Overview
 The general purpose of this module is to retrieve data from any data source, map it to the right format, and then store it into data stores that are fit for downstream purposes.
@@ -94,6 +101,7 @@ See the [load-pubmed.sh](./scripts/load-pubmed.sh) script for the example.
 Now represented are:
 
 - Pubmed
+- PubmedCentral full text
 
 Under development are:
 - Patent data (USPTO)
@@ -173,7 +181,7 @@ The synchronization of this table with the remote (S3) table is a separate job.
 The best way forward is this:
 
 * create a table with jobs
-	* the 'seed' query goes something lik 
+	* the 'seed' query checks for _new_ items in the link-table and inserts these into the 'fulltextdownloads' table as tasks-to-do.
 * download
 * synchronize the jobs table through queries with remote indexes
 	* this synchronization goes both ways 

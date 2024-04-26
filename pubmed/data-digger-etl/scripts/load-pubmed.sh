@@ -12,7 +12,8 @@ ARGS="-f 2018 -d pubmed-baseline"
 case $1 in
     pubmed-baseline-2-postgres)
         echo "Pubmed baseline (full records) to postgres"
-        ARGS="-d pubmed-baseline --full-records --references pubmed --batch-size 100"
+        STORE_LINKS="--link-table LinkTable:pubmed=pmc PubmedDOI:pubmed=doi"
+        ARGS="-d pubmed-baseline --full-records --references pubmed --batch-size 100 --use-keys $STORE_LINKS"
         $CMD $ARGS
     ;;
 
@@ -46,7 +47,7 @@ case $1 in
 
     # synchronize the status of pubmed central full text, uploads with the remote path
     pubmedcentral-s3-synchronize) 
-        PM_QUERIES="$DIR/sql/create-ft-pubmed-tasks.sql $DIR/sql/fill-ft-pubmed-tasks.sql"
+        PM_QUERIES="$DIR/sql/drop-ft-pubmed-tasks.sql $DIR/sql/create-ft-pubmed-tasks.sql $DIR/sql/fill-ft-pubmed-tasks.sql"
         echo "Pubmed Central to S3 storage synchronization"
         CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
         QUERY="--execute-query $PM_QUERIES"

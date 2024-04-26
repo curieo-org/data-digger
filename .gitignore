@@ -9,6 +9,7 @@
 target/
 
 .DS_Store
+Cargo.lock
 
 # BlueJ files
 *.ctxt
