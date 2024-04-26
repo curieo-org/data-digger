@@ -28,8 +28,19 @@ public class OptionDefinitions {
           .type(Integer.class)
           .build();
 
+  static Option executeQueryOption =
+      Option.builder()
+          .option("e")
+          .longOpt("execute-query")
+          .hasArgs()
+          .desc("execute these queries (in files) before anything else")
+          .build();
+
   static Option useKeysOption =
       Option.builder().option("k").longOpt("use-keys").required(false).build();
+
+  static Option synchronizeOption =
+      Option.builder().option("s").longOpt("synchronize").hasArg().required(false).build();
 
   static Option awsStorageOption =
       Option.builder().option("a").longOpt("use-aws").required(false).build();

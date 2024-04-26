@@ -37,10 +37,23 @@ case $1 in
     # the seed queries can (and must) change
     pubmedcentral-s3-seed)
         echo "Pubmed Central to S3 storage"
-        SEED_QUERY="select l.pmc, null, r.year, 0, l.timestamp FROM linktable l join records r on r.identifier = l.pubmed"
+        SEED_QUERY=$DIR/prime-ft-pmc-download.sql
         CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
-        QUERY="--query $SEED_QUERY"
+        QUERY="--execute-query $SEED_QUERY"
         ARGS="$QUERY --job-table-name fulltextdownloads --use-aws "
+        $CMD $ARGS
+    ;;
+
+    # synchronize the status of pubmed central full text, uploads with the remote path
+    pubmedcentral-s3-synchronize) 
+        PM_QUERIES="$DIR/create-ft-pubmed-tasks.sql $DIR/fill-ft-pubmed-tasks.sql"
+        echo "Pubmed Central to S3 storage synchronization"
+        CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
+        QUERY="--execute-query $PM_QUERIES"
+        SYNCHRONIZE="--synchronize data/indexes/pmc-index.tsv"
+        ARGS="$SYNCHRONIZE --job-table-name fulltextdownloads"
+        SYNCHRONIZE="--synchronize data/indexes/pubmed-index.tsv"
+        ARGS="$SYNCHRONIZE $QUERY --job-table-name fulltextdownloads_pm"
         $CMD $ARGS
     ;;
 

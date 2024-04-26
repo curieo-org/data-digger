@@ -1,9 +1,12 @@
 package org.curieo.driver;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.curieo.driver.OptionDefinitions.*;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -84,8 +87,10 @@ public class DataLoaderPMC {
             .addOption(oaiOption)
             .addOption(queryOption)
             .addOption(taskTableOption)
+            .addOption(synchronizeOption)
             .addOption(awsStorageOption)
             .addOption(tableNameOption)
+            .addOption(executeQueryOption)
             .addOption(useKeysOption);
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
@@ -95,6 +100,12 @@ public class DataLoaderPMC {
     FullText ft = new FullText(parse.getOptionValue(oaiOption, FullText.OAI_SERVICE));
     try (PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config)) {
 
+      // do what needs to be done
+      if (parse.hasOption(executeQueryOption)) {
+        for (String q : parse.getOptionValues(executeQueryOption)) {
+          postgreSQLClient.execute(new String(Files.readAllBytes(new File(q).toPath()), UTF_8));
+        }
+      }
       SQLSinkFactory sqlSinkFactory =
           new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeysOption));
       String query = null;
@@ -107,21 +118,12 @@ public class DataLoaderPMC {
 
       if (!parse.hasOption(taskTableOption)) {
         LOGGER.error("You did not specify the --job-table-name option -- sorry, need that");
+        System.exit(1);
       }
 
-      if (query == null) {
-        query = String.format(FULL_TEXT_JOB_QUERY_TEMPLATE, parse.getOptionValue(taskTableOption));
-      }
-
-      Map<String, TS<FullTextTask>> todo =
-          PostgreSQLClient.retrieveItems(
-              postgreSQLClient.getConnection(),
-              query,
-              DataLoaderPMC::mapFullTextJob,
-              j -> j.value().getIdentifier());
-      LOGGER.info(query);
       Sink<TS<FullTextTask>> tasksSink =
           sqlSinkFactory.createFullTextTasksSink(parse.getOptionValue(taskTableOption));
+
       Sink<FullTextRecord> sink = null;
       if (parse.hasOption(tableNameOption)) {
         String tableName = parse.getOptionValue(tableNameOption, "FullText");
@@ -131,15 +133,42 @@ public class DataLoaderPMC {
         if (sink != null) sink = sink.concatenate(new AsyncSink<>(new AWSStorageSink(config)));
         else sink = new AsyncSink<>(new AWSStorageSink(config));
       }
-      if (sink == null) {
-        throw new RuntimeException("Define at least 1 sink with --use-aws or --table-name ");
+      if (sink != null) {
+        if (query == null) {
+          query =
+              String.format(FULL_TEXT_JOB_QUERY_TEMPLATE, parse.getOptionValue(taskTableOption));
+        }
+
+        Map<String, TS<FullTextTask>> todo =
+            PostgreSQLClient.retrieveItems(
+                postgreSQLClient.getConnection(),
+                query,
+                DataLoaderPMC::mapFullTextJob,
+                j -> j.value().getIdentifier());
+        LOGGER.info(query);
+
+        processAllRecords(todo, tasksSink, sink, ft);
+
+        sink.finalCall();
+        LOGGER.info(
+            "Stored {} records, updated {} records", sink.getTotalCount(), sink.getUpdatedCount());
       }
 
-      processAllRecords(todo, tasksSink, sink, ft);
-
-      sink.finalCall();
-      LOGGER.info(
-          "Stored {} records, updated {} records", sink.getTotalCount(), sink.getUpdatedCount());
+      // synchronize
+      if (parse.hasOption(synchronizeOption)) {
+        query =
+            String.format(
+                FULL_TEXT_COMPLETED_QUERY_TEMPLATE,
+                parse.getOptionValue(taskTableOption),
+                TaskState.State.Completed.getInner());
+        String remotePath = parse.getOptionValue(synchronizeOption);
+        Synchronize.S3 s3 = new Synchronize.S3(config);
+        s3.synchronizeFullTextTableWithRemote(remotePath, tasksSink);
+        s3.synchronizeRemoteWithFullTextTable(postgreSQLClient.getConnection(), query, remotePath);
+      } else if (sink == null) {
+        throw new RuntimeException(
+            "Either use --synchronize, or define at least 1 sink with --use-aws or --table-name ");
+      }
     }
 
     System.exit(0);
@@ -157,16 +186,6 @@ public class DataLoaderPMC {
           TaskState.State state = entry.getValue().value().getTaskState();
           return (state == TaskState.State.Queued || state == TaskState.State.Failed);
         };
-    /*
-    for (Map.Entry<String, TS<FullTextJob>> pmc : tasks.entrySet()) {
-      if (needsWork.test(pmc)) {
-        String content = ft.getJats(pmc.getKey());
-        Integer year = pmc.getValue().value().getYear();
-        if (content != null) {
-          sink.accept(new FullTextRecord(pmc.getKey(), year, content));
-        }
-      }
-    }*/
 
     final int tasksSize = tasks.size();
     Executor executor = Executors.newFixedThreadPool(10);
@@ -242,5 +261,7 @@ public class DataLoaderPMC {
   }
 
   private static final String FULL_TEXT_JOB_QUERY_TEMPLATE =
-      "SELECT identifier, state, year, location, timestamp FROM %s";
+      "SELECT identifier, location, year, state, timestamp FROM %s";
+  private static final String FULL_TEXT_COMPLETED_QUERY_TEMPLATE =
+      "SELECT identifier, location, year, state, timestamp FROM %s WHERE state = %d";
 }
