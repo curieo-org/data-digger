@@ -1,7 +1,7 @@
 use clap_derive::Parser;
 use clap::Parser;
+use dotenv::dotenv;
 
-pub mod credentials;
 pub mod datadigger;
 
 
@@ -16,23 +16,15 @@ struct Arguments {
     // follow links
     #[clap(short, long)]
     excel_output : Option<String>,
-
-    // list output
-    #[clap(short, long)]
-    database : Option<String>,
-
-    #[clap(short, long)]
-    credentials: String,
 }
 
 
 fn main() {
+    dotenv().ok();
     let args = Arguments::parse();
     println!("{:?}", args); 
     
-    let creds = credentials::get_credentials(args.credentials.clone());
-    let database = args.database.expect("please specify --database");
-    let mut client = datadigger::get_postgres_client(creds[database].clone());
+    let mut client = datadigger::get_postgres_client();
 
     let data = datadigger::read_citation_counts(&mut client, "citationcounts");
     let percentiles = datadigger::compute_percentiles(data);

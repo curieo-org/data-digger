@@ -37,7 +37,7 @@ case $1 in
     # the seed queries can (and must) change
     pubmedcentral-s3-seed)
         echo "Pubmed Central to S3 storage"
-        SEED_QUERY=$DIR/prime-ft-pmc-download.sql
+        SEED_QUERY=$DIR/sql/prime-ft-pmc-download.sql
         CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
         QUERY="--execute-query $SEED_QUERY"
         ARGS="$QUERY --job-table-name fulltextdownloads --use-aws "
@@ -46,7 +46,7 @@ case $1 in
 
     # synchronize the status of pubmed central full text, uploads with the remote path
     pubmedcentral-s3-synchronize) 
-        PM_QUERIES="$DIR/create-ft-pubmed-tasks.sql $DIR/fill-ft-pubmed-tasks.sql"
+        PM_QUERIES="$DIR/sql/create-ft-pubmed-tasks.sql $DIR/sql/fill-ft-pubmed-tasks.sql"
         echo "Pubmed Central to S3 storage synchronization"
         CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
         QUERY="--execute-query $PM_QUERIES"
@@ -64,6 +64,17 @@ case $1 in
         $CMD $ARGS
     ;;
     
+    # compute citation count-based ranking
+    pubmed-citation-counts)
+        echo "Pubmed Citation Count Aggregation"
+        SQL=$DIR/sql
+        PM_QUERIES="$SQL/drop-citation-counts.sql $SQL/drop-citation-counts-without-year.sql $SQL/fill-citation-counts.sql $SQL/aggregate-citation-counts.sql"
+        CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
+        ARGS="--execute-query $PM_QUERIES"
+        $CMD $ARGS
+        $DIR/../../ranking/target/release/ranking
+    ;;
+
     *)
         echo "No operation selected."
     ;;
