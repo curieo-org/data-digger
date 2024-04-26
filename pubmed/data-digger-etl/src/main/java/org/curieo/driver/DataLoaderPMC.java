@@ -160,7 +160,7 @@ public class DataLoaderPMC {
             String.format(
                 FULL_TEXT_COMPLETED_QUERY_TEMPLATE,
                 parse.getOptionValue(taskTableOption),
-                TaskState.State.Completed.getInner());
+                TaskState.State.Completed.ordinal());
         String remotePath = parse.getOptionValue(synchronizeOption);
         Synchronize.S3 s3 = new Synchronize.S3(config);
         s3.synchronizeFullTextTableWithRemote(remotePath, tasksSink);
@@ -188,7 +188,7 @@ public class DataLoaderPMC {
         };
 
     final int tasksSize = tasks.size();
-    Executor executor = Executors.newFixedThreadPool(10);
+    Executor executor = Executors.newFixedThreadPool(1);
     final List<CompletableFuture<Void>> futures =
         tasks.entrySet().stream()
             .filter(needsWork)
@@ -213,7 +213,7 @@ public class DataLoaderPMC {
     futures.forEach(CompletableFuture::join);
   }
 
-  private static String supplyJats(FullText ft, String key) {
+  private static Response<String> supplyJats(FullText ft, String key) {
     try {
       return ft.getJats(key);
     } catch (Exception e) {
@@ -222,7 +222,7 @@ public class DataLoaderPMC {
   }
 
   private static void processJats(
-      String jats,
+      Response<String> jats,
       String key,
       TS<FullTextTask> ts,
       AtomicInteger filesSeen,
@@ -231,11 +231,11 @@ public class DataLoaderPMC {
       Sink<TS<FullTextTask>> tasksSink,
       Sink<FullTextRecord> sink) {
     {
-      if (jats == null) {
+      if (!jats.ok()) {
         LOGGER.error("Cannot retrieve file {}", key);
-        tasksSink.accept(TS.of(ts.value().failed(), ts.timestamp()));
+        tasksSink.accept(TS.of(ts.value().update(jats.state()), ts.timestamp()));
       } else {
-        FullTextRecord ftr = new FullTextRecord(key, ts.value().getYear(), jats);
+        FullTextRecord ftr = new FullTextRecord(key, ts.value().getYear(), jats.value());
         String location = ftr.computeLocation();
         sink.accept(ftr);
         FullTextTask completed = ts.value().completed(location);
