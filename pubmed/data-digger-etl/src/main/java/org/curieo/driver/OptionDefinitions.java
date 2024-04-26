@@ -90,6 +90,34 @@ public class OptionDefinitions {
           .hasArgs()
           .build();
 
+  static Option queryOption =
+      Option.builder()
+          .option("q")
+          .longOpt("query")
+          .hasArgs()
+          .desc(
+              "query for seeding the tasks -- if not specified, it is reading from the job-table name")
+          .build();
+
+  static Option oaiOption =
+      Option.builder().option("o").longOpt("oai-service").hasArg().desc("oai-service").build();
+
+  static Option tableNameOption =
+      Option.builder()
+          .option("t")
+          .longOpt("table-name")
+          .hasArg()
+          .desc("table name for storing full text")
+          .build();
+
+  static Option taskTableOption =
+      Option.builder()
+          .option("j")
+          .longOpt("job-table-name")
+          .hasArg()
+          .desc("table name for storing job information")
+          .build();
+
   static Optional<Integer> getIntOption(CommandLine cmd, Option option) {
     if (!cmd.hasOption(option)) return Optional.empty();
     try {

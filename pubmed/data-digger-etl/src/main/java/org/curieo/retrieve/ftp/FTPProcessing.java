@@ -148,7 +148,7 @@ public class FTPProcessing implements AutoCloseable {
               && (state == PubmedTask.State.Queued || state == PubmedTask.State.Failed);
         };
 
-    Executor executor = Executors.newFixedThreadPool(15);
+    Executor executor = Executors.newFixedThreadPool(config.thread_pool_size);
     final List<CompletableFuture<Void>> futures =
         tasks.entrySet().stream()
             .filter(needsWork)

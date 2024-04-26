@@ -22,7 +22,6 @@ import lombok.Value;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.curieo.consumer.AWSStorageSink;
@@ -31,7 +30,6 @@ import org.curieo.consumer.PostgreSQLClient;
 import org.curieo.consumer.SQLSinkFactory;
 import org.curieo.consumer.Sink;
 import org.curieo.model.*;
-import org.curieo.model.Record;
 import org.curieo.sources.pubmedcentral.FullText;
 import org.curieo.utils.Config;
 import org.slf4j.Logger;
@@ -47,37 +45,12 @@ public class DataLoaderPMC {
   public static final int LOGGING_INTERVAL = 1000;
   private static final Logger LOGGER = LoggerFactory.getLogger(DataLoaderPMC.class);
 
-  // you can specify a source type
-  String sourceType;
-  Sink<Record> sink;
-
-  static Option queryOption =
-      Option.builder()
-          .option("q")
-          .longOpt("query")
-          .hasArgs()
-          .desc(
-              "query for seeding the tasks -- if not specified, it is reading from the job-table name")
-          .build();
-
-  static Option oaiOption =
-      Option.builder().option("o").longOpt("oai-service").hasArg().desc("oai-service").build();
-
-  static Option tableNameOption =
-      Option.builder()
-          .option("t")
-          .longOpt("table-name")
-          .hasArg()
-          .desc("table name for storing full text")
-          .build();
-
-  static Option taskTableOption =
-      Option.builder()
-          .option("j")
-          .longOpt("job-table-name")
-          .hasArg()
-          .desc("table name for storing job information")
-          .build();
+  Sink<TS<FullTextTask>> tasksSink;
+  Sink<FullTextRecord> sink;
+  FullText fullTextHandler;
+  AtomicInteger done;
+  AtomicInteger filesSeen;
+  int threadPoolSize;
 
   public static void main(String[] args)
       throws ParseException, IOException, SQLException, XMLStreamException, URISyntaxException {
@@ -147,7 +120,14 @@ public class DataLoaderPMC {
                 j -> j.value().getIdentifier());
         LOGGER.info(query);
 
-        processAllRecords(todo, tasksSink, sink, ft);
+        new DataLoaderPMC(
+                tasksSink,
+                sink,
+                ft,
+                new AtomicInteger(0),
+                new AtomicInteger(0),
+                config.thread_pool_size)
+            .processAllRecords(todo);
 
         sink.finalCall();
         LOGGER.info(
@@ -174,13 +154,7 @@ public class DataLoaderPMC {
     System.exit(0);
   }
 
-  private static void processAllRecords(
-      Map<String, TS<FullTextTask>> tasks,
-      Sink<TS<FullTextTask>> tasksSink,
-      Sink<FullTextRecord> sink,
-      FullText ft) {
-    AtomicInteger done = new AtomicInteger(0);
-    AtomicInteger filesSeen = new AtomicInteger(0);
+  private void processAllRecords(Map<String, TS<FullTextTask>> tasks) {
     Predicate<Map.Entry<String, TS<FullTextTask>>> needsWork =
         (entry) -> {
           TaskState.State state = entry.getValue().value().getTaskState();
@@ -188,48 +162,22 @@ public class DataLoaderPMC {
         };
 
     final int tasksSize = tasks.size();
-    Executor executor = Executors.newFixedThreadPool(1);
+    Executor executor = Executors.newFixedThreadPool(threadPoolSize);
     final List<CompletableFuture<Void>> futures =
         tasks.entrySet().stream()
             .filter(needsWork)
             .map(
                 entry -> {
-                  return CompletableFuture.supplyAsync(
-                          () -> supplyJats(ft, entry.getKey()), executor)
+                  return CompletableFuture.supplyAsync(() -> supplyJats(entry.getKey()), executor)
                       .thenAcceptAsync(
-                          jats ->
-                              processJats(
-                                  jats,
-                                  entry.getKey(),
-                                  entry.getValue(),
-                                  filesSeen,
-                                  done,
-                                  tasksSize,
-                                  tasksSink,
-                                  sink));
+                          jats -> processJats(jats, entry.getKey(), entry.getValue(), tasksSize));
                 })
             .toList();
 
     futures.forEach(CompletableFuture::join);
   }
 
-  private static Response<String> supplyJats(FullText ft, String key) {
-    try {
-      return ft.getJats(key);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private static void processJats(
-      Response<String> jats,
-      String key,
-      TS<FullTextTask> ts,
-      AtomicInteger filesSeen,
-      AtomicInteger done,
-      int tasksSize,
-      Sink<TS<FullTextTask>> tasksSink,
-      Sink<FullTextRecord> sink) {
+  private void processJats(Response<String> jats, String key, TS<FullTextTask> ts, int tasksSize) {
     {
       if (!jats.ok()) {
         LOGGER.error("Cannot retrieve file {}", key);
@@ -249,6 +197,14 @@ public class DataLoaderPMC {
           String.format(
               "Done %d/%d, at %.1f%%",
               currentDone, tasksSize, (float) 100 * currentDone / tasksSize));
+    }
+  }
+
+  private Response<String> supplyJats(String key) {
+    try {
+      return fullTextHandler.getJats(key);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
   }
 
