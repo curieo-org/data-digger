@@ -1,25 +1,27 @@
 use postgres::{Client, NoTls, Config};
-use serde_json::Value;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::iter;
 use postgres::fallible_iterator::FallibleIterator;
+use dotenv;
 
 
-pub fn get_postgres_client(credentials : Value) -> Client {
+
+pub fn get_postgres_client() -> Client {
     let mut config : Config = Config::new();
-    config.password(credentials["password"].as_str().expect("credentials not in right format"));
-    config.user(credentials["user"].as_str().expect("credentials not in right format"));
-    config.host(credentials["host"].as_str().expect("host not specified in credentials"));
-    match credentials["port"].as_str().expect("port not specified in credentials").parse::<u16>() {
+    config.password(dotenv::var("POSTGRES_PASSWORD").expect("POSTGRES_PASSWORD not in right format").as_str());
+    config.user(dotenv::var("POSTGRES_USER").expect("POSTGRES_USER not in right format").as_str());
+    config.host(dotenv::var("POSTGRES_HOST").expect("POSTGRES_HOST not specified in credentials").as_str());
+
+    match dotenv::var("POSTGRES_PORT").expect("POSTGRES_PORT not specified in credentials").parse::<u16>() {
         Ok(value) => {
             config.port(value);
         }
         Err(_) => {
-            println!("Cannot parse host name from credentials");
+            println!("Cannot parse port from credentials");
         }
     }
-    config.dbname(credentials["dbname"].as_str().expect("dbname not specified in credentials"));
+    config.dbname(dotenv::var("POSTGRES_DBNAME").expect("POSTGRES_DBNAME not specified in .env").as_str());
     config.connect(NoTls).expect("Cannot connect {database}")
 }
 

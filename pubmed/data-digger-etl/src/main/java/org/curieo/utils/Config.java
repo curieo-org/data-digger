@@ -18,6 +18,7 @@ public class Config {
 
   public String aws_storage_bucket;
   public String aws_region;
+  public int thread_pool_size;
 
   private String environment = System.getenv("ENVIRONMENT");
   private Dotenv dotenv;
@@ -35,6 +36,7 @@ public class Config {
     updates_remote_path = getEnv("UPDATES_REMOTE_PATH", false, "/pubmed/updatefiles/");
     commons_remote_path = getEnv("COMMONS_REMOTE_PATH", false, "/pubmed/pubmedcommons/");
     corpora_folder_path = getEnv("CORPORA_FOLDER_PATH", false, "../corpora/");
+    thread_pool_size = Integer.parseInt(getEnv("THREAD_POOL_SIZE", false, "10"));
 
     postgres_database = getEnv("POSTGRES_DATABASE", true, null);
     postgres_user = getEnv("POSTGRES_USER", true, null);

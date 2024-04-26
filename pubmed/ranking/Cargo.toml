@@ -8,6 +8,5 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.5.4" }
 clap_derive = "4.5.4"
+dotenv = "0.15.0"
 postgres = "0.19.7"
-serde = "1.0.197"
-serde_json = "1.0.115"

@@ -17,8 +17,8 @@ public class FullTextTask implements TaskState {
     this.jobState = state;
   }
 
-  public FullTextTask failed() {
-    return new FullTextTask(this.identifier, this.location, this.year, State.Failed);
+  public FullTextTask update(State state) {
+    return new FullTextTask(this.identifier, this.location, this.year, state);
   }
 
   public FullTextTask completed(String location) {

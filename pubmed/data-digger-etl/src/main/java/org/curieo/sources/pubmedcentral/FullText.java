@@ -23,6 +23,7 @@ import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import lombok.Generated;
 import lombok.Value;
+import org.curieo.model.Response;
 import org.curieo.retrieve.ftp.FTPProcessing;
 import org.curieo.sources.TarExtractor;
 import org.curieo.utils.URIHandler;
@@ -33,6 +34,7 @@ public record FullText(String oaiService) {
   public static final String GZIPPED_TAR_FORMAT = "tgz";
   public static final String XML_EXTENSION = "xml";
   public static final String OAI_SERVICE = "https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi";
+  public static final String ID_NOT_OPEN_ACCESS = "idIsNotOpenAccess";
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FullText.class);
   private static XMLInputFactory XMLINPUTFACTORY = XMLInputFactory.newInstance();
@@ -43,6 +45,7 @@ public record FullText(String oaiService) {
   private static final QName FORMAT_ATTRIBUTE = new QName("format");
   private static final QName UPDATED_ATTRIBUTE = new QName("updated");
   private static final QName HREF_ATTRIBUTE = new QName("href");
+  private static final QName CODE_ATTRIBUTE = new QName("code");
 
   /**
    * Retrieve the contents of the first file with an extension ending in "xml" in a package
@@ -53,20 +56,21 @@ public record FullText(String oaiService) {
    * @throws IOException
    * @throws XMLStreamException
    */
-  public String getJats(String pmcId) throws IOException, XMLStreamException, URISyntaxException {
-    File file = getFullText(pmcId, GZIPPED_TAR_FORMAT);
-    if (file == null) {
+  public Response<String> getJats(String pmcId)
+      throws IOException, XMLStreamException, URISyntaxException {
+    Response<File> file = getFullText(pmcId, GZIPPED_TAR_FORMAT);
+    if (!file.ok()) {
       LOGGER.warn("Cannot retrieve {}", pmcId);
-      return null;
+      return file.map(null);
     }
     File target =
         TarExtractor.getSingleFileOutOfTar(
-            file, true, a -> a.getAbsolutePath().toLowerCase().endsWith(XML_EXTENSION));
-    file.delete();
+            file.value(), true, a -> a.getAbsolutePath().toLowerCase().endsWith(XML_EXTENSION));
+    file.value().delete();
     assert target != null;
     String content = Files.readString(target.toPath());
     target.delete();
-    return content;
+    return Response.ok(content);
   }
 
   /**
@@ -79,28 +83,39 @@ public record FullText(String oaiService) {
    * @throws IOException
    * @throws XMLStreamException
    */
-  public File getFullText(String pmcId, String format)
+  public Response<File> getFullText(String pmcId, String format)
       throws IOException, XMLStreamException, URISyntaxException {
-    Record record = getRecord(pmcId);
-    if (record == null) {
-      return null;
+    Response<Record> record = getRecord(pmcId);
+    if (!record.ok()) {
+      return record.map(null);
     }
     Link link =
-        record.links.stream().filter(l -> l.getFormat().equals(format)).findFirst().orElse(null);
+        record.value().links.stream()
+            .filter(l -> l.getFormat().equals(format))
+            .findFirst()
+            .orElse(null);
+    if (link == null) {
+      return new Response<>(null, Response.Status.Unavailable);
+    }
     return retrieveFile(pmcId, link);
   }
 
-  public File retrieveFile(String pmcId, Link link)
+  public Response<File> retrieveFile(String pmcId, Link link)
       throws IOException, XMLStreamException, URISyntaxException {
     File file = File.createTempFile(pmcId, link.getFormat());
+    boolean success = false;
     if (link.getHref().startsWith("ftp://")) {
-      if (!FTPProcessing.retrieve(link.getHref(), file)) {
-        LOGGER.warn("Could not download {} not available for PMC {}", link.getHref(), pmcId);
-      }
+      success = FTPProcessing.retrieve(link.getHref(), file);
     } else {
-      URIHandler.writeHTTPURL(link.getHref(), file);
+      success = URIHandler.writeHTTPURL(link.getHref(), file);
     }
-    return file;
+
+    if (!success) {
+      LOGGER.warn("Could not download {} not available for PMC {}", link.getHref(), pmcId);
+      file.delete();
+      return Response.fail(null);
+    }
+    return Response.ok(file);
   }
 
   /**
@@ -112,7 +127,7 @@ public record FullText(String oaiService) {
    * @throws IOException
    * @throws XMLStreamException
    */
-  public Record getRecord(String pmcId) throws IOException, XMLStreamException {
+  public Response<Record> getRecord(String pmcId) throws IOException, XMLStreamException {
     URL url = URI.create(oaiService).toURL(); // + "?id=" + pmcId);
 
     HttpURLConnection con = (HttpURLConnection) url.openConnection();
@@ -129,7 +144,7 @@ public record FullText(String oaiService) {
     int status = con.getResponseCode();
     if (status != 200) {
       LOGGER.warn("No response for PMC {}", pmcId);
-      return null;
+      return Response.fail(null);
     }
     XMLEventReader reader = XMLINPUTFACTORY.createXMLEventReader(con.getInputStream());
     Record record = null;
@@ -138,6 +153,12 @@ public record FullText(String oaiService) {
       if (event.isStartElement()) {
         StartElement startElement = event.asStartElement();
         switch (startElement.getName().getLocalPart()) {
+          case "error":
+            String code = getAttribute(startElement, CODE_ATTRIBUTE);
+            if (code.equals(ID_NOT_OPEN_ACCESS))
+              return new Response<>(null, Response.Status.Unavailable);
+            LOGGER.warn("Unknown error response for PMC {}", pmcId);
+            return Response.fail(null);
           case "record":
             record =
                 new Record(
@@ -149,7 +170,8 @@ public record FullText(String oaiService) {
             break;
           case "link":
             if (record == null) {
-              throw new IllegalArgumentException("Format of OAI record is corrupted");
+              LOGGER.error("Format of OAI record for {} is corrupted", pmcId);
+              return Response.fail(null);
             }
             record
                 .getLinks()
@@ -165,7 +187,7 @@ public record FullText(String oaiService) {
       }
     }
     con.disconnect();
-    return record;
+    return Response.ok(record);
   }
 
   public static String getParamsString(Map<String, String> params) {
@@ -184,6 +206,11 @@ public record FullText(String oaiService) {
         : resultString;
   }
 
+  private static String getAttribute(StartElement startElement, QName attribute) {
+    Attribute attr = startElement.getAttributeByName(attribute);
+    return attr == null ? null : attr.getValue();
+  }
+
   @Generated
   @Value
   public static class Record {
@@ -200,10 +227,5 @@ public record FullText(String oaiService) {
     String format;
     String updated;
     String href;
-  }
-
-  private static String getAttribute(StartElement startElement, QName attribute) {
-    Attribute attr = startElement.getAttributeByName(attribute);
-    return attr == null ? null : attr.getValue();
   }
 }
