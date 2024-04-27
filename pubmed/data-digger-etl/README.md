@@ -189,6 +189,17 @@ The best way forward is this:
 		- if a file is reported present by the local jobs table, add it to remote
 
 
+## Profiling
 
+Install async-profiler.
+```
+gh repo clone async-profiler/async-profiler
+cd async-profiler
+make
+```
+The profiler library is now located in `build/lib/`. On Mac it is named `libasyncProfiler.dylib`, and `.so` on linux.
 
-
+To profile your jar, simply export `PROFILER_LIB` env var
+```
+export PROFILER_LIB="/<location to profiler lib>/build/lib/libasyncProfiler.dylib"
+```
