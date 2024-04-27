@@ -1,33 +1,19 @@
 package org.curieo.model;
 
 public interface TaskState {
+  static final State[] STATES = State.values();
 
   State getTaskState();
 
   enum State {
-    Queued(0),
-    InProgress(1),
-    Completed(2),
-    Failed(3);
+    Queued,
+    InProgress,
+    Completed,
+    Failed,
+    Unavailable;
 
-    private final int inner;
-
-    State(int inner) {
-      this.inner = inner;
-    }
-
-    public int getInner() {
-      return inner;
-    }
-
-    public static State fromInt(int i) throws IllegalArgumentException {
-      return switch (i) {
-        case 0 -> Queued;
-        case 1 -> InProgress;
-        case 2 -> Completed;
-        case 3 -> Failed;
-        default -> throw new IllegalArgumentException("Invalid state: " + i);
-      };
+    public static State fromInt(int i) {
+      return STATES[i];
     }
   }
 }

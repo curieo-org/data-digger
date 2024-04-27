@@ -1,5 +1,6 @@
 package org.curieo.sources.pubmedcentral;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -15,6 +16,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.xml.stream.XMLStreamException;
+import org.curieo.model.Response;
+import org.curieo.model.Response.Status;
 import org.curieo.sources.TarExtractor;
 import org.curieo.sources.pubmedcentral.FullText.Record;
 import org.junit.jupiter.api.Disabled;
@@ -26,18 +29,20 @@ class OAIServiceTests {
   void testOAIService() throws IOException, XMLStreamException, URISyntaxException {
     FullText ft = new FullText(FullText.OAI_SERVICE);
     String pmcId = "PMC5334499";
-    assertNotNull(ft.getRecord(pmcId));
-    File tar = ft.getFullText(pmcId, "tgz");
-    assertNotNull(tar);
+    assertTrue(ft.getRecord(pmcId).ok());
+    Response<File> tar = ft.getFullText(pmcId, "tgz");
+    assertTrue(tar.ok());
     File desired =
         TarExtractor.getSingleFileOutOfTar(
-            tar,
-            tar.getAbsolutePath().toLowerCase().endsWith("gz"),
+            tar.value(),
+            tar.value().getAbsolutePath().toLowerCase().endsWith("gz"),
             f -> f.getAbsolutePath().toLowerCase().endsWith("xml"));
     assertNotNull(desired);
-    tar.delete();
+    tar.value().delete();
     assertTrue(desired.exists());
     desired.delete();
+    pmcId = "PMC4034166";
+    assertEquals(Status.Unavailable, ft.getRecord(pmcId).status());
   }
 
   @Test
@@ -60,13 +65,13 @@ class OAIServiceTests {
       String pmcId = line[0];
       counter += 1;
       if (counter % 100 == 0) System.out.printf("At record %d/%d%n", counter, lines.size());
-      Record record = ft.getRecord(pmcId);
-      if (record == null) {
+      Response<Record> record = ft.getRecord(pmcId);
+      if (!record.ok()) {
         found.merge("not found", 1, (a, b) -> a + b);
         continue;
       }
       found.merge("found", 1, (a, b) -> a + b);
-      licenseCount.merge(record.getLicense(), 1, (a, b) -> a + b);
+      licenseCount.merge(record.value().getLicense(), 1, (a, b) -> a + b);
       /*
       for (FullText.Link link : record.getLinks()) {
         linkCount.merge(link.getFormat(), 1, (a, b) -> a + b);
