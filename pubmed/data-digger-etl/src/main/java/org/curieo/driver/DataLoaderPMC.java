@@ -32,6 +32,7 @@ import org.curieo.consumer.Sink;
 import org.curieo.model.*;
 import org.curieo.sources.pubmedcentral.FullText;
 import org.curieo.utils.Config;
+import org.curieo.utils.TaskUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,6 +61,7 @@ public class DataLoaderPMC {
             .addOption(oaiOption)
             .addOption(queryOption)
             .addOption(taskTableOption)
+            .addOption(previousJobOption)
             .addOption(synchronizeOption)
             .addOption(awsStorageOption)
             .addOption(tableNameOption)
@@ -72,6 +74,17 @@ public class DataLoaderPMC {
 
     FullText ft = new FullText(parse.getOptionValue(oaiOption, FullText.OAI_SERVICE));
     try (PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config)) {
+      String previousJob = parse.getOptionValue("j");
+
+      if (previousJob != null) {
+        boolean isCompleted = TaskUtil.checkPreviousJob(previousJob, postgreSQLClient);
+        if (isCompleted) {
+          LOGGER.info("Previous Job {} is completed", previousJob);
+        } else {
+          LOGGER.error("Previous Job {} is not completed", previousJob);
+          System.exit(1);
+        }
+      }
 
       // do what needs to be done
       if (parse.hasOption(executeQueryOption)) {

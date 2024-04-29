@@ -15,11 +15,11 @@ spec:
             image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed:latest
             resources:
               requests:
-                memory: "16Gi"
-                cpu: "8"
+                memory: "8Gi"
+                cpu: "4"
               limits:
-                memory: "16Gi"
-                cpu: "8"
+                memory: "8Gi"
+                cpu: "4"
             command: ["/bin/sh"]
             args:
             - -c

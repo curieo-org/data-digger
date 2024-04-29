@@ -13,10 +13,10 @@ spec:
         resources:
           requests:
             memory: "16Gi"
-            cpu: "8"
+            cpu: "6"
           limits:
             memory: "16Gi"
-            cpu: "8"
+            cpu: "6"
         command: ["sh", "-c", "./data-digger-etl/scripts/load-pubmed.sh pubmed-baseline-2-postgres"]
         env:
           - name: ENVIRONMENT

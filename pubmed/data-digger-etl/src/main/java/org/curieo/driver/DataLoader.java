@@ -4,6 +4,7 @@ import static org.curieo.driver.OptionDefinitions.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.*;
 import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Map;
@@ -22,6 +23,7 @@ import org.curieo.retrieve.ftp.FTPProcessingFilter;
 import org.curieo.sources.SourceReader;
 import org.curieo.utils.Config;
 import org.curieo.utils.StringUtils;
+import org.curieo.utils.TaskUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,6 +49,7 @@ public record DataLoader(
                     "y", "source type", true, "source type - can currently only be \"pubmed\""))
             .addOption(
                 new Option("d", "data-set", true, "data set to load (defined in credentials)"))
+            .addOption(previousJobOption)
             .addOption(maxFiles)
             .addOption(new Option("f", "full-records", false, "full records to sql database"))
             .addOption(new Option("a", "authors", false, "authors to sql database"))
@@ -57,11 +60,23 @@ public record DataLoader(
     CommandLine parse = parser.parse(options, args);
     Config config = new Config();
     String job = StringUtils.requireNonEmpty(parse.getOptionValue('d', "pubmed-baseline"));
+    String previousJob = parse.getOptionValue("j");
     String sourceType = parse.getOptionValue('y', SourceReader.PUBMED);
     int maximumNumberOfRecords = getIntOption(parse, maxFiles).orElse(Integer.MAX_VALUE);
     int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);
 
     PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config);
+
+    if (previousJob != null) {
+      boolean isCompleted = TaskUtil.checkPreviousJob(previousJob, postgreSQLClient);
+      if (isCompleted) {
+        LOGGER.info("Previous Job {} is completed", previousJob);
+      } else {
+        LOGGER.error("Previous Job {} is not completed", previousJob);
+        System.exit(1);
+      }
+    }
+
     SQLSinkFactory sqlSinkFactory =
         new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeysOption));
 

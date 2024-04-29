@@ -118,6 +118,14 @@ public class OptionDefinitions {
           .desc("table name for storing job information")
           .build();
 
+  static Option previousJobOption =
+      Option.builder()
+          .option("j")
+          .longOpt("previous-job")
+          .hasArg()
+          .desc("check previous job status")
+          .build();
+
   static Optional<Integer> getIntOption(CommandLine cmd, Option option) {
     if (!cmd.hasOption(option)) return Optional.empty();
     try {

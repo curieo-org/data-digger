@@ -2,6 +2,7 @@ package org.curieo.consumer;
 
 import com.zaxxer.hikari.HikariDataSource;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -68,6 +69,29 @@ public class PostgreSQLClient implements AutoCloseable {
   public void execute(String sql) throws SQLException {
     try (Connection connection = getConnection()) {
       connection.createStatement().execute(sql);
+    }
+  }
+
+  public ArrayList<HashMap<String, String>> getQueryResult(
+      String sql, ArrayList<String> retrievedColumns) throws SQLException {
+    try (Connection connection = getConnection()) {
+      ResultSet result = connection.createStatement().executeQuery(sql);
+      ArrayList<HashMap<String, String>> rows = new ArrayList<>();
+
+      while (result.next()) {
+        HashMap<String, String> row = new HashMap<>();
+        for (String columnName : retrievedColumns) {
+          String columnValue = result.getString(columnName);
+          row.put(columnName, columnValue);
+        }
+
+        rows.add(row);
+      }
+
+      return rows;
+    } catch (SQLException e) {
+      LOGGER.error("Error executing query: {}", sql, e);
+      throw e;
     }
   }
 
