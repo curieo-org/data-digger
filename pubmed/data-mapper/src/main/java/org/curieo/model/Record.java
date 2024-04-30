@@ -7,6 +7,7 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 import org.apache.commons.collections4.ListUtils;
 
 public interface Record {
@@ -19,7 +20,7 @@ public interface Record {
 
   List<String> getAuthors();
 
-  List<Reference> getReferences();
+  List<ReferenceGroup> getReferences();
 
   List<Metadata> getMetadata();
 
@@ -52,9 +53,22 @@ public interface Record {
   default List<LinkedField<Reference>> toReferences() {
     List<LinkedField<Reference>> list = new ArrayList<>();
 
-    for (int ordinal = 0; ordinal < ListUtils.emptyIfNull(getReferences()).size(); ordinal++) {
-      list.add(new LinkedField<>(ordinal, getNumericIdentifier(), getReferences().get(ordinal)));
-    }
+    List<ReferenceGroup> references = ListUtils.emptyIfNull(getReferences());
+    Long id = getNumericIdentifier();
+
+    IntStream.range(0, references.size())
+        .forEach(
+            i -> {
+              ReferenceGroup group = references.get(i);
+              group.identifiers.forEach(
+                  (key, value) -> {
+                    ReferenceType type;
+                    if ((type = ReferenceType.fromStr(key)) != null) {
+                      list.add(
+                          new LinkedField<>(i, id, new Reference(group.citation, type, value)));
+                    }
+                  });
+            });
     return list;
   }
 
