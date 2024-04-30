@@ -120,7 +120,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
    * @return a consumer.
    * @throws SQLException
    */
-  public Sink<List<LinkedField<Reference>>> createReferenceSink(List<String> ids)
+  public Sink<List<LinkedField<Reference>>> createReferenceSink(List<ReferenceType> validTypes)
       throws SQLException {
 
     FieldSpec articleId =
@@ -158,25 +158,15 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     extracts.add(fieldSpecs.get(1).extractLong(LinkedField::publicationId));
 
     // Extracting references
-    for (String id : ids) {
-      extracts.add(
-          fieldSpecs
-              .get(2)
-              .extractString(
-                  l ->
-                      l.field().getIdentifiers().stream()
-                          .filter(m -> m.key().equals(id))
-                          .map(Metadata::value)
-                          .findFirst()
-                          .orElse(null)));
-
-      // Store the type of reference as an integer
-      extracts.add(fieldSpecs.get(3).extractInt(l -> ReferenceType.fromStr(id).ordinal()));
-    }
+    extracts.add(fieldSpecs.get(2).extractString(l -> l.field().identifier()));
+    // Store the type of reference as an integer
+    extracts.add(fieldSpecs.get(3).extractInt(l -> l.field().type().ordinal()));
     extracts.add(fieldSpecs.get(4).extractInt(LinkedField::ordinal));
-    extracts.add(fieldSpecs.get(5).extractString(l -> l.field().getCitation()));
+    extracts.add(fieldSpecs.get(5).extractString(l -> l.field().citation()));
 
-    return new ListSink<>(createAbstractSink(extracts, upsert, batchSize));
+    return new FilteredSink<>(
+        l -> validTypes.contains(l.field().type()),
+        createAbstractSink(extracts, upsert, batchSize));
   }
 
   /**
