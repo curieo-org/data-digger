@@ -1,9 +1,6 @@
 package org.curieo.sources.pubmed;
 
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLStreamException;
@@ -20,7 +17,7 @@ import org.curieo.model.Authorship;
 import org.curieo.model.LinkedField;
 import org.curieo.model.Metadata;
 import org.curieo.model.Record;
-import org.curieo.model.Reference;
+import org.curieo.model.ReferenceGroup;
 import org.curieo.model.Text;
 import org.curieo.sources.Source;
 
@@ -62,7 +59,7 @@ public class PubmedRecord implements Record {
 
   Journal journal;
   List<PubmedAuthor> pubmedAuthors;
-  List<Reference> references;
+  List<ReferenceGroup> references;
   Date dateCompleted;
   Date articleDate;
 
@@ -235,11 +232,12 @@ public class PubmedRecord implements Record {
     return text.toString();
   }
 
-  public static List<Reference> readReferenceList(XMLEventReader reader) throws XMLStreamException {
+  public static List<ReferenceGroup> readReferenceList(XMLEventReader reader)
+      throws XMLStreamException {
     // read the record
-    List<Reference> references = new ArrayList<>();
+    List<ReferenceGroup> references = new ArrayList<>();
     String citation = null;
-    List<Metadata> identifiers = new ArrayList<>();
+    Map<String, String> identifiers = new HashMap<>();
     while (reader.hasNext()) {
       XMLEvent event = reader.nextEvent();
       if (event.isStartElement()) {
@@ -249,7 +247,8 @@ public class PubmedRecord implements Record {
             citation = readText(reader, "Citation");
             break;
           case PubmedRecord.ARTICLEID_TAG:
-            identifiers.add(PubmedRecord.readArticleId(reader, startElement));
+            Metadata articleId = PubmedRecord.readArticleId(reader, startElement);
+            identifiers.put(articleId.key(), articleId.value());
             break;
           default:
             break;
@@ -259,7 +258,7 @@ public class PubmedRecord implements Record {
         EndElement endElement = event.asEndElement();
         switch (endElement.getName().getLocalPart()) {
           case REFERENCE_TAG:
-            references.add(new Reference(citation, new ArrayList<>(identifiers)));
+            references.add(new ReferenceGroup(citation, new HashMap<>(identifiers)));
             citation = null;
             identifiers.clear();
             break;
