@@ -1,8 +1,8 @@
 
-SELECT CAST(r.identifier AS VARCHAR(30)) AS PubmedId, 
-COALESCE(rt.citationcount, 0) citationcount, Year
-INTO citationcounts
-FROM records r LEFT JOIN citationcountswithoutyear rt
-ON CAST(r.identifier AS VARCHAR(30))=rt.pubmedid
-GROUP BY r.identifier, 
-COALESCE(rt.citationcount, 0), Year
+select cast(r.identifier as varchar(30)) as identifier,
+coalesce(rt.citationcount, 0) citationcount, year
+into citationcounts
+from records r left join citationcountswithoutyear rt
+on cast(r.identifier as varchar(30)) = rt.reference
+group by r.identifier,
+coalesce(rt.citationcount, 0), year
