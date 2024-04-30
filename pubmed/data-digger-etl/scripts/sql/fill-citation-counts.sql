@@ -1,5 +1,6 @@
 
-SELECT pubmed AS PubmedId, COUNT(pubmed) AS citationcount
+SELECT reference AS PubmedId, COUNT(reference) AS citationcount
 INTO citationcountswithoutyear
-FROM referencetable 
-GROUP BY pubmed
+FROM referencetable
+where reference_type == 0
+GROUP BY reference
