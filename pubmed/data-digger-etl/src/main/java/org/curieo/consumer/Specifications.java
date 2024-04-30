@@ -88,6 +88,10 @@ record CompositeUniqueKey(List<SpecKey> keys) implements Constraint {
     return new CompositeUniqueKey(keys.stream().map(k -> (SpecKey) () -> k).toList());
   }
 
+  public static CompositeUniqueKey fromStrings(String... keys) {
+    return new CompositeUniqueKey(Stream.of(keys).map(k -> (SpecKey) () -> k).toList());
+  }
+
   @Override
   public String toConstraint() {
     return String.format(

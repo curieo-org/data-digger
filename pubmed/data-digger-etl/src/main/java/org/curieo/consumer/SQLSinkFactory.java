@@ -14,6 +14,7 @@ import org.curieo.model.LinkedField;
 import org.curieo.model.Metadata;
 import org.curieo.model.PubmedTask;
 import org.curieo.model.Reference;
+import org.curieo.model.ReferenceType;
 import org.curieo.model.StandardRecord;
 import org.curieo.model.TS;
 
@@ -119,10 +120,17 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
    * @return a consumer.
    * @throws SQLException
    */
-  public Sink<List<LinkedField<Reference>>> createReferenceSink(String... ids) throws SQLException {
+  public Sink<List<LinkedField<Reference>>> createReferenceSink(List<String> ids)
+      throws SQLException {
 
     FieldSpec articleId =
         FieldSpec.builder().field("articleid").type(ExtractType.BigInteger).nullable(false).build();
+
+    FieldSpec reference =
+        FieldSpec.builder().field("reference").type(ExtractType.String).size(30).build();
+    FieldSpec referenceType =
+        FieldSpec.builder().field("reference_type").type(ExtractType.SmallInt).build();
+
     FieldSpec ordinal = FieldSpec.builder().field("ordinal").type(ExtractType.Integer).build();
     FieldSpec citation =
         FieldSpec.builder()
@@ -132,33 +140,28 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
             .nullable(false)
             .build();
 
-    List<String> idColumns = new ArrayList<>(List.of("articleId"));
-    List<FieldSpec> fieldSpecs = new ArrayList<>(List.of(articleId, ordinal, citation));
-    // a variable number of identifiers
-    for (String id : ids) {
-      FieldSpec identifier =
-          FieldSpec.builder().field(id).type(ExtractType.String).size(30).build();
-      fieldSpecs.add(identifier);
-      idColumns.add(id);
-    }
-
     TableSpec specification =
-        TableSpec.of("references", fieldSpecs, CompositeUniqueKey.fromStrings(idColumns));
+        TableSpec.of(
+            "referencetable",
+            List.of(articleId, reference, referenceType, ordinal, citation),
+            CompositeUniqueKey.of(articleId, reference, referenceType));
 
     createTable(specification);
     PreparedStatement upsert =
-        upsertStatement(specification.name(), specification.fields(), idColumns);
+        upsertStatement(
+            specification.name(),
+            specification.fields(),
+            List.of("articleid", "reference", "reference_type"));
 
+    List<FieldSpec> fieldSpecs = specification.fields();
     List<Extract<LinkedField<Reference>>> extracts = new ArrayList<>();
-    extracts.add(fieldSpecs.get(0).extractLong(LinkedField::publicationId));
-    extracts.add(fieldSpecs.get(1).extractInt(LinkedField::ordinal));
-    extracts.add(fieldSpecs.get(2).extractString(l -> l.field().getCitation()));
+    extracts.add(fieldSpecs.get(1).extractLong(LinkedField::publicationId));
 
-    // a variable number of identifiers
+    // Extracting references
     for (String id : ids) {
       extracts.add(
           fieldSpecs
-              .get(3)
+              .get(2)
               .extractString(
                   l ->
                       l.field().getIdentifiers().stream()
@@ -166,7 +169,12 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
                           .map(Metadata::value)
                           .findFirst()
                           .orElse(null)));
+
+      // Store the type of reference as an integer
+      extracts.add(fieldSpecs.get(3).extractInt(l -> ReferenceType.fromStr(id).ordinal()));
     }
+    extracts.add(fieldSpecs.get(4).extractInt(LinkedField::ordinal));
+    extracts.add(fieldSpecs.get(5).extractString(l -> l.field().getCitation()));
 
     return new ListSink<>(createAbstractSink(extracts, upsert, batchSize));
   }
@@ -244,8 +252,8 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     return createAbstractSink(extracts, insert, batchSize);
   }
 
-  private List<FieldSpec> createTableHelper(
-      String tableName, List<FieldSpec> fieldSpecs, ExtractType idType) throws SQLException {
+  private void createTableHelper(String tableName, List<FieldSpec> fieldSpecs, ExtractType idType)
+      throws SQLException {
     fieldSpecs = new ArrayList<>(fieldSpecs);
 
     boolean missingIdentityColumn = fieldSpecs.stream().noneMatch(FieldSpec::isIdentityColumn);
@@ -262,23 +270,19 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
             tableName, fieldSpecs.stream().map(FieldSpec::toSql).collect(Collectors.joining(", ")));
 
     psqlClient.execute(create);
-
-    return fieldSpecs;
   }
 
   private void createTable(TableSpec specification) throws SQLException {
     psqlClient.execute(specification.toSql());
   }
 
-  private List<FieldSpec> createTable(String tableName, List<FieldSpec> fieldSpecs)
-      throws SQLException {
+  private void createTable(String tableName, List<FieldSpec> fieldSpecs) throws SQLException {
     // Use integer as we probably won't go over 2 billion entries
-    return createTableHelper(tableName, fieldSpecs, ExtractType.Integer);
+    createTableHelper(tableName, fieldSpecs, ExtractType.Integer);
   }
 
-  private List<FieldSpec> createLargeTable(String tableName, List<FieldSpec> fieldSpecs)
-      throws SQLException {
-    return createTableHelper(tableName, fieldSpecs, ExtractType.BigInteger);
+  private void createLargeTable(String tableName, List<FieldSpec> fieldSpecs) throws SQLException {
+    createTableHelper(tableName, fieldSpecs, ExtractType.BigInteger);
   }
 
   private PreparedStatement insertStatement(String tableName, List<FieldSpec> fieldSpecs)
@@ -309,6 +313,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
                 f ->
                     f.getIdentityType() == null
                         || f.getIdentityType().equals(FieldSpec.IdentityType.Manual))
+            .filter(f -> !f.isDefault())
             .toList();
     String upsert =
         String.format(
@@ -318,11 +323,11 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
             fields.stream().map(s -> "?").collect(Collectors.joining(", ")),
             String.join(", ", conflictColumns),
             fields.stream()
-                .filter(f -> !f.isDefault())
                 .map(FieldSpec::getField)
                 .filter(s -> conflictColumns.stream().noneMatch(c -> c.equalsIgnoreCase(s)))
                 .map(s -> String.format("%s = EXCLUDED.%s", s, s))
                 .collect(Collectors.joining(", ")));
+
     return psqlClient.prepareStatement(upsert);
   }
 
