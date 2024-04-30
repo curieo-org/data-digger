@@ -1,8 +1,8 @@
 package org.curieo.model;
 
-public interface TaskState {
-  State[] STATES = State.values();
+import org.curieo.utils.EnumUtils;
 
+public interface TaskState {
   State getTaskState();
 
   enum State {
@@ -13,7 +13,7 @@ public interface TaskState {
     Unavailable;
 
     public static State fromInt(int i) {
-      return STATES[i];
+      return EnumUtils.get(State.class, i);
     }
   }
 }

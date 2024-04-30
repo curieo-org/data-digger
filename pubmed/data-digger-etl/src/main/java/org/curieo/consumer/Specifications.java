@@ -80,6 +80,18 @@ record CompositeUniqueKey(List<SpecKey> keys) implements Constraint {
     return new CompositeUniqueKey(List.of(keys));
   }
 
+  public static CompositeUniqueKey of(List<SpecKey> keys) {
+    return new CompositeUniqueKey(keys);
+  }
+
+  public static CompositeUniqueKey fromStrings(List<String> keys) {
+    return new CompositeUniqueKey(keys.stream().map(k -> (SpecKey) () -> k).toList());
+  }
+
+  public static CompositeUniqueKey fromStrings(String... keys) {
+    return new CompositeUniqueKey(Stream.of(keys).map(k -> (SpecKey) () -> k).toList());
+  }
+
   @Override
   public String toConstraint() {
     return String.format(
@@ -98,7 +110,7 @@ class FieldSpec implements ToSql, SpecKey {
   // if the field must be kept unique
   boolean unique;
   // if the field is non-null or not.
-  boolean nullable;
+  Boolean nullable;
   String defaultValue;
   // Generally only applicable to primary keys.
   // If identity type is null it is not an identity type.
@@ -114,14 +126,15 @@ class FieldSpec implements ToSql, SpecKey {
       ExtractType type,
       int size,
       boolean unique,
-      boolean nullable,
+      Boolean nullable,
       String defaultValue,
       IdentityType identityType) {
     this.field = StringUtils.requireNonEmpty(field);
     this.type = Objects.requireNonNull(type);
     this.size = size;
     this.unique = unique;
-    this.nullable = nullable;
+    // Default to nullable
+    this.nullable = Objects.requireNonNullElse(nullable, true);
     this.defaultValue = Objects.requireNonNullElse(defaultValue, "");
     this.identityType = identityType;
 
@@ -171,6 +184,10 @@ class FieldSpec implements ToSql, SpecKey {
 
   public boolean isIdentityColumn() {
     return identityType != null;
+  }
+
+  public boolean isDefault() {
+    return defaultValue != null && !defaultValue.isEmpty();
   }
 
   <T> Extract<T> extractString(Function<T, String> f) {
