@@ -143,7 +143,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     }
 
     TableSpec specification =
-        TableSpec.of("referencetable", fieldSpecs, CompositeUniqueKey.fromStrings(idColumns));
+        TableSpec.of("references", fieldSpecs, CompositeUniqueKey.fromStrings(idColumns));
 
     createTable(specification);
     PreparedStatement upsert =
