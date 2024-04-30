@@ -55,6 +55,16 @@ spec:
               configMapKeyRef:
                 name: pubmed-datadigger-config
                 key: THREAD_POOL_SIZE
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              configMapKeyRef:
+                name: pubmed-datadigger-config
+                key: AWS_ACCESS_KEY_ID
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              configMapKeyRef:
+                name: pubmed-datadigger-config
+                key: AWS_SECRET_ACCESS_KEY
       restartPolicy: Never
       nodeSelector:
         role: large-workloads

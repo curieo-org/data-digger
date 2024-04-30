@@ -36,6 +36,22 @@ public class OptionDefinitions {
           .desc("execute these queries (in files) before anything else")
           .build();
 
+  static Option preprocessQueryOption =
+      Option.builder()
+          .option("u")
+          .longOpt("preprocess-query")
+          .hasArgs()
+          .desc("execute these queries (in files) before anything else")
+          .build();
+
+  static Option postprocessQueryOption =
+      Option.builder()
+          .option("v")
+          .longOpt("postprocess-query")
+          .hasArgs()
+          .desc("execute these queries (in files) before anything else")
+          .build();
+
   static Option useKeysOption =
       Option.builder().option("k").longOpt("use-keys").required(false).build();
 
@@ -120,7 +136,7 @@ public class OptionDefinitions {
 
   static Option previousJobOption =
       Option.builder()
-          .option("j")
+          .option("x")
           .longOpt("previous-job")
           .hasArg()
           .desc("check previous job status")

@@ -66,6 +66,8 @@ public class DataLoaderPMC {
             .addOption(awsStorageOption)
             .addOption(tableNameOption)
             .addOption(executeQueryOption)
+            .addOption(preprocessQueryOption)
+            .addOption(postprocessQueryOption)
             .addOption(useKeysOption);
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
@@ -74,7 +76,7 @@ public class DataLoaderPMC {
 
     FullText ft = new FullText(parse.getOptionValue(oaiOption, FullText.OAI_SERVICE));
     try (PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config)) {
-      String previousJob = parse.getOptionValue("j");
+      String previousJob = parse.getOptionValue("x");
 
       if (previousJob != null) {
         boolean isCompleted = TaskUtil.checkPreviousJob(previousJob, postgreSQLClient);
@@ -87,6 +89,14 @@ public class DataLoaderPMC {
       }
 
       // do what needs to be done
+      if (parse.hasOption(preprocessQueryOption)) {
+        for (String filePath : parse.getOptionValues(preprocessQueryOption)) {
+          String queries = new String(Files.readAllBytes(new File(filePath).toPath()), UTF_8);
+          for (String q : queries.split(";")) {
+            postgreSQLClient.execute(q);
+          }
+        }
+      }
       if (parse.hasOption(executeQueryOption)) {
         for (String q : parse.getOptionValues(executeQueryOption)) {
           postgreSQLClient.execute(new String(Files.readAllBytes(new File(q).toPath()), UTF_8));
@@ -95,10 +105,10 @@ public class DataLoaderPMC {
       SQLSinkFactory sqlSinkFactory =
           new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeysOption));
       String query = null;
-      if (!parse.hasOption(queryOption)) {
-        LOGGER.error(
-            "You did not specify the --query option -- for seeding the job, will resort to --job-table-name option");
-      } else {
+      if (parse.hasOption(queryOption)) {
+        // LOGGER.error(
+        //     "You did not specify the --query option -- for seeding the job, will resort to
+        // --job-table-name option");
         query = String.join(" ", parse.getOptionValues(queryOption));
       }
 
@@ -161,6 +171,15 @@ public class DataLoaderPMC {
       } else if (sink == null) {
         throw new RuntimeException(
             "Either use --synchronize, or define at least 1 sink with --use-aws or --table-name ");
+      }
+
+      if (parse.hasOption(preprocessQueryOption)) {
+        for (String filePath : parse.getOptionValues(preprocessQueryOption)) {
+          String queries = new String(Files.readAllBytes(new File(filePath).toPath()), UTF_8);
+          for (String q : queries.split(";")) {
+            postgreSQLClient.execute(q);
+          }
+        }
       }
     }
 
