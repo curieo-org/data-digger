@@ -1,7 +1,7 @@
 package org.curieo.model;
 
 public interface TaskState {
-  static final State[] STATES = State.values();
+  State[] STATES = State.values();
 
   State getTaskState();
 
