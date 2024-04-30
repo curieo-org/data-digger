@@ -5,6 +5,7 @@ import static org.curieo.driver.OptionDefinitions.*;
 import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -16,10 +17,8 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.curieo.consumer.*;
-import org.curieo.model.PubmedTask;
+import org.curieo.model.*;
 import org.curieo.model.Record;
-import org.curieo.model.StandardRecord;
-import org.curieo.model.TS;
 import org.curieo.retrieve.ftp.FTPProcessing;
 import org.curieo.retrieve.ftp.FTPProcessingFilter;
 import org.curieo.sources.SourceReader;
@@ -79,10 +78,10 @@ public record DataLoader(
     }
     // store references
     if (parse.hasOption(references)) {
+      List<ReferenceType> validTypes =
+          Arrays.stream(parse.getOptionValues(references)).map(ReferenceType::fromStr).toList();
       Sink<Record> asink =
-          new MapSink<>(
-              Record::toReferences,
-              sqlSinkFactory.createReferenceSink(List.of(parse.getOptionValues(references))));
+          new MapSink<>(Record::toReferences, sqlSinkFactory.createReferenceSink(validTypes));
       tsink = tsink.concatenate(asink);
     }
     // store full records
