@@ -248,9 +248,6 @@ public class PubmedRecord implements Record {
           case "Citation":
             citation = readText(reader, "Citation");
             break;
-          case "MedlineCitation":
-            citation = readText(reader, "MedlineCitation");
-            break;
           case PubmedRecord.ARTICLEID_TAG:
             identifiers.add(PubmedRecord.readArticleId(reader, startElement));
             break;
