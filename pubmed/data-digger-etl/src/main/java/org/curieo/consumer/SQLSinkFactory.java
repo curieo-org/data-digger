@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.Generated;
 import org.curieo.model.Authorship;
@@ -120,19 +121,34 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
    * @throws SQLException
    */
   public Sink<List<LinkedField<Reference>>> createReferenceSink(String... ids) throws SQLException {
-    String tableName = "ReferenceTable";
-    List<FieldSpec> fieldSpecs =
-        new ArrayList<>(
-            Arrays.asList(
-                FieldSpec.unique("articleId", ExtractType.BigInteger),
-                new FieldSpec("ordinal", ExtractType.Integer),
-                new FieldSpec("citation", ExtractType.String, 500)));
+
+    FieldSpec articleId =
+        FieldSpec.builder().field("articleid").type(ExtractType.BigInteger).nullable(false).build();
+    FieldSpec ordinal = FieldSpec.builder().field("ordinal").type(ExtractType.Integer).build();
+    FieldSpec citation =
+        FieldSpec.builder()
+            .field("citation")
+            .type(ExtractType.String)
+            .size(500)
+            .nullable(false)
+            .build();
+
+    List<String> idColumns = new ArrayList<>(List.of("articleId"));
+    List<FieldSpec> fieldSpecs = new ArrayList<>(List.of(articleId, ordinal, citation));
     // a variable number of identifiers
     for (String id : ids) {
-      fieldSpecs.add(new FieldSpec(id, ExtractType.String, 30));
+      FieldSpec identifier =
+          FieldSpec.builder().field(id).type(ExtractType.String).size(30).build();
+      fieldSpecs.add(identifier);
+      idColumns.add(id);
     }
-    createTable(tableName, fieldSpecs);
-    PreparedStatement upsert = upsertStatement(tableName, fieldSpecs, "articleId");
+
+    TableSpec specification =
+        TableSpec.of("referencetable", fieldSpecs, CompositeUniqueKey.fromStrings(idColumns));
+
+    createTable(specification);
+    PreparedStatement upsert =
+        upsertStatement(specification.name(), specification.fields(), idColumns);
 
     List<Extract<LinkedField<Reference>>> extracts = new ArrayList<>();
     extracts.add(fieldSpecs.get(0).extractLong(LinkedField::publicationId));
@@ -229,11 +245,6 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     return createAbstractSink(extracts, insert, batchSize);
   }
 
-  private List<FieldSpec> createTableHelper(TableSpec specification) throws SQLException {
-    psqlClient.execute(specification.toSql());
-    return specification.fields();
-  }
-
   private List<FieldSpec> createTableHelper(
       String tableName, List<FieldSpec> fieldSpecs, ExtractType idType) throws SQLException {
     fieldSpecs = new ArrayList<>(fieldSpecs);
@@ -256,8 +267,8 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     return fieldSpecs;
   }
 
-  private List<FieldSpec> createTable(TableSpec specification) throws SQLException {
-    return createTableHelper(specification);
+  private void createTable(TableSpec specification) throws SQLException {
+    psqlClient.execute(specification.toSql());
   }
 
   private List<FieldSpec> createTable(String tableName, List<FieldSpec> fieldSpecs)
@@ -285,6 +296,12 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
 
   private PreparedStatement upsertStatement(
       String tableName, List<FieldSpec> fieldSpecs, String... conflictColumns) throws SQLException {
+    return upsertStatement(tableName, fieldSpecs, Arrays.asList(conflictColumns));
+  }
+
+  private PreparedStatement upsertStatement(
+      String tableName, List<FieldSpec> fieldSpecs, List<String> conflictColumns)
+      throws SQLException {
 
     // Don't insert/update generative columns
     List<FieldSpec> fields =
@@ -302,11 +319,11 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
             fields.stream().map(s -> "?").collect(Collectors.joining(", ")),
             String.join(", ", conflictColumns),
             fields.stream()
+                .filter(f -> !f.isDefault())
                 .map(FieldSpec::getField)
-                .filter(s -> Arrays.stream(conflictColumns).noneMatch(c -> c.equalsIgnoreCase(s)))
+                .filter(s -> conflictColumns.stream().noneMatch(c -> c.equalsIgnoreCase(s)))
                 .map(s -> String.format("%s = EXCLUDED.%s", s, s))
                 .collect(Collectors.joining(", ")));
-
     return psqlClient.prepareStatement(upsert);
   }
 
