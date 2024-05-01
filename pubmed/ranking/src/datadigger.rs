@@ -33,7 +33,7 @@ pub fn get_postgres_client() -> Client {
  *  [e.g. GRANT SELECT ON datadigger.citationcounts TO datadigger]
  */
 pub fn read_citation_counts(client : &mut Client, table : &str) -> HashMap<i32, Vec<CitationCount>> {
-    let query = format!("SELECT pubmedid, citationcount, year FROM {table}");
+    let query = format!("SELECT identifier, citationcount, year FROM {table}");
     println!("Issuing query {query}");
     let mut it = client.query_raw(query.as_str(), iter::empty::<String>())
                             .expect("Query somehow wrong");

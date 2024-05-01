@@ -22,7 +22,7 @@ public class StandardRecord implements Record {
   List<Text> abstractText;
   List<Text> titles;
   List<String> authors;
-  List<Reference> references;
+  List<ReferenceGroup> references;
   List<Metadata> metadata;
   List<Metadata> identifiers;
   String identifier;

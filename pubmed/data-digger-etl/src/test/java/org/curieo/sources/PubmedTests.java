@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import javax.xml.stream.XMLStreamException;
-import org.apache.commons.collections4.ListUtils;
 import org.curieo.sources.pubmed.Pubmed;
 import org.curieo.sources.pubmed.PubmedRecord;
 import org.junit.jupiter.api.Test;
@@ -51,12 +50,7 @@ class PubmedTests {
         referenceCount += pr.getReferences().size();
         resolvedReferenceCount +=
             pr.getReferences().stream()
-                .mapToInt(
-                    ref ->
-                        (int)
-                            ListUtils.emptyIfNull(ref.getIdentifiers()).stream()
-                                .filter(a -> a.key().equals("pubmed"))
-                                .count())
+                .mapToInt(ref -> ref.getIdentifiers().containsKey("pubmed") ? 1 : 0)
                 .sum();
       }
       count++;

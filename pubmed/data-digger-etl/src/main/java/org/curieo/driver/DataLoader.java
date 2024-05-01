@@ -6,6 +6,8 @@ import java.io.File;
 import java.io.IOException;
 import java.sql.*;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -91,10 +93,10 @@ public record DataLoader(
     }
     // store references
     if (parse.hasOption(references)) {
+      List<ReferenceType> validTypes =
+          Arrays.stream(parse.getOptionValues(references)).map(ReferenceType::fromStr).toList();
       Sink<Record> asink =
-          new MapSink<>(
-              Record::toReferences,
-              sqlSinkFactory.createReferenceSink(parse.getOptionValues(references)));
+          new MapSink<>(Record::toReferences, sqlSinkFactory.createReferenceSink(validTypes));
       tsink = tsink.concatenate(asink);
     }
     // store full records
