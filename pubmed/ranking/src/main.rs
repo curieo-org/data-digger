@@ -26,6 +26,12 @@ fn main() {
     
     let mut client = datadigger::get_postgres_client();
 
+    let setup_file_paths = vec!["sql/drop_old_tables.sql", "sql/fill_new_tables.sql"];
+
+    for file in setup_file_paths {
+        datadigger::execute_sql_file(&mut client, file).expect(format!("Error executing file {}", file).as_str());
+    }
+
     let data = datadigger::read_citation_counts(&mut client, "citationcounts");
     let percentiles = datadigger::compute_percentiles(data);
 

@@ -1,7 +1,8 @@
 use postgres::{Client, NoTls, Config};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::iter;
+use std::{iter, fs};
+use std::io::{Error, ErrorKind};
 use postgres::fallible_iterator::FallibleIterator;
 use dotenv;
 
@@ -93,6 +94,17 @@ pub fn write_percentiles(mut client : Client, table : &str, percentiles : &Vec<P
     }   
 
     println!("Written {} records from to {table}.", record_count);
+}
+
+pub fn execute_sql_file(client : &mut Client, file_path : &str) -> Result<(), Error> {
+    let queries = fs::read_to_string(file_path)?;
+    let queries : Vec<&str> = queries.split(";").collect();
+
+    for query in queries {
+        client.execute(query, &[]).map_err(|e| Error::new(ErrorKind::Other, e.to_string()))?;
+    }
+
+    Ok(())
 }
 
 
