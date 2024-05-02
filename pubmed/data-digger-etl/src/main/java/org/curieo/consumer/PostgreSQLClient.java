@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -72,14 +73,14 @@ public class PostgreSQLClient implements AutoCloseable {
     }
   }
 
-  public ArrayList<HashMap<String, String>> getQueryResult(
-      String sql, ArrayList<String> retrievedColumns) throws SQLException {
+  public List<Map<String, String>> getQueryResult(String sql, List<String> retrievedColumns)
+      throws SQLException {
     try (Connection connection = getConnection()) {
       ResultSet result = connection.createStatement().executeQuery(sql);
-      ArrayList<HashMap<String, String>> rows = new ArrayList<>();
+      List<Map<String, String>> rows = new ArrayList<>();
 
       while (result.next()) {
-        HashMap<String, String> row = new HashMap<>();
+        Map<String, String> row = new HashMap<>();
         for (String columnName : retrievedColumns) {
           String columnValue = result.getString(columnName);
           row.put(columnName, columnValue);

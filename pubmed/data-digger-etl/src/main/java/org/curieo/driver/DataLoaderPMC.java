@@ -76,7 +76,7 @@ public class DataLoaderPMC {
 
     FullText ft = new FullText(parse.getOptionValue(oaiOption, FullText.OAI_SERVICE));
     try (PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config)) {
-      String previousJob = parse.getOptionValue("x");
+      String previousJob = parse.getOptionValue(previousJobOption);
 
       if (previousJob != null) {
         boolean isCompleted = TaskUtil.checkPreviousJob(previousJob, postgreSQLClient);

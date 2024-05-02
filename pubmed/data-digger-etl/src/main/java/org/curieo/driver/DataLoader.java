@@ -62,7 +62,7 @@ public record DataLoader(
     CommandLine parse = parser.parse(options, args);
     Config config = new Config();
     String job = StringUtils.requireNonEmpty(parse.getOptionValue('d', "pubmed-baseline"));
-    String previousJob = parse.getOptionValue("x");
+    String previousJob = parse.getOptionValue(previousJobOption);
     String sourceType = parse.getOptionValue('y', SourceReader.PUBMED);
     int maximumNumberOfRecords = getIntOption(parse, maxFiles).orElse(Integer.MAX_VALUE);
     int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);

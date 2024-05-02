@@ -41,7 +41,7 @@ public class OptionDefinitions {
           .option("u")
           .longOpt("preprocess-query")
           .hasArgs()
-          .desc("execute these queries (in files) before anything else")
+          .desc("execute these queries (in files) before starting the job")
           .build();
 
   static Option postprocessQueryOption =
@@ -49,7 +49,7 @@ public class OptionDefinitions {
           .option("v")
           .longOpt("postprocess-query")
           .hasArgs()
-          .desc("execute these queries (in files) before anything else")
+          .desc("execute these queries (in files) after finishing the job")
           .build();
 
   static Option useKeysOption =
