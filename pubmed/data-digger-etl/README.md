@@ -130,6 +130,52 @@ PMC data is available through the [NIH OAI service](https://www.ncbi.nlm.nih.gov
 
 This can then be retrieved, a which stage it is deposited in an S3 bucket for future processing. 
 
+#### PMC bulk download
+NIH also provides a bulk download option through [OA XML FTP service](https://ftp.ncbi.nlm.nih.gov/pub/pmc/oa_bulk/oa_comm/xml/). 
+This service is more complicated in that it requires a few more steps in downloading and synchronizing download jobs.
+
+This FTP folder has both baseline and updates in the same folder (different from pubmed). For each baseline/update file, there are three assets:
+
+* oa\_comm\_xml.incr.2023-12-19.filelist.csv
+* oa\_comm\_xml.incr.2023-12-19.filelist.txt 
+* oa\_comm\_xml.incr.2023-12-19.tar.gz                   
+
+We ignore the `*.txt` files.
+
+![Overview diagram](./pmc_fulltext_retrieval.png)
+
+We execute the download in 2 steps:
+
+##### step &#9312;
+
+First we (daily) download any new csv files, keeping track in a regular `tasks` table in the `postgres` database of the files we have seen and not seen.
+While we synchronize, we parse the csv files and dump the entire contents of these files into the `pmc_origin` table. This table contains both the filename of origin (which is _not_ in the CSV file itself but rather the prefix of that file + `.tgz`) _and_ the relative path of the PMC record (this _is_ in the CSV file).
+Since there may be multiple versions for each PMC record we simply dump and defer decision on download/not download to a later stage.
+
+
+##### step &#9313;
+
+Then we (daily) look at the `pmc_origin` table and add the following to the `full_text_location` table:
+
+* we update the records with PMCIDs for which there are _newer_ origin files available in `pmc_origin` and reset the status to 'TODO'
+* we add records that have a PMCID in `pmc_origin` but not in `full-text-location`
+
+Then we process the `full-text-location` table in the following way:
+
+* for all filename in `SELECT DISTINCT filename FROM full_text_location`
+	`WHERE status=TODO` do:
+	* download filename to BIGTAR
+	* for all pmcid, path\_in\_file in `SELECT f.pmcid, c.path_in_file `
+	`FROM pmc_origin c JOIN full_text_location f `
+	`ON f.pmcid=c.pmcid WHERE filename=filename AND status=TODO` do:
+		* extract xml from BIGTAR
+		* upload xml to S3
+		* update record in `full_text_location`
+
+
+Doing this will result in continous up-to-date full text repository on S3. 
+All tables must be synchronized with remote tables on S3. If there are yet other options to acquire more full text, we need to synchronize these (avoid double downloads) with these tables.
+
 
 
 # Data Storage
