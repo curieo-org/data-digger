@@ -24,7 +24,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int IDENTIFIER_LENGTH = 100;
 
-  public Sink<TS<PubmedTask>> createTasksSink() throws SQLException {
+  public Sink<TS<PubmedTask>> createTasksSink(String tableName) throws SQLException {
 
     FieldSpec name =
         FieldSpec.builder().field("name").type(ExtractType.String).size(60).nullable(false).build();
@@ -35,7 +35,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
 
     TableSpec specification =
         TableSpec.of(
-            "tasks",
+            tableName,
             List.of(name, state, groupName, FieldSpec.timestamp("timestamp")),
             CompositeUniqueKey.of(name, groupName));
 

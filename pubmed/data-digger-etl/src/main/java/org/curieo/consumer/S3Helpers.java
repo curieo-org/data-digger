@@ -1,5 +1,6 @@
 package org.curieo.consumer;
 
+import java.io.File;
 import java.util.Optional;
 import org.curieo.utils.Config;
 import software.amazon.awssdk.auth.credentials.internal.SystemSettingsCredentialsProvider;
@@ -43,6 +44,14 @@ public class S3Helpers {
     return s3.putObject(
         PutObjectRequest.builder().bucket(bucketName).key(objectKey).build(),
         RequestBody.fromBytes(data));
+  }
+
+  public static PutObjectResponse putFile(
+      S3Client s3, File file, String bucketName, String objectKey) throws S3Exception {
+    // Put a file on S3
+    return s3.putObject(
+        PutObjectRequest.builder().bucket(bucketName).key(objectKey).build(),
+        RequestBody.fromFile(file));
   }
 
   public static DeleteObjectResponse deleteObject(S3Client s3, String bucketName, String objectKey)

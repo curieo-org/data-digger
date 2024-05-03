@@ -4,7 +4,6 @@ import static org.curieo.driver.OptionDefinitions.*;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.*;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
@@ -82,7 +81,7 @@ public record DataLoader(
     SQLSinkFactory sqlSinkFactory =
         new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeysOption));
 
-    Sink<TS<PubmedTask>> tasksSink = sqlSinkFactory.createTasksSink();
+    Sink<TS<PubmedTask>> tasksSink = sqlSinkFactory.createTasksSink("tasks");
     Sink<Record> tsink = new Sink.Noop<>();
 
     // store authorships

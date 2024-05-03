@@ -30,6 +30,7 @@ import org.curieo.consumer.PostgreSQLClient;
 import org.curieo.consumer.SQLSinkFactory;
 import org.curieo.consumer.Sink;
 import org.curieo.model.*;
+import org.curieo.retrieve.ftp.FTPProcessing;
 import org.curieo.sources.pubmedcentral.FullText;
 import org.curieo.utils.Config;
 import org.curieo.utils.TaskUtil;
@@ -120,10 +121,18 @@ public class DataLoaderPMC {
       if (parse.hasOption(bulkProcessOption)) {
         switch (getIntOption(parse, bulkProcessOption).get()) {
           case 1:
+            Sink<TS<PubmedTask>> tasksSink = sqlSinkFactory.createTasksSink("pmctasks");
+            // copy TAR.GZ to S3 and track progress
+            try (FTPProcessing ftpProcessing = new FTPProcessing(config)) {
+              ftpProcessing.processRemoteDirectory(
+                  previousJob, query, null, tasksSink, null, null, batchSize);
+            }
             break;
           case 2:
+            // populate pmc_origin table reading CSV from remote origin
             break;
           case 3:
+            // read full-text-location and copy FT files one-by-one
             break;
           default:
             LOGGER.error("bulk processing has three steps (1, 2, or 3)");

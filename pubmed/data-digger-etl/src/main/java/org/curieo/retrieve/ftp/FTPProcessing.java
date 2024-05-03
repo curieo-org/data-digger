@@ -17,7 +17,6 @@ import java.util.function.Predicate;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPReply;
-import org.curieo.consumer.PostgreSQLClient;
 import org.curieo.consumer.Sink;
 import org.curieo.model.PubmedTask;
 import org.curieo.model.TS;
@@ -32,16 +31,15 @@ public class FTPProcessing implements AutoCloseable {
   Config config;
   String key;
   FTPClient ftp;
-  PostgreSQLClient psqlClient;
+  String server;
 
   public FTPProcessing(Config config) throws IOException {
-    this.config = config;
-    this.ftp = createClient();
+    this(config, config.pubmed_ftp_server);
   }
 
-  public FTPProcessing(PostgreSQLClient psqlClient, Config config) throws IOException {
+  public FTPProcessing(Config config, String server) throws IOException {
     this.config = config;
-    this.psqlClient = psqlClient;
+    this.server = server;
     this.ftp = createClient();
   }
 
@@ -71,10 +69,6 @@ public class FTPProcessing implements AutoCloseable {
 
   @Override
   public void close() {
-    if (psqlClient != null) {
-      psqlClient.close();
-    }
-
     if (ftp.isConnected()) {
       try {
         ftp.disconnect();
@@ -285,12 +279,12 @@ public class FTPProcessing implements AutoCloseable {
 
   private FTPClient createClient() throws IOException {
     FTPClient ftp = new FTPClient();
-    ftp.connect(config.pubmed_ftp_server);
+    ftp.connect(server);
     // extremely important
     ftp.setFileType(FTPClient.BINARY_FILE_TYPE);
     ftp.setBufferSize(-1);
 
-    LOGGER.info("Connected to {}.", config.pubmed_ftp_server);
+    LOGGER.info("Connected to {}.", server);
     LOGGER.info(ftp.getReplyString());
 
     // After connection attempt, you should check the reply code to verify
