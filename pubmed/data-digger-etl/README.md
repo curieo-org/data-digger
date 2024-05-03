@@ -148,12 +148,14 @@ We execute the download in 2 steps:
 
 ##### step &#9312;
 
-First we (daily) download any new csv files, keeping track in a regular `tasks` table in the `postgres` database of the files we have seen and not seen.
-While we synchronize, we parse the csv files and dump the entire contents of these files into the `pmc_origin` table. This table contains both the filename of origin (which is _not_ in the CSV file itself but rather the prefix of that file + `.tgz`) _and_ the relative path of the PMC record (this _is_ in the CSV file).
-Since there may be multiple versions for each PMC record we simply dump and defer decision on download/not download to a later stage.
-
+First we (daily) download any new csv files, keeping track in a regular `tasks` table in the `postgres` database of the files we have seen and not seen. The tar files we have seen we upload to S3 as a whole.
 
 ##### step &#9313;
+
+After we synchronize on bulk file (`tar.gz`) level, we parse the csv files and dump the entire contents of these files into the `pmc_origin` table. This table contains both the filename of origin (which is _not_ in the CSV file itself but rather the prefix of that file + `.tgz`) _and_ the relative path of the PMC record (this _is_ in the CSV file).
+Since there may be multiple versions for each PMC record we simply dump and defer decision on download/not download to a later stage.
+
+##### step &#9314;
 
 Then we (daily) look at the `pmc_origin` table and add the following to the `full_text_location` table:
 
