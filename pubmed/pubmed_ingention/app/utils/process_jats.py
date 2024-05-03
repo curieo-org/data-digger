@@ -1,8 +1,11 @@
+"""
+Minorly tweaked from https://github.com/sibils/jats-parser/blob/master/process_xml.py
+
+Full credits to the original authors!
+"""
+
 import re
 from lxml import etree
-import boto3
-from urllib.parse import urlparse
-from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 
 class JatsXMLParser:
     """
@@ -10,7 +13,6 @@ class JatsXMLParser:
     suitable for data mining and analysis. It provides several methods for retrieving specific information from the input XML,
     such as publication dates, keywords, and author affiliations.
     """
-	
     def get_file_content(self, name):
         f = open(name,'r')
         f_text = f.read()
@@ -705,24 +707,6 @@ class JatsXMLParser:
                 top_level = False
                 elems.append(node.tail)  
 
-    def download_s3_file(self,
-                        s3_bucket,
-                        s3_object):
-        s3 = boto3.client("s3")
-    
-        try:
-            # Download the XML file from S3
-            s3_response = s3.get_object(Bucket=s3_bucket, Key=s3_object)
-            xml_content = s3_response['Body'].read()
-            return xml_content.decode("utf-8")
-            
-        except NoCredentialsError:
-            print("Error: AWS credentials not found. Please set up your AWS credentials.")
-        except PartialCredentialsError:
-            print("Error: Partial AWS credentials found. Please ensure your credentials are complete.")
-        except Exception as e:
-            print(f"An error occurred: {e}")
-
     def parse_root_node(self) -> dict:
         self.xmlstr = self.cleanup_input_xml(self.xml_data)
 
@@ -733,19 +717,15 @@ class JatsXMLParser:
 
         return self.parsed_dict_doc
 
-
     def __init__(self,
-                s3_bucket: str,
-                s3_object: str):
+                name:str,
+                xml_data: any):
         self.file_status = {'name':'', 'errors':[]}
         self.block_id = [] 
-        self.s3_bucket = s3_bucket
-        self.s3_obj = s3_object
-        self.xml_data = self.download_s3_file(
-            s3_bucket=self.s3_bucket,
-            s3_object=self.s3_obj
-        )
+        self.name = name
+        self.xml_data = xml_data
+        
         self.file_status_reset()
-        self.file_status_set_name(n = self.s3_obj)
+        self.file_status_set_name(n = self.name)
 
         

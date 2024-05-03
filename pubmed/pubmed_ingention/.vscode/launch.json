@@ -13,7 +13,7 @@
             "name": "Debug My Script",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/cli.py",
+            "program": "${workspaceFolder}/app/main.py",
             "console": "integratedTerminal"
         }
     ]
