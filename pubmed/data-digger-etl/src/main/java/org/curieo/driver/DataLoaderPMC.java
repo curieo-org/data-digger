@@ -63,6 +63,7 @@ public class DataLoaderPMC {
             .addOption(taskTableOption)
             .addOption(previousJobOption)
             .addOption(synchronizeOption)
+            .addOption(bulkProcessOption)
             .addOption(awsStorageOption)
             .addOption(tableNameOption)
             .addOption(executeQueryOption)
@@ -74,7 +75,6 @@ public class DataLoaderPMC {
     int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);
     Config config = new Config();
 
-    FullText ft = new FullText(parse.getOptionValue(oaiOption, FullText.OAI_SERVICE));
     try (PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config)) {
       String previousJob = parse.getOptionValue(previousJobOption);
 
@@ -117,64 +117,83 @@ public class DataLoaderPMC {
         System.exit(1);
       }
 
-      Sink<TS<FullTextTask>> tasksSink =
-          sqlSinkFactory.createFullTextTasksSink(parse.getOptionValue(taskTableOption));
+      if (parse.hasOption(bulkProcessOption)) {
+        switch (getIntOption(parse, bulkProcessOption).get()) {
+          case 1:
+            break;
+          case 2:
+            break;
+          case 3:
+            break;
+          default:
+            LOGGER.error("bulk processing has three steps (1, 2, or 3)");
+            System.exit(1);
+            break;
+        }
+      } else {
+        Sink<TS<FullTextTask>> tasksSink =
+            sqlSinkFactory.createFullTextTasksSink(parse.getOptionValue(taskTableOption));
 
-      Sink<FullTextRecord> sink = null;
-      if (parse.hasOption(tableNameOption)) {
-        String tableName = parse.getOptionValue(tableNameOption, "FullText");
-        sink = new AsyncSink<>(sqlSinkFactory.createPMCSink(tableName));
-      }
-      if (parse.hasOption(awsStorageOption)) {
-        if (sink != null) sink = sink.concatenate(new AsyncSink<>(new AWSStorageSink(config)));
-        else sink = new AsyncSink<>(new AWSStorageSink(config));
-      }
-      if (sink != null) {
-        if (query == null) {
-          query =
-              String.format(FULL_TEXT_JOB_QUERY_TEMPLATE, parse.getOptionValue(taskTableOption));
+        Sink<FullTextRecord> sink = null;
+        if (parse.hasOption(tableNameOption)) {
+          String tableName = parse.getOptionValue(tableNameOption, "FullText");
+          sink = new AsyncSink<>(sqlSinkFactory.createPMCSink(tableName));
+        }
+        if (parse.hasOption(awsStorageOption)) {
+          if (sink != null) sink = sink.concatenate(new AsyncSink<>(new AWSStorageSink(config)));
+          else sink = new AsyncSink<>(new AWSStorageSink(config));
+        }
+        if (sink != null) {
+          FullText ft = new FullText(parse.getOptionValue(oaiOption, FullText.OAI_SERVICE));
+          if (query == null) {
+            query =
+                String.format(FULL_TEXT_JOB_QUERY_TEMPLATE, parse.getOptionValue(taskTableOption));
+          }
+
+          Map<String, TS<FullTextTask>> todo =
+              PostgreSQLClient.retrieveItems(
+                  postgreSQLClient.getConnection(),
+                  query,
+                  DataLoaderPMC::mapFullTextJob,
+                  j -> j.value().getIdentifier());
+          LOGGER.info(query);
+
+          new DataLoaderPMC(
+                  tasksSink,
+                  sink,
+                  ft,
+                  new AtomicInteger(0),
+                  new AtomicInteger(0),
+                  config.thread_pool_size)
+              .processAllRecords(todo);
+
+          sink.finalCall();
+          LOGGER.info(
+              "Stored {} records, updated {} records",
+              sink.getTotalCount(),
+              sink.getUpdatedCount());
         }
 
-        Map<String, TS<FullTextTask>> todo =
-            PostgreSQLClient.retrieveItems(
-                postgreSQLClient.getConnection(),
-                query,
-                DataLoaderPMC::mapFullTextJob,
-                j -> j.value().getIdentifier());
-        LOGGER.info(query);
-
-        new DataLoaderPMC(
-                tasksSink,
-                sink,
-                ft,
-                new AtomicInteger(0),
-                new AtomicInteger(0),
-                config.thread_pool_size)
-            .processAllRecords(todo);
-
-        sink.finalCall();
-        LOGGER.info(
-            "Stored {} records, updated {} records", sink.getTotalCount(), sink.getUpdatedCount());
+        // synchronize
+        if (parse.hasOption(synchronizeOption)) {
+          query =
+              String.format(
+                  FULL_TEXT_COMPLETED_QUERY_TEMPLATE,
+                  parse.getOptionValue(taskTableOption),
+                  TaskState.State.Completed.ordinal());
+          String remotePath = parse.getOptionValue(synchronizeOption);
+          Synchronize.S3 s3 = new Synchronize.S3(config);
+          s3.synchronizeFullTextTableWithRemote(remotePath, tasksSink);
+          s3.synchronizeRemoteWithFullTextTable(
+              postgreSQLClient.getConnection(), query, remotePath);
+        } else if (sink == null) {
+          throw new RuntimeException(
+              "Either use --synchronize, or define at least 1 sink with --use-aws or --table-name ");
+        }
       }
 
-      // synchronize
-      if (parse.hasOption(synchronizeOption)) {
-        query =
-            String.format(
-                FULL_TEXT_COMPLETED_QUERY_TEMPLATE,
-                parse.getOptionValue(taskTableOption),
-                TaskState.State.Completed.ordinal());
-        String remotePath = parse.getOptionValue(synchronizeOption);
-        Synchronize.S3 s3 = new Synchronize.S3(config);
-        s3.synchronizeFullTextTableWithRemote(remotePath, tasksSink);
-        s3.synchronizeRemoteWithFullTextTable(postgreSQLClient.getConnection(), query, remotePath);
-      } else if (sink == null) {
-        throw new RuntimeException(
-            "Either use --synchronize, or define at least 1 sink with --use-aws or --table-name ");
-      }
-
-      if (parse.hasOption(preprocessQueryOption)) {
-        for (String filePath : parse.getOptionValues(preprocessQueryOption)) {
+      if (parse.hasOption(postprocessQueryOption)) {
+        for (String filePath : parse.getOptionValues(postprocessQueryOption)) {
           String queries = new String(Files.readAllBytes(new File(filePath).toPath()), UTF_8);
           for (String q : queries.split(";")) {
             postgreSQLClient.execute(q);

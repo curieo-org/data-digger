@@ -28,6 +28,15 @@ public class OptionDefinitions {
           .type(Integer.class)
           .build();
 
+  static Option bulkProcessOption =
+      Option.builder()
+          .option("b")
+          .longOpt("bulk-processing")
+          .hasArg()
+          .desc("a step in the bulk processing (1, 2 or 3)")
+          .type(Integer.class)
+          .build();
+
   static Option executeQueryOption =
       Option.builder()
           .option("e")
