@@ -36,6 +36,22 @@ public class OptionDefinitions {
           .desc("execute these queries (in files) before anything else")
           .build();
 
+  static Option preprocessQueryOption =
+      Option.builder()
+          .option("u")
+          .longOpt("preprocess-query")
+          .hasArgs()
+          .desc("execute these queries (in files) before starting the job")
+          .build();
+
+  static Option postprocessQueryOption =
+      Option.builder()
+          .option("v")
+          .longOpt("postprocess-query")
+          .hasArgs()
+          .desc("execute these queries (in files) after finishing the job")
+          .build();
+
   static Option useKeysOption =
       Option.builder().option("k").longOpt("use-keys").required(false).build();
 
@@ -116,6 +132,14 @@ public class OptionDefinitions {
           .longOpt("job-table-name")
           .hasArg()
           .desc("table name for storing job information")
+          .build();
+
+  static Option previousJobOption =
+      Option.builder()
+          .option("x")
+          .longOpt("previous-job")
+          .hasArg()
+          .desc("check previous job status")
           .build();
 
   static Optional<Integer> getIntOption(CommandLine cmd, Option option) {

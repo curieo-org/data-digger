@@ -1,5 +1,5 @@
-Image = data-digger-pubmed
-ECR = 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed
+Image = data-digger-pubmed-ranking
+ECR = 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ranking
 TAG = latest
 
 ecr_deploy: login

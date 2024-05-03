@@ -27,7 +27,7 @@ case $1 in
         echo "Pubmed updates (full records) to postgres"
         STORE_LINKS="--link-table pubmed=pmc pubmed=doi"
         STORE_LINKS="--link-table LinkTable:pubmed=pmc PubmedDOI:pubmed=doi"
-        ARGS="-d pubmed-updates --full-records --references pubmed --batch-size 100 --use-keys $STORE_LINKS"
+        ARGS="-d pubmed-updates -x pubmed-baseline --full-records --references pubmed --batch-size 100 --use-keys $STORE_LINKS"
         $CMD $ARGS
     ;;
 
@@ -44,10 +44,13 @@ case $1 in
     # the seed queries can (and must) change
     pubmedcentral-s3-seed)
         echo "Pubmed Central to S3 storage"
-        SEED_QUERY=$DIR/sql/prime-ft-pmc-download.sql
+        # SEED_QUERY=$DIR/sql/prime-ft-pmc-download.sql
         CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
-        QUERY="--execute-query $SEED_QUERY"
-        ARGS="$QUERY --job-table-name fulltextdownloads --use-aws "
+        # QUERY="--execute-query $SEED_QUERY"
+        PREPROCESS=$DIR/sql/fulltext-pubmed-preprocessing.sql
+        POSTPROCESS=$DIR/sql/fulltext-pubmed-postprocessing.sql
+        QUERY="-u $PREPROCESS -v $POSTPROCESS"
+        ARGS="$QUERY --job-table-name fulltextdownloads -x pubmed-updates --use-aws "
         $CMD $ARGS
     ;;
 
@@ -57,10 +60,10 @@ case $1 in
         echo "Pubmed Central to S3 storage synchronization"
         CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
         QUERY="--execute-query $PM_QUERIES"
-        SYNCHRONIZE="--synchronize data/indexes/pmc-index.tsv"
-        ARGS="$SYNCHRONIZE --job-table-name fulltextdownloads"
+        # SYNCHRONIZE="--synchronize data/indexes/pmc-index.tsv"
+        # ARGS="$SYNCHRONIZE --job-table-name fulltextdownloads"
         SYNCHRONIZE="--synchronize data/indexes/pubmed-index.tsv"
-        ARGS="$SYNCHRONIZE $QUERY --job-table-name fulltextdownloads_pm"
+        ARGS="$SYNCHRONIZE $QUERY --job-table-name fulltextdownloads_pm -x fulltextdownloads"
         $CMD $ARGS
     ;;
 

@@ -1,0 +1,6 @@
+[postgres]
+ca_cert = "ca-certificates/global-bundle.pem"
+
+[log]
+level = "debug"
+format = "pretty"
