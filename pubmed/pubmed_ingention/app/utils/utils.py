@@ -1,9 +1,10 @@
 import logging
 from pathlib import Path
 from enum import Enum
+from typing import List
 import boto3
-from urllib.parse import urlparse
-from botocore.exceptions import NoCredentialsError, PartialCredentialsError, DataNotFoundError, ClientError 
+import httpx
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError 
 
 class BaseNodeTypeEnum(Enum):
     PARENT = "parent"

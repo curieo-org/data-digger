@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
+        "aclient",
         "addprevious",
         "affs",
         "ainsert",
@@ -39,6 +40,7 @@
         "pmcid",
         "pmid",
         "ppub",
+        "psqlsettings",
         "ptail",
         "ptext",
         "Pubmed",

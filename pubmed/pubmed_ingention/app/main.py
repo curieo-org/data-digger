@@ -10,10 +10,9 @@ settings = Settings()
 logger = setup_logger("Main")
 
 async def run_transform(year: int):
-
     #read the database
     dbReader = PubmedDatabaseReader(settings)
-    if await dbReader.check_pubmed_percentile_tbl():
+    if await dbReader.check_pubmed_percentile_tbl() and  2014 <= year <= 2024:
         records = await dbReader.collect_records_by_year(year)
     else:
         print("We cant process now because of the database problem")
@@ -22,7 +21,8 @@ async def run_transform(year: int):
     #process the retrieved records
     dve = DatabaseVectorsEngine(settings)
     await dve.batch_process_records_to_vectors(records)
-    
 
-    
-asyncio.run(run_transform(2024))
+parser = argparse.ArgumentParser(description="Process records from PubMed database for a given year.")
+parser.add_argument("year", type=int, help="The year for which to process records.", default=2034)
+args = parser.parse_args() 
+asyncio.run(run_transform(args.year))

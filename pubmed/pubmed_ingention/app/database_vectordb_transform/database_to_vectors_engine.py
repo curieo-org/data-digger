@@ -1,23 +1,22 @@
 from collections import defaultdict
-from typing import List
+from typing import List, Tuple
 import uuid
 from tqdm import tqdm
+import asyncio
+import json
+import datetime
 
 from llama_index.vector_stores.qdrant import QdrantVectorStore
-from llama_index.core import StorageContext, ServiceContext, VectorStoreIndex
+from llama_index.core import StorageContext, VectorStoreIndex
 from llama_index.core.schema import (
     BaseNode,
-    NodeWithScore,
-    TextNode,
     Document
 )
-from qdrant_client import AsyncQdrantClient
-from qdrant_client.http import models
-import asyncio
 from llama_index.embeddings.text_embeddings_inference import TextEmbeddingsInference
 from llama_index.core.node_parser import SentenceSplitter
 import llama_index.core.instrumentation as instrument
 from llama_index.core.ingestion import run_transformations
+from qdrant_client import QdrantClient
 
 from utils.clustering import get_clusters
 from utils.process_jats import JatsXMLParser
@@ -29,7 +28,30 @@ dispatcher = instrument.get_dispatcher(__name__)
 logger = setup_logger("DatabaseVectorsEngine")
 
 
-class DatabaseVectorsEngine:
+class DatabaseVectorsEngine:  
+    def sparse_doc_vectors(
+            self,
+            texts: List[str],
+        ) -> Tuple[List[List[int]], List[List[float]]]:
+        """
+        Computes vectors from logits and attention mask using ReLU, log, and max operations.
+
+        Args:
+            texts (List[str]): A list of strings representing the input text data.
+
+        Returns:
+            Tuple[List[List[int]], List[List[float]]]: A tuple containing two lists.
+            The first list is a list of lists, where each sublist represents the indices of the input text data.
+            The second list is a list of lists, where each sublist represents the corresponding vectors derived
+            from the input text data.
+        """
+        splade_embeddings = self.splade_model.get_text_embedding_batch(texts)
+        indices = [[entry.get('index') for entry in sublist] for sublist in splade_embeddings]
+        vectors = [[entry.get('value') for entry in sublist] for sublist in splade_embeddings]
+
+        assert len(indices) == len(vectors)
+        return indices, vectors
+    
     async def parse_clean_fulltext(
             self,
             fulltext: str,
@@ -74,20 +96,14 @@ class DatabaseVectorsEngine:
     
     async def calculate_embeddings(
             self,
-            nodes: List[BaseNode],
-            do_embedding: bool,
-            do_splade: bool):
+            nodes: List[BaseNode]):
         """
         Asynchronously calculates text embeddings for a list of nodes using specified models.
 
-        This function supports both dense and sparse embeddings and will execute them
-        based on the flags provided. If a flag is set to True, the corresponding embedding
-        type is calculated.
+        This function supports dense embeddings.
 
         Parameters:
             nodes (List[BaseNode]): A list of nodes for which embeddings will be calculated.
-            do_embedding (bool): Flag to indicate whether to calculate dense embeddings.
-            do_splade (bool): Flag to indicate whether to calculate SPLADE embeddings.
 
         Returns:
             Tuple[Optional[Dict[str, any]], Optional[Dict[str, any]]]: A tuple containing two dictionaries:
@@ -95,34 +111,23 @@ class DatabaseVectorsEngine:
                 - The second dictionary maps node IDs to their SPLADE embeddings (if calculated).
                 Both elements in the tuple will be None if their respective calculations are not performed.
 
-        Raises:
-            Exception: Specific exceptions related to model failures or network issues can be raised.
-
         Usage:
             # Assuming 'node_list' is pre-defined and both embedding flags are true
-            dense_emb, splade_emb = await calculate_embeddings(node_list, True, True)
+            dense_emb = await calculate_embeddings(node_list)
         """
-        id_to_dense_embedding, id_to_splade_embedding = None, None
-        if do_embedding:
-            dense_embeddings = await self.embed_model.aget_text_embedding_batch(
-                [node.get_content(metadata_mode="embed") for node in nodes], show_progress=True
-                )
-            id_to_dense_embedding = {
-                node.id_: dense_embedding for node, dense_embedding in zip(nodes, dense_embeddings)
-            }
-
-        if do_splade:
-            splade_embeddings = await self.sparse_model.aget_text_embedding_batch(
+        id_to_dense_embedding = {}
+        dense_embeddings = await self.embed_model.aget_text_embedding_batch(
             [node.get_content(metadata_mode="embed") for node in nodes], show_progress=True
             )
-            id_to_splade_embedding = {
-                node.id_: sparse_embedding for node, sparse_embedding in zip(nodes, splade_embeddings)
-            }
-        return id_to_dense_embedding, id_to_splade_embedding
+        id_to_dense_embedding = {
+            node.id_: dense_embedding for node, dense_embedding in zip(nodes, dense_embeddings)
+        }
+        return id_to_dense_embedding
     
     async def generate_children_nodes(
             self,
             s3_object: str,
+            pubmedid: int
     ):
         """
         Asynchronously generates children nodes from a specified S3 object's text content by parsing it
@@ -151,6 +156,7 @@ class DatabaseVectorsEngine:
                 fulltext=fulltext_content,
                 name=file_name,
                 split_depth=self.split_depth)
+            self.parsed_full_txt_json[pubmedid] = json.dumps(parsed_fulltext)
             for k, values in parsed_fulltext.items():
                 base_nodes: List[Document] = [Document(text=each_value) for each_value in values]
                         
@@ -167,16 +173,15 @@ class DatabaseVectorsEngine:
     #@dispatcher.span
     async def ainsert_single_record(
             self,
-            id: int,
+            pubmedid: int,
             abstract: str,
-            split_depth: int,
             **kwargs
         ) -> None:
         """
         Asynchronously inserts a single record into the vector datastore.
 
         Args:
-            id (int): A unique identifier for the record.
+            pubmedid (int): A unique identifier for the record.
             abstract (str): A concise summary of the content of the record.
             split_depth (int): The depth at which to split the content of the record.
             **kwargs: Additional keyword arguments that may be used to customize the insertion process.
@@ -189,7 +194,7 @@ class DatabaseVectorsEngine:
             None: This function does not return any value but completes the insertion of the record.
 
         Example of usage:
-            await ainsert_single_record(id=123, abstract="Example abstract", split_depth=2)
+            await ainsert_single_record(pubmedid=123, abstract="Example abstract")
         """
         parent_base_nodes: List[Document] = [Document(text=abstract)]
         parent_nodes = run_transformations(
@@ -206,6 +211,7 @@ class DatabaseVectorsEngine:
         #if fulltext exist - parse fulltext
         if kwargs.get("fulltext_to_be_parsed"):
             cur_children_dict = await self.generate_children_nodes(
+                pubmedid=pubmedid,
                 s3_object=kwargs.get("fulltext_s3_loc")
             )
         
@@ -216,62 +222,65 @@ class DatabaseVectorsEngine:
         logger.info(f"ainsert_single_record. parent_id: {parent_id}. all_cur_nodes: {len(all_cur_nodes)}")
         
         #call the embedding and splade embedding apis       
-        dense_emb, splade_emb = await self.calculate_embeddings(
-            nodes=all_cur_nodes,
-            do_embedding=True,
-            do_splade=True
-        )
+        dense_emb = await self.calculate_embeddings(nodes=all_cur_nodes)
         logger.info(f"ainsert_single_record. parent_id: {parent_id}. dense_emb length: {len(dense_emb)}")
-        logger.info(f"ainsert_single_record. parent_id: {parent_id}. splade_emb length: {len(splade_emb)}")
         
         #prepare the tree here
         cur_level = self.tree_depth - 1
         nodes_to_be_added = []
         while cur_level >= 0:
-            
             #set parent node
             if cur_level == 1:
                 for p_node in parent_nodes:
                     cur_node = p_node
                     cur_node.metadata["level"] = 1
-                    cur_node.metadata["node_type"] = BaseNodeTypeEnum.Parentnode.value
+                    cur_node.metadata["node_type"] = BaseNodeTypeEnum.PARENT.value
                     nodes_to_be_added.append(cur_node)
+                logger.info(f"ainsert_single_record. parent_id: {parent_id}. parent nodes processed to be added: {len(nodes_to_be_added)}")
             #set children nodes
             elif cur_level == 0:
                 if len(children_nodes) > 0:
                     #cluster create 
-
                     for k, children_section_nodes in cur_children_dict.items():                 
-                        children_section_nodes_ids = [node.id for node in children_section_nodes]
+                        children_section_nodes_ids = [node.id_ for node in children_section_nodes]
                         cur_id_to_dense_embedding = {k: v for k, v in dense_emb.items() if k in children_section_nodes_ids}
 
-                        nodes_per_cluster = get_clusters(
-                            children_section_nodes,
-                            cur_id_to_dense_embedding
-                        )
-                    
-                        for cluster, summary_doc in zip(nodes_per_cluster, children_section_nodes):
-                            current_cluster_id = str(uuid.uuid4())
-                            for cur_node in cluster:
-                                cur_node.metadata["level"] = 0
-                                cur_node.metadata["node_type"] = BaseNodeTypeEnum.ChildNode.value
-                                cur_node.metadata["cluster_id"] = current_cluster_id
-                                nodes_to_be_added.append(cur_node)
-        cur_level = cur_level - 1
+                        if len(children_section_nodes):
+                            nodes_per_cluster = get_clusters(
+                                children_section_nodes,
+                                cur_id_to_dense_embedding
+                            )
+                        
+                            for cluster, summary_doc in zip(nodes_per_cluster, children_section_nodes):
+                                current_cluster_id = str(uuid.uuid4())
+                                for cur_node in cluster:
+                                    cur_node.metadata["level"] = 0
+                                    cur_node.metadata["node_type"] = BaseNodeTypeEnum.CHILD.value
+                                    cur_node.metadata["cluster_id"] = current_cluster_id
+                                    nodes_to_be_added.append(cur_node)
+                logger.info(f"ainsert_single_record. parent_id: {parent_id}. children nodes processed to be added: {len(nodes_to_be_added)}")
+            cur_level = cur_level - 1
+
+        #metadata update
+        keys_to_update = ["title", "publicationDate", "year", "authors", "references", "identifiers"]
+        for node in nodes_to_be_added:
+            for key in keys_to_update:
+                node.metadata[key] = kwargs.get(key)
 
         #metadata update for the nodes
-        excluded_keys = ["level", "node_type", "cluster_id", "parent_id"]
-        for node in nodes_to_be_added:  
+        excluded_keys = ["pubmedid", "abstract", "level", "node_type", "cluster_id", "parent_id"] + keys_to_update
+        for node in nodes_to_be_added:
+            node.metadata["pubmedid"] = pubmedid
+            node.metadata["abstract"] = abstract 
             node.metadata["parent_id"] = parent_id 
             node.embedding = dense_emb[node.id_]
-            node.splade_embedding = splade_emb[node.id_]
+            #node.splade_embedding = splade_emb[node.id_]
             for key in excluded_keys:
                 node.excluded_embed_metadata_keys.append(key)
                 node.excluded_llm_metadata_keys.append(key)
 
         #ready for the insertion to vectorDB
-        
-    #     self.index.insert_nodes(nodes_to_be_added)
+        self.index.insert_nodes(nodes_to_be_added)
 
     async def process_batch_records(self, records: list[defaultdict]) -> None:
         """
@@ -305,7 +314,6 @@ class DatabaseVectorsEngine:
                 self.ainsert_single_record(
                     each_record.get("id"),
                     each_record.get("abstract"),
-                    self.split_depth,
                     title=each_record.get("title"),
                     publicationDate=each_record.get("publicationDate", "1200-05-02"),
                     year=each_record.get("year"),
@@ -354,6 +362,16 @@ class DatabaseVectorsEngine:
             batch_data = [records[key] for key in batch_keys]
             result = await self.process_batch_records(batch_data)
             final_results.append(result)
+
+        #dump the important results for future analytics
+        timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+        results_to_dump = {
+            "full_details_not_found": self.fulltext_not_found,
+            "parsed_fulltext_records": self.parsed_full_txt_json
+        }
+        with open(f"output_run_details/{timestamp}.json", 'w') as file:
+            json.dump(results_to_dump, file, indent=4)
+
         return final_results
 
     def __init__(self,
@@ -375,16 +393,13 @@ class DatabaseVectorsEngine:
         self.text_embedding_token = self.settings.embedding.api_key.get_secret_value()
         self.text_embedding_batch_size = self.settings.embedding.embed_batch_size
 
-        self.splade_doc_embedding_url = self.settings.spladedoc.api_url
-        self.splade_doc_embedding_token = self.settings.spladedoc.api_key.get_secret_value()
-        self.splade_doc_embedding_batch_size = self.settings.spladedoc.embed_batch_size
-
         self.qdrant_url_address = self.settings.qdrant.api_url
         self.qdrant_url_port = self.settings.qdrant.api_port
         self.qdrant_collection_name = self.settings.qdrant.collection_name
         self.qdrant_api_key = self.settings.qdrant.api_key.get_secret_value()
 
         self.fulltext_not_found = []
+        self.parsed_full_txt_json = {}
         self.embed_model = TextEmbeddingsInference(
             model_name="",
             base_url=self.text_embedding_url,
@@ -392,21 +407,30 @@ class DatabaseVectorsEngine:
             timeout=60,
             embed_batch_size=self.text_embedding_batch_size)
         
-        self.sparse_model = SpladeEmbeddingsInference(
+        self.splade_model = SpladeEmbeddingsInference(
             model_name="",
-            base_url=self.splade_doc_embedding_url,
-            auth_token=self.splade_doc_embedding_token,
+            base_url=self.settings.spladedoc.api_url,
+            auth_token=self.settings.spladedoc.api_key.get_secret_value(),
             timeout=60,
-            embed_batch_size=self.splade_doc_embedding_batch_size)
+            embed_batch_size=self.settings.spladedoc.embed_batch_size)
 
-        self.aclient = AsyncQdrantClient(
+        self.client = QdrantClient(
             url=self.qdrant_url_address,
             port=self.qdrant_url_port, 
             api_key=self.qdrant_api_key,
             https=False
-            )      
-        self.vector_store = QdrantVectorStore(client=self.aclient, collection_name=self.qdrant_collection_name)
+            )   
+
+        self.vector_store = QdrantVectorStore(
+            client=self.client,
+            collection_name=self.qdrant_collection_name, 
+            sparse_doc_fn=self.sparse_doc_vectors,
+            enable_hybrid=True,
+            )
+        
         self.storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
         self.index = VectorStoreIndex(
-            storage_context=self.storage_context
+            storage_context=self.storage_context,
+            embed_model = self.embed_model,
+            nodes =[]
         )   

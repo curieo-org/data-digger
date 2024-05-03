@@ -33,7 +33,7 @@ class DatabaseVectorsEngineSettings(BaseSettings):
 class QdrantSettings(BaseSettings):
     api_port: int = 6333
     api_url: str = "localhost"
-    collection_name: str = "pubmed_hybrid_vector_dbV2"
+    collection_name: str = "pubmed_hybrid_vector_dbv4"
     api_key: SecretStr
 
 
@@ -46,11 +46,10 @@ class EmbeddingSettings(BaseSettings):
 class SpladedocSettings(BaseSettings):
     api_url: str = "http://text-splade-doc.dev.curieo.org"
     api_key: SecretStr
-    embed_batch_size: int = 4
+    embed_batch_size: int = 2
 
 
 class PubmedDatabaseReaderSettings(BaseSettings):
-    postgresql: str = "postgresql://postgres:password@localhost:5432/datadigger"
     offset: int = 0
     batch_size: int = 100
     pubmed_percentiles_tbl: str = "pubmed_percentiles"
@@ -110,6 +109,9 @@ class PubmedDatabaseReaderSettings(BaseSettings):
     }
 
 
+class PsqlSettings(BaseSettings):
+    connection: SecretStr
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -125,3 +127,4 @@ class Settings(BaseSettings):
     spladedoc: SpladedocSettings
     database_reader: PubmedDatabaseReaderSettings = PubmedDatabaseReaderSettings()
     d2vengine: DatabaseVectorsEngineSettings = DatabaseVectorsEngineSettings()
+    psql: PsqlSettings

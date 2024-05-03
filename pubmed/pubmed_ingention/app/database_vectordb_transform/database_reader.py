@@ -30,7 +30,7 @@ class PubmedDatabaseReader:
             settings (Settings): Contains all necessary database configurations.
         """
         self.settings = settings
-        self.engine = create_engine(self.settings.database_reader.postgresql)
+        self.engine = create_engine(self.settings.psql.connection.get_secret_value())
 
         # Configurations extracted from settings for ease of use in methods
         self.pubmed_percentiles_tbl = self.settings.database_reader.pubmed_percentiles_tbl
@@ -85,7 +85,7 @@ class PubmedDatabaseReader:
         count = 0
         try:
             result = run_sql(self.engine, query)
-            count = result['result'][0][0]
+            count = result['result'][0][0] if result['result'] else 0
         except Exception as e:
             logger.exception(f"An error occurred while fetching the percentile count: {e}")
         return count
@@ -112,7 +112,8 @@ class PubmedDatabaseReader:
         ids = []
         try:
             result = run_sql(self.engine, query)
-            ids = [item[0] for item in result.get('result')]
+            if result.get('result'):
+                ids = [item[0] for item in result.get('result')]
         except Exception as e:
             logger.exception(f"An error occurred while fetching records: {e}")
         return ids
@@ -140,21 +141,24 @@ class PubmedDatabaseReader:
             sql_template = "SELECT {column} FROM {table} WHERE id IN ({ids})"
             results = await fetch_details([1, 2, 3], sql_template, True, table='my_table', column='data_column')
         """
-        formatted_ids = ",".join(map(str, map(int, ids))) 
-        query = query_template.format(ids=formatted_ids, **params)
+        if len(ids):
+            formatted_ids = ",".join(map(str, map(int, ids)))
+            query = query_template.format(ids=formatted_ids, **params)
         
-        try:
-            result = run_sql(self.engine, query)
-        except Exception as e:
-            logger.exception(f"An error occurred while fetching records: {e}")
-
-        return_dict = defaultdict(list)
-        for id, record in result.get('result'):
-            if json_parse_required:
-                return_dict[id]= json.loads(record)
-            else:
-                return_dict[id]= str(record)
-        return return_dict
+            try:
+                result = run_sql(self.engine, query)
+                return_dict = defaultdict(list)
+                for id, record in result.get('result'):
+                    if json_parse_required:
+                        return_dict[id]= json.loads(record)
+                    else:
+                        return_dict[id]= str(record)
+                return return_dict
+            except Exception as e:
+                logger.exception(f"An error occurred while fetching records: {e}")
+                return {}
+        else:
+            return {}
       
     async def collect_records_by_year(self,
                                       year:int) -> Dict[int, Any]:
@@ -172,9 +176,9 @@ class PubmedDatabaseReader:
             processed details about the pubmed record such as abstract, title, publication date,
             authors, references, and fulltext location.
         """
-        config = self.percentile_config.get(year)
-        parent_criteria = config.get(BaseNodeTypeEnum.PARENT.value)
-        child_criteria = config.get(BaseNodeTypeEnum.CHILD.value)
+        config = self.percentile_config.get(year, {})
+        parent_criteria = config.get(BaseNodeTypeEnum.PARENT.value, 0)
+        child_criteria = config.get(BaseNodeTypeEnum.CHILD.value, 0)
 
         logger.info(f"collect_records_by_year. Year: {year}. parent_criteria: {parent_criteria}")
         logger.info(f"collect_records_by_year. Year: {year}. child_criteria: {child_criteria}")
@@ -195,7 +199,7 @@ class PubmedDatabaseReader:
 
         parent_records, fulltext_pmc_sources = await asyncio.gather(
             self.fetch_details(parents_ids, self.records_fetch_details, True),
-            self.fetch_details(parents_ids, self.fulltext_fetch_query, False, column="pmc", table="linktable")
+            self.fetch_details(parents_ids, self.fulltext_fetch_query, False, column="location", table="linktable")
         )
 
         logger.info(f"collect_records_by_year. Year: {year}. parent_records Count: {len(parent_records)}")
@@ -212,7 +216,7 @@ class PubmedDatabaseReader:
                 "authors": value.get(self.parsed_record_authors_key),
                 "references": {item['identifiers'].get('pubmed'): item['citation'] for item in value.get(self.parsed_record_references_key) or []},
                 "identifiers": {item['key']: item['value'] for item in value.get(self.parsed_record_identifiers_key) or []},
-                "fulltext_s3_loc": "data/2024/PM/C1/PMC10925332",
+                "fulltext_s3_loc": fulltext_pmc_sources[key],
                 "fulltext_to_be_parsed": str(key) in children_ids #if the id is in the top nodes, then we should parse the fulltext later
             }
         logger.info(f"collect_records_by_year. Year: {year}. processed_records Count: {len(processed_records)}")
