@@ -53,6 +53,7 @@ public class OptionDefinitions {
           .desc("execute these queries (in files) before starting the job")
           .build();
 
+  static Option dataSetOption = new Option("d", "data-set", true, "data set to load");
   static Option postprocessQueryOption =
       Option.builder()
           .option("v")

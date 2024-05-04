@@ -27,10 +27,13 @@ import org.apache.commons.cli.ParseException;
 import org.curieo.consumer.AWSStorageSink;
 import org.curieo.consumer.AsyncSink;
 import org.curieo.consumer.PostgreSQLClient;
+import org.curieo.consumer.S3Helpers;
 import org.curieo.consumer.SQLSinkFactory;
 import org.curieo.consumer.Sink;
 import org.curieo.model.*;
 import org.curieo.retrieve.ftp.FTPProcessing;
+import org.curieo.retrieve.ftp.FTPProcessingFilter;
+import org.curieo.sources.pubmedcentral.BulkFileHandler;
 import org.curieo.sources.pubmedcentral.FullText;
 import org.curieo.utils.Config;
 import org.curieo.utils.TaskUtil;
@@ -121,15 +124,35 @@ public class DataLoaderPMC {
       if (parse.hasOption(bulkProcessOption)) {
         switch (getIntOption(parse, bulkProcessOption).get()) {
           case 1:
-            Sink<TS<PubmedTask>> tasksSink = sqlSinkFactory.createTasksSink("pmctasks");
+            String tasksTable = parse.getOptionValue(taskTableOption);
+            Sink<TS<PubmedTask>> tasksSink = sqlSinkFactory.createTasksSink(tasksTable);
+            String job = "bulk";
+            Map<String, TS<PubmedTask>> tasks =
+                PostgreSQLClient.retrieveJobTasks(
+                    postgreSQLClient.getConnection(), tasksTable, job);
+            String server = config.getEnv("PMC_FTP_SERVER", false, "ftp.ncbi.nlm.nih.gov");
+            String serverPath =
+                config.getEnv("PMC_FTP_PATH", false, "/pub/pmc/oa_bulk/oa_comm/xml/");
+            Sink<PMCRecord> origin = sqlSinkFactory.createPMCRecordSink("pmc_origin");
+
+            BulkFileHandler fh =
+                new BulkFileHandler(
+                    S3Helpers.getS3Client(config), config.aws_storage_bucket, origin);
+
             // copy TAR.GZ to S3 and track progress
-            try (FTPProcessing ftpProcessing = new FTPProcessing(config)) {
+            // populate pmc_origin table reading CSV from remote origin
+            try (FTPProcessing ftpProcessing = new FTPProcessing(config, server)) {
               ftpProcessing.processRemoteDirectory(
-                  previousJob, query, null, tasksSink, null, null, batchSize);
+                  job,
+                  serverPath,
+                  tasks,
+                  tasksSink,
+                  FTPProcessingFilter.ValidExtensions(".csv", ".tar.gz"),
+                  fh::processBulkFile,
+                  Integer.MAX_VALUE);
             }
             break;
           case 2:
-            // populate pmc_origin table reading CSV from remote origin
             break;
           case 3:
             // read full-text-location and copy FT files one-by-one

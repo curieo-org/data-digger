@@ -122,12 +122,12 @@ public class PostgreSQLClient implements AutoCloseable {
     return keys;
   }
 
-  public static Map<String, TS<PubmedTask>> retrieveJobTasks(Connection connection, String job)
-      throws SQLException {
+  public static Map<String, TS<PubmedTask>> retrieveJobTasks(
+      Connection connection, String table, String job) throws SQLException {
     String query =
         String.format(
-            "select name, state, job, timestamp from tasks where job = '%s'",
-            escapeSingleQuotes(job));
+            "select name, state, job, timestamp from %s where job = '%s'",
+            table, escapeSingleQuotes(job));
     return retrieveItems(connection, query, PostgreSQLClient::mapTask, ts -> ts.value().name());
   }
 
