@@ -1,5 +1,7 @@
 package org.curieo.retrieve.ftp;
 
+import static org.curieo.utils.StringUtils.joinPath;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -176,12 +178,7 @@ public class FTPProcessing implements AutoCloseable {
                             File tempFile = state.r();
 
                             // retrieve the remote file, and submit.
-                            String remoteFile;
-                            if (remoteDirectory.endsWith("/")) {
-                              remoteFile = remoteDirectory + key;
-                            } else {
-                              remoteFile = remoteDirectory + "/" + key;
-                            }
+                            String remoteFile = joinPath(remoteDirectory, key, "/");
                             try {
                               boolean fileRetrieved = retrieveFile(ftpClient, remoteFile, tempFile);
                               return Pair.of(fileRetrieved, state);

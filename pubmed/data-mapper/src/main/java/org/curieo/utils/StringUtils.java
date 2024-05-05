@@ -33,6 +33,15 @@ public class StringUtils {
 
   private StringUtils() {}
 
+  public static String joinPath(String s1, String s2) {
+    return joinPath(s1, s2, java.io.File.separator);
+  }
+
+  public static String joinPath(String s1, String s2, String separator) {
+    if (s1.endsWith(separator)) return s1 + s2;
+    return s1 + separator + s2;
+  }
+
   public static List<String> splitEnumerations(String s) {
     List<String> retval = new ArrayList<>();
     int pos = 0;
