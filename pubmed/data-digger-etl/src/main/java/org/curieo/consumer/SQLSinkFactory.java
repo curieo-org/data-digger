@@ -12,7 +12,7 @@ import org.curieo.model.FullTextRecord;
 import org.curieo.model.FullTextTask;
 import org.curieo.model.LinkedField;
 import org.curieo.model.Metadata;
-import org.curieo.model.PMCRecord;
+import org.curieo.model.PMCLocation;
 import org.curieo.model.PubmedTask;
 import org.curieo.model.Reference;
 import org.curieo.model.ReferenceType;
@@ -243,7 +243,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     return createAbstractSink(extracts, insert, batchSize);
   }
 
-  public Sink<PMCRecord> createPMCRecordSink(String tableName) throws SQLException {
+  public Sink<PMCLocation> createPMCRecordSink(String tableName) throws SQLException {
     /*
     	 *
     String container; // tar.gz blob file that contains this record
@@ -269,15 +269,15 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     createTable(tableName, fieldSpecs);
     PreparedStatement insert = insertStatement(tableName, fieldSpecs);
 
-    List<Extract<PMCRecord>> extracts = new ArrayList<>();
-    extracts.add(fieldSpecs.get(0).extractString(PMCRecord::getContainer));
-    extracts.add(fieldSpecs.get(1).extractString(PMCRecord::getArticleFile));
-    extracts.add(fieldSpecs.get(2).extractString(PMCRecord::getArticleCitation));
-    extracts.add(fieldSpecs.get(3).extractString(PMCRecord::getPmcId));
-    extracts.add(fieldSpecs.get(4).extractLong(PMCRecord::getPmId));
-    extracts.add(fieldSpecs.get(5).extractTimestamp(PMCRecord::getLastUpdated));
-    extracts.add(fieldSpecs.get(6).extractString(PMCRecord::getLicense));
-    extracts.add(fieldSpecs.get(7).extractString(PMCRecord::getRetracted));
+    List<Extract<PMCLocation>> extracts = new ArrayList<>();
+    extracts.add(fieldSpecs.get(0).extractString(PMCLocation::getContainer));
+    extracts.add(fieldSpecs.get(1).extractString(PMCLocation::getArticleFile));
+    extracts.add(fieldSpecs.get(2).extractString(PMCLocation::getArticleCitation));
+    extracts.add(fieldSpecs.get(3).extractString(PMCLocation::getPmcId));
+    extracts.add(fieldSpecs.get(4).extractLong(PMCLocation::getPmId));
+    extracts.add(fieldSpecs.get(5).extractTimestamp(PMCLocation::getLastUpdated));
+    extracts.add(fieldSpecs.get(6).extractString(PMCLocation::getLicense));
+    extracts.add(fieldSpecs.get(7).extractString(PMCLocation::getRetracted));
 
     return createAbstractSink(extracts, insert, batchSize);
   }

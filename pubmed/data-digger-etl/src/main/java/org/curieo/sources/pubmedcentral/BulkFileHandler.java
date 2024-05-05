@@ -8,13 +8,13 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import org.curieo.consumer.S3Helpers;
 import org.curieo.consumer.Sink;
-import org.curieo.model.PMCRecord;
+import org.curieo.model.PMCLocation;
 import org.curieo.retrieve.ftp.FTPProcessing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3Client;
 
-public record BulkFileHandler(S3Client s3, String bucket, Sink<PMCRecord> pmcSink) {
+public record BulkFileHandler(S3Client s3, String bucket, Sink<PMCLocation> pmcSink) {
   private static final Logger LOGGER = LoggerFactory.getLogger(BulkFileHandler.class);
   public static final String FILELIST_CSV = ".filelist.csv";
 
@@ -31,7 +31,8 @@ public record BulkFileHandler(S3Client s3, String bucket, Sink<PMCRecord> pmcSin
             CSVReader csvReader = new CSVReaderBuilder(reader).withSkipLines(1).build()) {
           for (String[] line : csvReader) {
             pmcSink.accept(
-                PMCRecord.fromCSV(name.substring(0, name.length() - FILELIST_CSV.length()), line));
+                PMCLocation.fromCSV(
+                    name.substring(0, name.length() - FILELIST_CSV.length()), line));
           }
         }
       } else {

@@ -6,7 +6,7 @@ import lombok.Value;
 
 @Generated
 @Value
-public class PMCRecord {
+public class PMCLocation implements TaskState {
   String container; // tar.gz blob file that contains this record
   String articleFile; // path *within* the tar.gz file that contains this record
   String articleCitation;
@@ -15,9 +15,10 @@ public class PMCRecord {
   long pmId;
   String license;
   String retracted;
+  State taskState;
 
-  public static PMCRecord fromCSV(String container, String[] line) {
-    return new PMCRecord(
+  public static PMCLocation fromCSV(String container, String[] line) {
+    return new PMCLocation(
         container,
         line[0],
         line[1],
@@ -25,6 +26,7 @@ public class PMCRecord {
         Timestamp.valueOf(line[3]),
         Long.parseLong(line[4]),
         line[5],
-        line[6]);
+        line[6],
+        State.Queued);
   }
 }

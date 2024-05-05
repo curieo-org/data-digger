@@ -122,18 +122,19 @@ public class DataLoaderPMC {
       }
 
       if (parse.hasOption(bulkProcessOption)) {
+        String job;
         switch (getIntOption(parse, bulkProcessOption).get()) {
           case 1:
             String tasksTable = parse.getOptionValue(taskTableOption);
+            job = "bulk";
             Sink<TS<PubmedTask>> tasksSink = sqlSinkFactory.createTasksSink(tasksTable);
-            String job = "bulk";
             Map<String, TS<PubmedTask>> tasks =
                 PostgreSQLClient.retrieveJobTasks(
                     postgreSQLClient.getConnection(), tasksTable, job);
             String server = config.getEnv("PMC_FTP_SERVER", false, "ftp.ncbi.nlm.nih.gov");
             String serverPath =
                 config.getEnv("PMC_FTP_PATH", false, "/pub/pmc/oa_bulk/oa_comm/xml/");
-            Sink<PMCRecord> origin = sqlSinkFactory.createPMCRecordSink("pmc_origin");
+            Sink<PMCLocation> origin = sqlSinkFactory.createPMCRecordSink("pmc_location");
 
             BulkFileHandler fh =
                 new BulkFileHandler(
@@ -153,9 +154,17 @@ public class DataLoaderPMC {
             }
             break;
           case 2:
+            // figure out which pmc files in the pmc_origin table HAVE not yet been uploaded
+            // these go into the pmc_tasks table as 'todo'. This is the bulk-extract task
             break;
           case 3:
+            job = "extract";
             // read full-text-location and copy FT files one-by-one
+            // go by the pmc_tasks that are 'extract job
+            // read pmcthe pmc_origin table, order by container
+            // if the container has not been downloaded, download
+            // extract file
+            // upload to S3
             break;
           default:
             LOGGER.error("bulk processing has three steps (1, 2, or 3)");

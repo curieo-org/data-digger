@@ -9,7 +9,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import org.curieo.model.PMCRecord;
+import org.curieo.model.PMCLocation;
 import org.junit.jupiter.api.Test;
 
 class BulkTest {
@@ -28,7 +28,7 @@ class BulkTest {
         Reader reader = new InputStreamReader(fis);
         CSVReader csvReader = new CSVReaderBuilder(reader).withSkipLines(1).build()) {
       for (String[] line : csvReader) {
-        PMCRecord.fromCSV(null, line);
+        PMCLocation.fromCSV(null, line);
         numberOfRecords++;
       }
     }
