@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "pubmed-ingention"
+name = "pubmed-ingestion"
 version = "0.1.0"
 description = ""
 authors = ["raahulmona <157174139+raahulmona@users.noreply.github.com>"]
