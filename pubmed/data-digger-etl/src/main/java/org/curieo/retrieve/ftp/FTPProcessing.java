@@ -141,7 +141,9 @@ public class FTPProcessing implements AutoCloseable {
         (entry) -> {
           PubmedTask.State state = entry.getValue().value().state();
           return filesSeen.get() <= maximumNumberOfFiles
-              && (state == PubmedTask.State.Queued || state == PubmedTask.State.Failed);
+              && (state == PubmedTask.State.Queued
+                  || state == PubmedTask.State.Failed
+                  || state == PubmedTask.State.InProgress);
         };
 
     Executor executor = Executors.newFixedThreadPool(config.thread_pool_size);
@@ -223,7 +225,6 @@ public class FTPProcessing implements AutoCloseable {
                                     currentDone,
                                     tasks.size(),
                                     (float) 100 * currentDone / tasks.size()));
-                            updateTaskSink.accept(TS.of(PubmedTask.completed(key, job), timestamp));
 
                             try {
                               ftpClient.disconnect();

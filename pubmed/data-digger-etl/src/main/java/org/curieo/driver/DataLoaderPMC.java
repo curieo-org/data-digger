@@ -121,56 +121,73 @@ public class DataLoaderPMC {
         System.exit(1);
       }
 
-      if (parse.hasOption(bulkProcessOption)) {
-        String job;
-        switch (getIntOption(parse, bulkProcessOption).get()) {
-          case 1:
-            String tasksTable = parse.getOptionValue(taskTableOption);
-            job = "bulk";
-            Sink<TS<PubmedTask>> tasksSink = sqlSinkFactory.createTasksSink(tasksTable);
-            Map<String, TS<PubmedTask>> tasks =
-                PostgreSQLClient.retrieveJobTasks(
-                    postgreSQLClient.getConnection(), tasksTable, job);
-            String server = config.getEnv("PMC_FTP_SERVER", false, "ftp.ncbi.nlm.nih.gov");
-            String serverPath =
-                config.getEnv("PMC_FTP_PATH", false, "/pub/pmc/oa_bulk/oa_comm/xml/");
-            Sink<PMCLocation> origin = sqlSinkFactory.createPMCRecordSink("pmc_location");
+      if (parse.getOptionValue(taskTableOption).equals("pmctasks")) {
+        if (!parse.hasOption(bulkProcessOption)) {
+          LOGGER.error("You did not specify the --bulk-process option -- sorry, need that");
+          System.exit(1);
+        }
+        String job = "comm";
+        String server = config.pubmed_ftp_server;
+        String serverPath = config.pmc_comm_folder_path;
 
-            BulkFileHandler fh =
-                new BulkFileHandler(
-                    S3Helpers.getS3Client(config), config.aws_storage_bucket, origin);
-
-            // copy TAR.GZ to S3 and track progress
-            // populate pmc_origin table reading CSV from remote origin
-            try (FTPProcessing ftpProcessing = new FTPProcessing(config, server)) {
-              ftpProcessing.processRemoteDirectory(
-                  job,
-                  serverPath,
-                  tasks,
-                  tasksSink,
-                  FTPProcessingFilter.ValidExtensions(".csv", ".tar.gz"),
-                  fh::processBulkFile,
-                  Integer.MAX_VALUE);
-            }
+        switch (parse.getOptionValue(bulkProcessOption)) {
+          case "comm":
+            job = "comm";
+            serverPath = config.pmc_comm_folder_path;
             break;
-          case 2:
-            // figure out which pmc files in the pmc_origin table HAVE not yet been uploaded
-            // these go into the pmc_tasks table as 'todo'. This is the bulk-extract task
+          case "noncomm":
+            job = "noncomm";
+            serverPath = config.pmc_noncomm_folder_path;
             break;
-          case 3:
-            job = "extract";
-            // read full-text-location and copy FT files one-by-one
-            // go by the pmc_tasks that are 'extract job
-            // read pmcthe pmc_origin table, order by container
-            // if the container has not been downloaded, download
-            // extract file
-            // upload to S3
+          case "other":
+            job = "other";
+            serverPath = config.pmc_other_folder_path;
             break;
           default:
-            LOGGER.error("bulk processing has three steps (1, 2, or 3)");
+            LOGGER.error("Unknown bulk process option");
             System.exit(1);
             break;
         }
+
+        String tasksTable = parse.getOptionValue(taskTableOption);
+        Sink<TS<PubmedTask>> tasksSink = sqlSinkFactory.createTasksSink(tasksTable);
+        Map<String, TS<PubmedTask>> tasks =
+            PostgreSQLClient.retrieveJobTasks(postgreSQLClient.getConnection(), tasksTable, job);
+        Sink<PMCLocation> origin = sqlSinkFactory.createPMCRecordSink("pmc_location");
+
+        BulkFileHandler fh =
+            new BulkFileHandler(S3Helpers.getS3Client(config), config.aws_storage_bucket, origin);
+
+        // copy TAR.GZ to S3 and track progress
+        // populate pmc_origin table reading CSV from remote origin
+        try (FTPProcessing ftpProcessing = new FTPProcessing(config, server)) {
+          ftpProcessing.processRemoteDirectory(
+              job,
+              serverPath,
+              tasks,
+              tasksSink,
+              FTPProcessingFilter.ValidExtensions(".txt", ".tar.gz"),
+              fh::processBulkFile,
+              Integer.MAX_VALUE);
+        }
+
+        // Calculate the location of the full-text files
+        String[] queries = {
+          "ALTER TABLE linktable ADD COLUMN IF NOT EXISTS location VARCHAR(300);",
+          "UPDATE linktable lt SET location = CONCAT(pml.container, pml.articlefile), timestamp = pml.lastupdate from (SELECT p1.pmcid, p1.lastupdate, p2.container, p2.articlefile FROM (SELECT pmcid, MAX(lastupdate) AS lastupdate FROM pmc_location GROUP BY pmcid) p1 INNER JOIN pmc_location p2 ON p1.pmcid = p2.pmcid AND p1.lastupdate = p2.lastupdate) as pml where pml.pmcid = lt.pmc;"
+        };
+        for (String q : queries) {
+          postgreSQLClient.execute(q);
+        }
+
+        // figure out which pmc files in the pmc_origin table HAVE not yet been uploaded
+        // these go into the pmc_tasks table as 'todo'. This is the bulk-extract task
+        // read full-text-location and copy FT files one-by-one
+        // go by the pmc_tasks that are 'extract job
+        // read pmcthe pmc_origin table, order by container
+        // if the container has not been downloaded, download
+        // extract file
+        // upload to S3
       } else {
         Sink<TS<FullTextTask>> tasksSink =
             sqlSinkFactory.createFullTextTasksSink(parse.getOptionValue(taskTableOption));

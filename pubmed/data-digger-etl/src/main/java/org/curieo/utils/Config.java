@@ -11,6 +11,9 @@ public class Config {
   public String updates_remote_path;
   public String commons_remote_path;
   public String corpora_folder_path;
+  public String pmc_comm_folder_path;
+  public String pmc_noncomm_folder_path;
+  public String pmc_other_folder_path;
 
   public String postgres_database;
   public String postgres_user;
@@ -36,6 +39,12 @@ public class Config {
     updates_remote_path = getEnv("UPDATES_REMOTE_PATH", false, "/pubmed/updatefiles/");
     commons_remote_path = getEnv("COMMONS_REMOTE_PATH", false, "/pubmed/pubmedcommons/");
     corpora_folder_path = getEnv("CORPORA_FOLDER_PATH", false, "../corpora/");
+    pmc_comm_folder_path = getEnv("PMC_COMM_FOLDER_PATH", false, "/pub/pmc/oa_bulk/oa_comm/xml/");
+    pmc_noncomm_folder_path =
+        getEnv("PMC_NONCOMM_FOLDER_PATH", false, "/pub/pmc/oa_bulk/oa_noncomm/xml/");
+    pmc_other_folder_path =
+        getEnv("PMC_OTHER_FOLDER_PATH", false, "/pub/pmc/oa_bulk/oa_other/xml/");
+
     thread_pool_size = Integer.parseInt(getEnv("THREAD_POOL_SIZE", false, "10"));
 
     postgres_database = getEnv("POSTGRES_DATABASE", true, null);

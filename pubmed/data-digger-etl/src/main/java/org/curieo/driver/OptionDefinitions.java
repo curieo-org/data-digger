@@ -34,7 +34,6 @@ public class OptionDefinitions {
           .longOpt("bulk-processing")
           .hasArg()
           .desc("a step in the bulk processing (1, 2 or 3)")
-          .type(Integer.class)
           .build();
 
   static Option executeQueryOption =
