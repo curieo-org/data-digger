@@ -216,8 +216,8 @@ class PubmedDatabaseReader:
                 "authors": value.get(self.parsed_record_authors_key),
                 "references": {item['identifiers'].get('pubmed'): item['citation'] for item in value.get(self.parsed_record_references_key) or []},
                 "identifiers": {item['key']: item['value'] for item in value.get(self.parsed_record_identifiers_key) or []},
-                "fulltext_s3_loc": fulltext_pmc_sources[key],
-                "fulltext_to_be_parsed": str(key) in children_ids #if the id is in the top nodes, then we should parse the fulltext later
+                "fulltext_s3_loc": fulltext_pmc_sources.get(key, ""),
+                "fulltext_to_be_parsed": str(key) in children_ids if fulltext_pmc_sources.get(key, "") else False #if the id is in the top nodes, then we should parse the fulltext later
             }
         logger.info(f"collect_records_by_year. Year: {year}. processed_records Count: {len(processed_records)}")
         return processed_records

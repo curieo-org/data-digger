@@ -32,8 +32,8 @@ class DatabaseVectorsEngineSettings(BaseSettings):
 
 class QdrantSettings(BaseSettings):
     api_port: int = 6333
-    api_url: str = "localhost"
-    collection_name: str = "pubmed_hybrid_vector_dbv4"
+    api_url: str = "https://qdrant.dev.curieo.org"
+    collection_name: str = "pubmed_hybrid"
     api_key: SecretStr
 
 

@@ -158,7 +158,7 @@ class DatabaseVectorsEngine:
                 split_depth=self.split_depth)
             self.parsed_full_txt_json[pubmedid] = json.dumps(parsed_fulltext)
             for k, values in parsed_fulltext.items():
-                base_nodes: List[Document] = [Document(text=each_value) for each_value in values]
+                base_nodes: List[Document] = [Document(text=each_value) for each_value in values if each_value.strip()]
                         
                 cur_children_dict[k] = run_transformations(
                     base_nodes, 
@@ -218,6 +218,7 @@ class DatabaseVectorsEngine:
         #prepare all the parent nodes and children nodes(if any)
         children_nodes =  [item for sublist in cur_children_dict.values() for item in sublist]
         all_cur_nodes = parent_nodes + children_nodes
+
         logger.info(f"ainsert_single_record. parent_id: {parent_id}. children_nodes_count: {len(children_nodes)}")
         logger.info(f"ainsert_single_record. parent_id: {parent_id}. all_cur_nodes: {len(all_cur_nodes)}")
         
@@ -415,10 +416,10 @@ class DatabaseVectorsEngine:
             embed_batch_size=self.settings.spladedoc.embed_batch_size)
 
         self.client = QdrantClient(
-            url=self.qdrant_url_address,
-            port=self.qdrant_url_port, 
+            url=self.qdrant_url_address, 
+            port=None,
             api_key=self.qdrant_api_key,
-            https=False
+            https=True
             )   
 
         self.vector_store = QdrantVectorStore(

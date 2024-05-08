@@ -37,4 +37,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-run-transform = "app.main:__main__"
+run-main = "app.main:entrypoint"
