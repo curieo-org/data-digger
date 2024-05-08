@@ -174,7 +174,7 @@ public class DataLoaderPMC {
         // Calculate the location of the full-text files
         String[] queries = {
           "ALTER TABLE linktable ADD COLUMN IF NOT EXISTS location VARCHAR(300);",
-          "UPDATE linktable lt SET location = CONCAT(pml.container, pml.articlefile), timestamp = pml.lastupdate from (SELECT p1.pmcid, p1.lastupdate, p2.container, p2.articlefile FROM (SELECT pmcid, MAX(lastupdate) AS lastupdate FROM pmc_location GROUP BY pmcid) p1 INNER JOIN pmc_location p2 ON p1.pmcid = p2.pmcid AND p1.lastupdate = p2.lastupdate) as pml where pml.pmcid = lt.pmc;"
+          "UPDATE linktable lt SET location = pml.articlefile, timestamp = pml.lastupdate from (SELECT p1.pmcid, p1.lastupdate, p2.articlefile FROM (SELECT pmcid, MAX(lastupdate) AS lastupdate FROM pmc_location GROUP BY pmcid) p1 INNER JOIN pmc_location p2 ON p1.pmcid = p2.pmcid AND p1.lastupdate = p2.lastupdate) as pml where pml.pmcid = lt.pmc;"
         };
         for (String q : queries) {
           postgreSQLClient.execute(q);
