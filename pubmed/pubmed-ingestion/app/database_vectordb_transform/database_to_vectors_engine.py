@@ -147,7 +147,7 @@ class DatabaseVectorsEngine:
             # Assuming 's3_key' is predefined and valid
             children_dict = await self.generate_children_nodes(s3_key)
         """
-        fulltext_content = download_s3_file(self.s3_bucket, s3_object=s3_object)
+        fulltext_content = download_s3_file(self.s3_bucket, s3_object='bulk/' + s3_object)
         file_name = s3_object.split("/")[-1]
         cur_children_dict = defaultdict(list)
 
