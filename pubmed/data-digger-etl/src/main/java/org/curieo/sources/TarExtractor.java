@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.utils.IOUtils;
@@ -88,8 +89,8 @@ public class TarExtractor {
         TarArchiveInputStream tar =
             new TarArchiveInputStream(
                 gzip ? new GzipCompressorInputStream(inputStream) : inputStream)) {
-      ArchiveEntry entry;
-      while ((entry = tar.getNextEntry()) != null) {
+      TarArchiveEntry entry;
+      while ((entry = (TarArchiveEntry) tar.getNextEntry()) != null) {
         String remotePath = joinPath(basePath, entry.getName());
         byte[] content = IOUtils.toByteArray(tar);
         S3Helpers.putObject(s3, content, bucket, remotePath);

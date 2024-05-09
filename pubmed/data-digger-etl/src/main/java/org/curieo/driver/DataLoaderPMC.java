@@ -166,7 +166,7 @@ public class DataLoaderPMC {
               serverPath,
               tasks,
               tasksSink,
-              FTPProcessingFilter.ValidExtensions(".txt", ".tar.gz"),
+              FTPProcessingFilter.ValidExtensions(".txt"),
               fh::processBulkFile,
               Integer.MAX_VALUE);
         }
