@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pubmed-ingestion-job
+spec:
+  template:
+    metadata:
+      name: pubmed-ingestion-job
+    spec:
+      containers:
+      - name: pubmed-ingestion
+        image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ingestion:latest
+        resources:
+          requests:
+            memory: "16Gi"
+            cpu: "6"
+          limits:
+            memory: "16Gi"
+            cpu: "6"
+        command: ["sh", "-c", "poetry run python app/main.py -y 2024"]
+        env:
+          - name: DEBUG
+            value: "true"
+          - name: PSQL__CONNECTION
+            valueFrom:
+              configMapKeyRef:
+                name: pubmed-ingestion-datadigger-config
+                key: PSQL__CONNECTION
+                optional: false
+          - name: QDRANT__API_KEY
+            valueFrom:
+              configMapKeyRef:
+                name: pubmed-ingestion-datadigger-config
+                key: QDRANT__API_KEY
+                optional: false
+          - name: EMBEDDING__API_KEY
+            valueFrom:
+              configMapKeyRef:
+                name: pubmed-ingestion-datadigger-config
+                key: EMBEDDING__API_KEY
+                optional: false
+          - name: SPLADEDOC__API_KEY
+            valueFrom:
+              configMapKeyRef:
+                name: pubmed-ingestion-datadigger-config
+                key: SPLADEDOC__API_KEY
+                optional: false
+      restartPolicy: Never
+      nodeSelector:
+        role: large-workloads
+      tolerations:
+      - key: "type"
+        operator: "Equal"
+        value: "large-workloads"
+        effect: "NoSchedule"
