@@ -11,6 +11,6 @@ RUN pip install poetry
 RUN poetry config virtualenvs.create false
 RUN poetry install --compile
 
-COPY ./app /app
+COPY . .
 
 # CMD ["poetry", "run", "python", "app/main.py", "-y", "2024"]
