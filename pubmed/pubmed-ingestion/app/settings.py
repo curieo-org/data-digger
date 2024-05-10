@@ -33,7 +33,7 @@ class DatabaseVectorsEngineSettings(BaseSettings):
 
 class QdrantSettings(BaseSettings):
     api_port: int = 6333
-    api_url: str = "https://qdrant.qdrant.svc.cluster.local"
+    api_url: str = "http://qdrant.qdrant.svc.cluster.local"
     collection_name: str = "pubmed_hybrid"
     api_key: SecretStr
 

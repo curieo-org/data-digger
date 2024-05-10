@@ -13,11 +13,11 @@ spec:
         resources:
           requests:
             memory: "16Gi"
-            cpu: "6"
+            cpu: "2"
           limits:
             memory: "32Gi"
-            cpu: "8"
-        command: ["sh", "-c", "pip install poetry && poetry install && poetry run python app/main.py --year 2024 --parentcriteria 99 --childcriteria 100"]
+            cpu: "2"
+        command: ["sh", "-c", "pip install poetry && poetry install && poetry run python app/main.py --year 2023 --parentcriteria 87 --childcriteria 97"]
         env:
           - name: DEBUG
             value: "true"

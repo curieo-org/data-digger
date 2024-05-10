@@ -448,7 +448,7 @@ class DatabaseVectorsEngine:
             url=self.qdrant_url_address, 
             port=self.qdrant_url_port,
             api_key=self.qdrant_api_key,
-            https=True
+            https=False
             )   
 
         self.vector_store = QdrantVectorStore(
