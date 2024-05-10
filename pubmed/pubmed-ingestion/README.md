@@ -65,5 +65,5 @@ This command will create a virtual environment and install all the necessary dep
 ## Usage
 
    ```bash
-   poetry run python app/main.py -y 2024
+   poetry run python app/main.py -y 2024 -pc 40 -cc 10
    ```

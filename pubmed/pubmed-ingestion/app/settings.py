@@ -28,6 +28,7 @@ class DatabaseVectorsEngineSettings(BaseSettings):
     child_chunk_size: int = 512
     child_chunk_overlap: int = 30
     tree_depth: int = 2
+    s3_upload_obj: str = "vector-db-ingestion-details"
 
 
 class QdrantSettings(BaseSettings):
@@ -64,49 +65,6 @@ class PubmedDatabaseReaderSettings(BaseSettings):
     parsed_record_authors_key: str = "authors"
     parsed_record_references_key: str = "references"
     parsed_record_identifiers_key: str = "identifiers"
-
-    percentile_config: dict = {
-        2024 : {
-            "parent": 100,
-            "child": 100
-        },
-        2023 : {
-            "parent": 0.66,
-            "child": 0.33
-        },
-        2022 : {
-            "parent": 0.66,
-            "child": 0.33
-        },
-        2021 : {
-            "parent": 0.66,
-            "child": 0.33
-        },
-        2020 : {
-            "parent": 0.66,
-            "child": 0.33
-        },
-        2019 : {
-            "parent": 0.66,
-            "child": 0.33
-        },
-        2018 : {
-            "parent": 80,
-            "child": 95
-        },
-        2017 : {
-            "parent": 0.66,
-            "child": 0.33
-        },
-        2016 : {
-            "parent": 0.66,
-            "child": 0.33
-        },
-        2015 : {
-            "parent": 0.66,
-            "child": 0.33
-        }
-    }
 
 
 class PsqlSettings(BaseSettings):

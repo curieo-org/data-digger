@@ -13,18 +13,6 @@ class BaseNodeTypeEnum(Enum):
 def get_project_root() -> Path:
     return Path(__file__).parent.parent
 
-def setup_logger(tag):
-    logger = logging.getLogger(tag)
-    logger.setLevel(logging.DEBUG)
-
-    handler: logging.StreamHandler = logging.StreamHandler()
-    formatter: logging.Formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    return logger
-
 def download_s3_file(s3_bucket, s3_object):
         s3 = boto3.client("s3")
 
@@ -47,3 +35,19 @@ def download_s3_file(s3_bucket, s3_object):
             print("Error: Partial AWS credentials found. Please ensure your credentials are complete.")
         except Exception as e:
             print(f"An error occurred: {e}")
+
+def upload_to_s3(bucket_name, file_name, object_name=None):
+    # If S3 object_name was not specified, use file_name
+    if object_name is None:
+        object_name = file_name
+
+    # Create an S3 client
+    s3_client = boto3.client('s3')
+
+    # Upload the file
+    try:
+        response = s3_client.upload_file(file_name, bucket_name, object_name)
+    except Exception as e:
+        print("Error uploading: ", e)
+        return False
+    return True

@@ -1,11 +1,18 @@
-Image = data-digger-pubmed-ingestion
-ECR = 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ingestion
-TAG = latest
+VERSION = $(shell cat VERSION)
 
-ecr_deploy: login
-	docker buildx build --platform linux/amd64 -t $(Image) .
-	docker tag $(Image):$(TAG) $(ECR):$(TAG)
-	docker push $(ECR):$(TAG)
+.ONESHELL:
 
-login:
-	aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 698471419283.dkr.ecr.eu-central-1.amazonaws.com
+.PHONY: docker_build
+docker_build:
+	DOCKER_BUILDKIT=1 docker build \
+	--rm \
+	-t data-digger-pubmed-ingestion:latest \
+	-t data-digger-pubmed-ingestion:$(VERSION) \
+	-f Dockerfile .
+
+.PHONY: docker_push
+docker_push:
+	docker tag data-digger-pubmed-ingestion:latest 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ingestion:latest || exit 1
+	docker tag data-digger-pubmed-ingestion:$(VERSION) 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ingestion:$(VERSION) || exit 1
+	docker push 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ingestion:latest || exit 1
+	docker push 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ingestion:$(VERSION) || exit 1

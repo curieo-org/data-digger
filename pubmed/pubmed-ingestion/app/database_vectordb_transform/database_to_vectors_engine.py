@@ -5,9 +5,14 @@ from tqdm import tqdm
 import asyncio
 import json
 import datetime
+import time
+from loguru import logger
 
 from llama_index.vector_stores.qdrant import QdrantVectorStore
-from llama_index.core import StorageContext, VectorStoreIndex
+from llama_index.core import (
+    StorageContext,
+    VectorStoreIndex
+)
 from llama_index.core.schema import (
     BaseNode,
     Document
@@ -22,11 +27,10 @@ from utils.clustering import get_clusters
 from utils.process_jats import JatsXMLParser
 from utils.splade_embedding import SpladeEmbeddingsInference
 from settings import Settings
-from utils.utils import BaseNodeTypeEnum, setup_logger, download_s3_file
+from utils.utils import BaseNodeTypeEnum, download_s3_file, upload_to_s3
 
 dispatcher = instrument.get_dispatcher(__name__)
-logger = setup_logger("DatabaseVectorsEngine")
-
+logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}")
 
 class DatabaseVectorsEngine:  
     def sparse_doc_vectors(
@@ -126,8 +130,7 @@ class DatabaseVectorsEngine:
     
     async def generate_children_nodes(
             self,
-            s3_object: str,
-            pubmedid: int
+            s3_object: str
     ):
         """
         Asynchronously generates children nodes from a specified S3 object's text content by parsing it
@@ -150,13 +153,13 @@ class DatabaseVectorsEngine:
         fulltext_content = download_s3_file(self.s3_bucket, s3_object='bulk/' + s3_object)
         file_name = s3_object.split("/")[-1]
         cur_children_dict = defaultdict(list)
+        parsed_fulltext = {}
 
         if fulltext_content:
             parsed_fulltext = await self.parse_clean_fulltext(
                 fulltext=fulltext_content,
                 name=file_name,
                 split_depth=self.split_depth)
-            self.parsed_full_txt_json[pubmedid] = json.dumps(parsed_fulltext)
             for k, values in parsed_fulltext.items():
                 base_nodes: List[Document] = [Document(text=each_value) for each_value in values if each_value.strip()]
                         
@@ -166,9 +169,7 @@ class DatabaseVectorsEngine:
                         SentenceSplitter(chunk_size=self.child_chunk_size, chunk_overlap=self.child_chunk_overlap)
                     ],
                     in_place=False)
-        else:
-            self.fulltext_not_found.append(file_name)
-        return cur_children_dict
+        return cur_children_dict, json.dumps(parsed_fulltext)
      
     #@dispatcher.span
     async def ainsert_single_record(
@@ -176,22 +177,19 @@ class DatabaseVectorsEngine:
             pubmedid: int,
             abstract: str,
             **kwargs
-        ) -> None:
+        ):
         """
         Asynchronously inserts a single record into the vector datastore.
 
         Args:
             pubmedid (int): A unique identifier for the record.
             abstract (str): A concise summary of the content of the record.
-            split_depth (int): The depth at which to split the content of the record.
+            split_depth (int): The depth at which to split the content of the record. Default is 1.
             **kwargs: Additional keyword arguments that may be used to customize the insertion process.
 
         Raises:
             asyncio.TimeoutError: If an insertion task does not complete within the expected time.
             ConnectionError: If there is a failure in connecting to the datastore.
-
-        Returns:
-            None: This function does not return any value but completes the insertion of the record.
 
         Example of usage:
             await ainsert_single_record(pubmedid=123, abstract="Example abstract")
@@ -205,26 +203,25 @@ class DatabaseVectorsEngine:
             in_place=False
         )
         parent_id = parent_nodes[0].id_
-        logger.info(f"ainsert_single_record. parent_id: {parent_id}. parent_nodes_count: {len(parent_nodes)}")
+        logger.debug(f"ainsert_single_record. parent_id: {parent_id}. parent_nodes_count: {len(parent_nodes)}")
         cur_children_dict = defaultdict(list)
 
         #if fulltext exist - parse fulltext
         if kwargs.get("fulltext_to_be_parsed"):
-            cur_children_dict = await self.generate_children_nodes(
-                pubmedid=pubmedid,
+            cur_children_dict, parsed_fulltext = await self.generate_children_nodes(
                 s3_object=kwargs.get("fulltext_s3_loc")
             )
         
         #prepare all the parent nodes and children nodes(if any)
-        children_nodes =  [item for sublist in cur_children_dict.values() for item in sublist]
+        children_nodes = [item for sublist in cur_children_dict.values() for item in sublist]
         all_cur_nodes = parent_nodes + children_nodes
 
-        logger.info(f"ainsert_single_record. parent_id: {parent_id}. children_nodes_count: {len(children_nodes)}")
-        logger.info(f"ainsert_single_record. parent_id: {parent_id}. all_cur_nodes: {len(all_cur_nodes)}")
+        logger.debug(f"ainsert_single_record. parent_id: {parent_id}. children_nodes_count: {len(children_nodes)}")
+        logger.debug(f"ainsert_single_record. parent_id: {parent_id}. all_cur_nodes: {len(all_cur_nodes)}")
         
         #call the embedding and splade embedding apis       
         dense_emb = await self.calculate_embeddings(nodes=all_cur_nodes)
-        logger.info(f"ainsert_single_record. parent_id: {parent_id}. dense_emb length: {len(dense_emb)}")
+        logger.debug(f"ainsert_single_record. parent_id: {parent_id}. dense_emb length: {len(dense_emb)}")
         
         #prepare the tree here
         cur_level = self.tree_depth - 1
@@ -235,9 +232,9 @@ class DatabaseVectorsEngine:
                 for p_node in parent_nodes:
                     cur_node = p_node
                     cur_node.metadata["level"] = 1
-                    cur_node.metadata["node_type"] = BaseNodeTypeEnum.PARENT.value
+                    cur_node.metadata["node_level"] = BaseNodeTypeEnum.PARENT.value
                     nodes_to_be_added.append(cur_node)
-                logger.info(f"ainsert_single_record. parent_id: {parent_id}. parent nodes processed to be added: {len(nodes_to_be_added)}")
+                logger.debug(f"ainsert_single_record. parent_id: {parent_id}. parent nodes processed to be added: {len(nodes_to_be_added)}")
             #set children nodes
             elif cur_level == 0:
                 if len(children_nodes) > 0:
@@ -256,10 +253,10 @@ class DatabaseVectorsEngine:
                                 current_cluster_id = str(uuid.uuid4())
                                 for cur_node in cluster:
                                     cur_node.metadata["level"] = 0
-                                    cur_node.metadata["node_type"] = BaseNodeTypeEnum.CHILD.value
+                                    cur_node.metadata["node_level"] = BaseNodeTypeEnum.CHILD.value
                                     cur_node.metadata["cluster_id"] = current_cluster_id
                                     nodes_to_be_added.append(cur_node)
-                logger.info(f"ainsert_single_record. parent_id: {parent_id}. children nodes processed to be added: {len(nodes_to_be_added)}")
+                logger.debug(f"ainsert_single_record. parent_id: {parent_id}. children nodes processed to be added: {len(nodes_to_be_added)}")
             cur_level = cur_level - 1
 
         #metadata update
@@ -269,19 +266,28 @@ class DatabaseVectorsEngine:
                 node.metadata[key] = kwargs.get(key)
 
         #metadata update for the nodes
-        excluded_keys = ["pubmedid", "abstract", "level", "node_type", "cluster_id", "parent_id"] + keys_to_update
+        excluded_keys = ["pubmedid", "abstract", "level", "node_level", "cluster_id", "parent_id"] + keys_to_update
         for node in nodes_to_be_added:
             node.metadata["pubmedid"] = pubmedid
             node.metadata["abstract"] = abstract 
             node.metadata["parent_id"] = parent_id 
             node.embedding = dense_emb[node.id_]
-            #node.splade_embedding = splade_emb[node.id_]
             for key in excluded_keys:
                 node.excluded_embed_metadata_keys.append(key)
                 node.excluded_llm_metadata_keys.append(key)
 
         #ready for the insertion to vectorDB
         self.index.insert_nodes(nodes_to_be_added)
+
+        #add everything to the logs
+        self.log_dict.append(
+            {
+                "id": pubmedid,
+                "parent_id_nodes_count": len(parent_nodes),
+                "children_nodes_count": len(children_nodes),
+                "parsed_fulltext_json": parsed_fulltext
+            }
+        )
 
     async def process_batch_records(self, records: list[defaultdict]) -> None:
         """
@@ -332,7 +338,40 @@ class DatabaseVectorsEngine:
             async with lock:
                 await job
 
-    async def batch_process_records_to_vectors(self, records, batch_size=10000):
+    async def upload_analytics(
+            self
+    ) -> bool:
+        """
+        Uploads the analytics data to the specified S3 bucket.
+
+        This method generates a JSON file containing the analytics data and uploads it to the specified S3 bucket.
+
+        Args:
+            None
+
+        Returns:
+            bool: Returns True if the analytics data is successfully uploaded to the S3 bucket, otherwise returns False.
+
+        Raises:
+            Exception: If an error occurs during the upload process.
+
+        Example of usage:
+            obj.upload_analytics()
+        """
+        timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+        with open(f"{timestamp}.json", 'w') as file:
+            json.dump(self.log_dict, file, indent=4)
+        if upload_to_s3(
+            bucket_name=self.s3_bucket,
+            file_name=f"{timestamp}.json",
+            object_name=self.s3_upload_obj):
+            logger.info(f"Analytics Upload is successful.")
+            return True
+        else:
+            logger.info(f"Analytics Upload is Unsuccessful.")
+            return False   
+
+    async def batch_process_records_to_vectors(self, records, batch_size=1000):
         """
         Processes records in batches asynchronously and collects the results.
 
@@ -353,33 +392,23 @@ class DatabaseVectorsEngine:
         """
         keys = list(records.keys())
         total_batches = (len(keys) + batch_size - 1) // batch_size
-        final_results = []
 
         for i in tqdm(range(total_batches), desc="Processing batches"):
             start_index = i * batch_size
             end_index = start_index + batch_size
-            batch_keys = keys[start_index:end_index]
-
-            batch_data = [records[key] for key in batch_keys]
-            result = await self.process_batch_records(batch_data)
-            final_results.append(result)
+            batch_data = [records[key] for key in keys[start_index:end_index]]
+            start_time = time.time()
+            await self.process_batch_records(batch_data)
+            logger.info(f"Processed Batch size of {batch_size} in {time.time() - start_time:.2f}s")
 
         #dump the important results for future analytics
-        timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-        results_to_dump = {
-            "full_details_not_found": self.fulltext_not_found,
-            "parsed_fulltext_records": self.parsed_full_txt_json
-        }
-        with open(f"output_run_details/{timestamp}.json", 'w') as file:
-            json.dump(results_to_dump, file, indent=4)
-
-        return final_results
+        self.upload_analytics()
 
     def __init__(self,
                 settings: Settings):
         
         self.settings = settings
-        self.num_workers = 4
+        self.num_workers = 8
 
         self.s3_bucket  = self.settings.jatsparser.bucket_name
         self.split_depth = self.settings.jatsparser.split_depth
@@ -389,6 +418,7 @@ class DatabaseVectorsEngine:
         self.child_chunk_size = self.settings.d2vengine.child_chunk_size
         self.child_chunk_overlap = self.settings.d2vengine.child_chunk_overlap
         self.tree_depth = self.settings.d2vengine.tree_depth
+        self.s3_upload_obj = self.settings.d2vengine.s3_upload_obj
 
         self.text_embedding_url = self.settings.embedding.api_url
         self.text_embedding_token = self.settings.embedding.api_key.get_secret_value()
@@ -399,8 +429,7 @@ class DatabaseVectorsEngine:
         self.qdrant_collection_name = self.settings.qdrant.collection_name
         self.qdrant_api_key = self.settings.qdrant.api_key.get_secret_value()
 
-        self.fulltext_not_found = []
-        self.parsed_full_txt_json = {}
+        self.log_dict = []
         self.embed_model = TextEmbeddingsInference(
             model_name="",
             base_url=self.text_embedding_url,
