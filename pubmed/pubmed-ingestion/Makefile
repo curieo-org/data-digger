@@ -4,7 +4,7 @@ VERSION = $(shell cat VERSION)
 
 .PHONY: docker_build
 docker_build:
-	DOCKER_BUILDKIT=1 docker build \
+	DOCKER_BUILDKIT=1 docker build --platform linux/amd64 \
 	--rm \
 	-t data-digger-pubmed-ingestion:latest \
 	-t data-digger-pubmed-ingestion:$(VERSION) \

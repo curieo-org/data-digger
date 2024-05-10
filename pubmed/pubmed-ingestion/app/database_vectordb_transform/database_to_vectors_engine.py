@@ -446,7 +446,7 @@ class DatabaseVectorsEngine:
 
         self.client = QdrantClient(
             url=self.qdrant_url_address, 
-            port=None,
+            port=self.qdrant_url_port,
             api_key=self.qdrant_api_key,
             https=True
             )   

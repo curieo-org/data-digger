@@ -33,19 +33,19 @@ class DatabaseVectorsEngineSettings(BaseSettings):
 
 class QdrantSettings(BaseSettings):
     api_port: int = 6333
-    api_url: str = "https://qdrant.dev.curieo.org"
+    api_url: str = "https://qdrant.qdrant.svc.cluster.local"
     collection_name: str = "pubmed_hybrid"
     api_key: SecretStr
 
 
 class EmbeddingSettings(BaseSettings):
-    api_url: str = "http://text-embedding.dev.curieo.org"
+    api_url: str = "http://text-embedding.dev.svc.cluster.local"
     api_key: SecretStr
     embed_batch_size: int = 4
 
 
 class SpladedocSettings(BaseSettings):
-    api_url: str = "http://text-splade-doc.dev.curieo.org"
+    api_url: str = "http://text-splade-doc.dev.svc.cluster.local"
     api_key: SecretStr
     embed_batch_size: int = 2
 
