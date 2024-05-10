@@ -9,7 +9,7 @@ spec:
     spec:
       containers:
       - name: pubmed-ingestion
-        image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ingestion:0.0.3
+        image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ingestion:0.0.4
         resources:
           requests:
             memory: "16Gi"
@@ -17,7 +17,7 @@ spec:
           limits:
             memory: "32Gi"
             cpu: "8"
-        command: ["sleep", "infinity"]
+        command: ["sh", "-c", "pip install poetry && poetry install && poetry run python app/main.py --year 2020 --parentcriteria 35 --childcriteria 80"]
         env:
           - name: DEBUG
             value: "true"
