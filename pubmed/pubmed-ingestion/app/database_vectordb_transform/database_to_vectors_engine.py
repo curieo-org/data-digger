@@ -264,16 +264,15 @@ class DatabaseVectorsEngine:
             cur_level = cur_level - 1
 
         #metadata update
-        keys_to_update = ["title", "publicationDate", "year", "authors", "references", "identifiers"]
+        keys_to_update = ["title", "publicationDate", "year", "authors"]
         for node in nodes_to_be_added:
             for key in keys_to_update:
                 node.metadata[key] = kwargs.get(key)
 
         #metadata update for the nodes
-        excluded_keys = ["pubmedid", "abstract", "level", "node_level", "cluster_id", "parent_id"] + keys_to_update
+        excluded_keys = ["pubmedid", "level", "node_level", "cluster_id", "parent_id"] + keys_to_update
         for node in nodes_to_be_added:
             node.metadata["pubmedid"] = pubmedid
-            node.metadata["abstract"] = abstract 
             node.metadata["parent_id"] = parent_id 
             node.embedding = dense_emb[node.id_]
             for key in excluded_keys:
@@ -329,8 +328,6 @@ class DatabaseVectorsEngine:
                     publicationDate=each_record.get("publicationDate", "1200-05-02"),
                     year=each_record.get("year"),
                     authors=each_record.get("authors", []),
-                    references=each_record.get("references", {}),
-                    identifiers=each_record.get("identifiers", {}),
                     fulltext_s3_loc=each_record.get("fulltext_s3_loc", ""),
                     fulltext_to_be_parsed=each_record.get("fulltext_to_be_parsed", False)
                 )
@@ -375,7 +372,7 @@ class DatabaseVectorsEngine:
             logger.info(f"Analytics Upload is Unsuccessful.")
             return False   
 
-    async def batch_process_records_to_vectors(self, records, year, batch_size=1000):
+    async def batch_process_records_to_vectors(self, records, year, batch_size=100):
         """
         Processes records in batches asynchronously and collects the results.
 
@@ -413,7 +410,7 @@ class DatabaseVectorsEngine:
                 settings: Settings):
         
         self.settings = settings
-        self.num_workers = 8
+        self.num_workers = 10
         self.log_dict = []
 
         self.embed_model = TextEmbeddingsInference(

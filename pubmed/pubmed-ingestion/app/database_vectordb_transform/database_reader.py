@@ -179,10 +179,8 @@ class PubmedDatabaseReader:
             "publicationDate": details.get(self.settings.database_reader.parsed_record_publicationdate_key),
             "year": details.get(self.settings.database_reader.parsed_record_year_key),
             "authors": details.get(self.settings.database_reader.parsed_record_authors_key),
-            "references": {item['identifiers'].get('pubmed'): item['citation'] for item in details.get(self.settings.database_reader.parsed_record_references_key) or []},
-            "identifiers": {item['key']: item['value'] for item in details.get(self.settings.database_reader.parsed_record_identifiers_key) or []},
             "fulltext_s3_loc": fulltext_pmc_sources.get(id, ""),
-                "fulltext_to_be_parsed": str(id) in children_ids if fulltext_pmc_sources.get(id, "") else False #if the id is in the top nodes, then we should parse the fulltext later
+            "fulltext_to_be_parsed": str(id) in children_ids if fulltext_pmc_sources.get(id, "") else False #if the id is in the top nodes, then we should parse the fulltext later
             }
       
     async def collect_records_by_year(self,
