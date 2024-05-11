@@ -7,6 +7,7 @@ from sqlalchemy import create_engine, inspect
 from loguru import logger
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
+from tqdm.asyncio import tqdm
 
 from settings import Settings
 from utils.database_utils import run_sql
@@ -33,21 +34,6 @@ class PubmedDatabaseReader:
         """
         self.settings = settings
         self.engine = create_engine(self.settings.psql.connection.get_secret_value())
-
-        # Configurations extracted from settings for ease of use in methods
-        self.pubmed_percentiles_tbl = self.settings.database_reader.pubmed_percentiles_tbl
-        self.percentile_select_query = self.settings.database_reader.percentile_select_query
-        self.record_select_query = self.settings.database_reader.record_select_query
-        self.records_fetch_details = self.settings.database_reader.records_fetch_details
-        self.fulltext_fetch_query = self.settings.database_reader.fulltext_fetch_query
-        self.parsed_record_abstract_key = self.settings.database_reader.parsed_record_abstract_key
-        self.parsed_record_titles_key = self.settings.database_reader.parsed_record_titles_key
-        self.parsed_record_publicationDate_key = self.settings.database_reader.parsed_record_publicationDate_key
-        self.parsed_record_year_key = self.settings.database_reader.parsed_record_year_key
-        self.parsed_record_authors_key = self.settings.database_reader.parsed_record_authors_key
-        self.parsed_record_references_key = self.settings.database_reader.parsed_record_references_key
-        self.parsed_record_identifiers_key = self.settings.database_reader.parsed_record_identifiers_key
-
         self.processed_records = defaultdict(list)
         self.num_workers = 32
 
@@ -62,7 +48,7 @@ class PubmedDatabaseReader:
             Exception: Outputs an error message to the console if an exception occurs.
         """
         try:
-            exists = inspect(self.engine).has_table(self.pubmed_percentiles_tbl) 
+            exists = inspect(self.engine).has_table(self.settings.database_reader.pubmed_percentiles_tbl) 
             logger.info("check_pubmed_percentile_tbl. table exists: " + str(exists))
             return exists
         except Exception as e:
@@ -85,7 +71,7 @@ class PubmedDatabaseReader:
             # Fetch the count of records for the year 2021 with criteria resulting in a percentile of 80
             count = await get_percentile_count(2021, 20)
         """
-        query = self.percentile_select_query.format(year=year, percentile=100 - criteria)
+        query = self.settings.database_reader.percentile_select_query.format(year=year, percentile=100 - criteria)
         count = 0
         try:
             result = run_sql(self.engine, query)
@@ -112,7 +98,7 @@ class PubmedDatabaseReader:
             # Fetch records for the year 2021 with a citation count of 100
             record_ids = await get_records_by_year_criteria(2021, 100)
         """
-        query = self.record_select_query.format(year=year, citationcount=criteria)
+        query = self.settings.database_reader.record_select_query.format(year=year, citationcount=criteria)
         ids = []
         try:
             result = run_sql(self.engine, query)
@@ -188,13 +174,13 @@ class PubmedDatabaseReader:
         """
         self.processed_records[id] = {
             "id": id,
-            "abstract": ",".join([abstract["string"] for abstract in details.get(self.parsed_record_abstract_key)]),
-            "title": ",".join([abstract["string"] for abstract in details.get(self.parsed_record_titles_key)]),
-            "publicationDate": details.get(self.parsed_record_publicationDate_key),
-            "year": details.get(self.parsed_record_year_key),
-            "authors": details.get(self.parsed_record_authors_key),
-            "references": {item['identifiers'].get('pubmed'): item['citation'] for item in details.get(self.parsed_record_references_key) or []},
-            "identifiers": {item['key']: item['value'] for item in details.get(self.parsed_record_identifiers_key) or []},
+            "abstract": ",".join([abstract["string"] for abstract in details.get(self.settings.database_reader.parsed_record_abstract_key)]),
+            "title": ",".join([abstract["string"] for abstract in details.get(self.settings.database_reader.parsed_record_titles_key)]),
+            "publicationDate": details.get(self.settings.database_reader.parsed_record_publicationdate_key),
+            "year": details.get(self.settings.database_reader.parsed_record_year_key),
+            "authors": details.get(self.settings.database_reader.parsed_record_authors_key),
+            "references": {item['identifiers'].get('pubmed'): item['citation'] for item in details.get(self.settings.database_reader.parsed_record_references_key) or []},
+            "identifiers": {item['key']: item['value'] for item in details.get(self.settings.database_reader.parsed_record_identifiers_key) or []},
             "fulltext_s3_loc": fulltext_pmc_sources.get(id, ""),
                 "fulltext_to_be_parsed": str(id) in children_ids if fulltext_pmc_sources.get(id, "") else False #if the id is in the top nodes, then we should parse the fulltext later
             }
@@ -237,8 +223,8 @@ class PubmedDatabaseReader:
         logger.info(f"collect_records_by_year. Year: {year}. children_ids Count: {len(children_ids)}")
 
         parent_records, fulltext_pmc_sources = await asyncio.gather(
-            self.fetch_details(parents_ids, self.records_fetch_details, True),
-            self.fetch_details(parents_ids, self.fulltext_fetch_query, False, column="location", table="linktable")
+            self.fetch_details(parents_ids, self.settings.database_reader.records_fetch_details, True),
+            self.fetch_details(parents_ids, self.settings.database_reader.fulltext_fetch_query, False, column="location", table="linktable")
         )
 
         logger.info(f"collect_records_by_year. Year: {year}. parent_records Count: {len(parent_records)}")
@@ -250,9 +236,11 @@ class PubmedDatabaseReader:
         lock = asyncio.Semaphore(self.num_workers)
         
         # run the jobs while limiting the number of concurrent jobs to num_workers
-        for job in jobs:
+        async def run_job(job):
             async with lock:
                 await job
+
+        await tqdm.gather(*(run_job(job) for job in jobs))
         
         logger.info(f"collect_records_by_year. Year: {year}. processed_records Count: {len(self.processed_records)}")
         return self.processed_records

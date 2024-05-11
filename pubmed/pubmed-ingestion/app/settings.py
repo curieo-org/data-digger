@@ -60,7 +60,7 @@ class PubmedDatabaseReaderSettings(BaseSettings):
     fulltext_fetch_query: str = "SELECT pubmed, {column} FROM public.{table} where pubmed in ({ids})"
     parsed_record_abstract_key: str = "abstractText"
     parsed_record_titles_key: str = "titles"
-    parsed_record_publicationDate_key: str = "publicationDate"
+    parsed_record_publicationdate_key: str = "publicationDate"
     parsed_record_year_key: str = "year"
     parsed_record_authors_key: str = "authors"
     parsed_record_references_key: str = "references"

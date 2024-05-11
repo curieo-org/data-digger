@@ -1,23 +1,23 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: pubmed-ingestion-2023-p97-c97job
+  name: pubmed-ingestion-2022-p81-c94-job
 spec:
   template:
     metadata:
-      name: pubmed-ingestion-job
+      name: pubmed-ingestion-2022-p81-c94-job
     spec:
       containers:
       - name: pubmed-ingestion
-        image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ingestion:0.0.4
+        image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ingestion:0.0.7
         resources:
           requests:
             memory: "16Gi"
-            cpu: "6"
+            cpu: "2"
           limits:
             memory: "32Gi"
-            cpu: "8"
-        command: ["sh", "-c", "pip install poetry && poetry install && poetry run python app/main.py --year 2020 --parentcriteria 35 --childcriteria 80"]
+            cpu: "4"
+        command: ["sh", "-c", "poetry install && poetry run python app/main.py --year 2022 --parentcriteria 81 --childcriteria 94"]
         env:
           - name: DEBUG
             value: "true"

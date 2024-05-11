@@ -16,7 +16,7 @@ async def run_transform(commands: argparse.Namespace):
     logger.bind(special=True).info("Starting the INGESTION Process!!!")
     
     if await dbReader.check_pubmed_percentile_tbl():
-        if commands.parentcriteria < commands.childcriteria:
+        if commands.parentcriteria <= commands.childcriteria:
             records = await dbReader.collect_records_by_year(
                 year=commands.year, 
                 parent_criteria=commands.parentcriteria, 
@@ -42,9 +42,9 @@ def parse_args(commands: List[str] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Process records from PubMed database for a given year.", formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("-y", "--year", required=True, type=int, help="year to process record", default=2020)
-    parser.add_argument("-pc", "--parentcriteria", required=True, type=int, help="Parent Criteria to process", default=40)
-    parser.add_argument("-cc", "--childcriteria", required=True, type=int, help="Child Criteria to process", default=80)
+    parser.add_argument("-y", "--year", required=True, type=int, help="year to process record", default=2023)
+    parser.add_argument("-pc", "--parentcriteria", required=True, type=int, help="Parent Criteria to process", default=87)
+    parser.add_argument("-cc", "--childcriteria", required=True, type=int, help="Child Criteria to process", default=97)
     args, _ = parser.parse_known_args(args=commands)
     return args
     
