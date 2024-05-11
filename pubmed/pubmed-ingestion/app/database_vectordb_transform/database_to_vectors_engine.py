@@ -344,7 +344,8 @@ class DatabaseVectorsEngine:
 
     async def upload_analytics(
             self,
-            dict_to_upload: dict
+            dict_to_upload: dict,
+            year: int
     ) -> bool:
         """
         Uploads the analytics data to the specified S3 bucket.
@@ -363,20 +364,18 @@ class DatabaseVectorsEngine:
         Example of usage:
             obj.upload_analytics()
         """
-        timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-        with open(f"{timestamp}.json", 'w') as file:
-            json.dump(dict_to_upload, file, indent=4)
+        log_json = json.dumps(dict_to_upload)
         if upload_to_s3(
-            bucket_name=self.settings.jatsparser.bucket_name,
-            file_name=f"{timestamp}.json",
-            object_name=self.settings.d2vengine.s3_upload_obj):
+            bucket_name=self.settings.d2vengine.s3_analytics_bucket,
+            log_json=log_json,
+            year=year):
             logger.info(f"Analytics Upload is successful.")
             return True
         else:
             logger.info(f"Analytics Upload is Unsuccessful.")
             return False   
 
-    async def batch_process_records_to_vectors(self, records, batch_size=1000):
+    async def batch_process_records_to_vectors(self, records, year, batch_size=1000):
         """
         Processes records in batches asynchronously and collects the results.
 
@@ -387,6 +386,7 @@ class DatabaseVectorsEngine:
         Args:
             records (dict): A dictionary of records where the key is an identifier
                 and the value is the data to be processed.
+            year (int) : The Year of the data to be processed.
             batch_size (int): The number of records to process in each batch. Default is 10000.
 
         Returns:
@@ -405,7 +405,7 @@ class DatabaseVectorsEngine:
             batch_data = [records[key] for key in keys[start_index:end_index]]
             start_time = time.time()
             await self.process_batch_records(batch_data)
-            self.upload_analytics(self.log_dict)
+            await self.upload_analytics(self.log_dict, year)
             logger.info(f"Processed Batch size of {batch_size} in {time.time() - start_time:.2f}s")
         logger.info(f"Processed Completed!!!")       
 

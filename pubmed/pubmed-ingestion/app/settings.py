@@ -28,7 +28,7 @@ class DatabaseVectorsEngineSettings(BaseSettings):
     child_chunk_size: int = 512
     child_chunk_overlap: int = 30
     tree_depth: int = 2
-    s3_upload_obj: str = "vector-db-ingestion-details"
+    s3_analytics_bucket: str = "pubmed-ingestion-analytics"
 
 
 class QdrantSettings(BaseSettings):

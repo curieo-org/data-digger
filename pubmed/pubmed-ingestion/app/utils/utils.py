@@ -1,9 +1,8 @@
-import logging
 from pathlib import Path
 from enum import Enum
 from typing import List
 import boto3
-import httpx
+import datetime
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError 
 
 class BaseNodeTypeEnum(Enum):
@@ -36,17 +35,16 @@ def download_s3_file(s3_bucket, s3_object):
         except Exception as e:
             print(f"An error occurred: {e}")
 
-def upload_to_s3(bucket_name, file_name, object_name=None):
+def upload_to_s3(bucket_name, log_json, year):
     # If S3 object_name was not specified, use file_name
-    if object_name is None:
-        object_name = file_name
-
-    # Create an S3 client
-    s3_client = boto3.client('s3')
-
-    # Upload the file
+    s3_client = boto3.resource('s3')
+    timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+    file_name = f"{year}_{timestamp}.json"
+    s3object = s3_client.Object(bucket_name, file_name)
     try:
-        response = s3_client.upload_file(file_name, bucket_name, object_name)
+        s3object.put(
+            Body=(bytes(log_json.encode('UTF-8')))
+        )
     except Exception as e:
         print("Error uploading: ", e)
         return False

@@ -24,14 +24,13 @@ async def run_transform(commands: argparse.Namespace):
         else:
             logger.debug("Please look the criteria - Child Criteria should be always greater than Parent Criteria!!")
             return
-
     else:
         logger.debug("Database is not ready to read yet!!")
         return
     
     #process the retrieved records
     dve = DatabaseVectorsEngine(settings)
-    await dve.batch_process_records_to_vectors(records)
+    await dve.batch_process_records_to_vectors(records, commands.year)
 
 def parse_args(commands: List[str] = None) -> argparse.Namespace:
     """
@@ -42,9 +41,9 @@ def parse_args(commands: List[str] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Process records from PubMed database for a given year.", formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("-y", "--year", required=True, type=int, help="year to process record", default=2023)
-    parser.add_argument("-pc", "--parentcriteria", required=True, type=int, help="Parent Criteria to process", default=87)
-    parser.add_argument("-cc", "--childcriteria", required=True, type=int, help="Child Criteria to process", default=97)
+    parser.add_argument("-y", "--year", type=int, required=True, help="year to process record", default=2024)
+    parser.add_argument("-pc", "--parentcriteria", type=int, required=True, help="Parent Criteria to process", default=100)
+    parser.add_argument("-cc", "--childcriteria", type=int, required=True, help="Child Criteria to process", default=100)
     args, _ = parser.parse_known_args(args=commands)
     return args
     
