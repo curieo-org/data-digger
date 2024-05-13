@@ -63,6 +63,24 @@ class PubmedDatabaseReaderSettings(BaseSettings):
     parsed_record_publicationdate_key: str = "publicationDate"
     parsed_record_year_key: str = "year"
     parsed_record_authors_key: str = "authors"
+    pubmed_ingestion_log_queries: list[str] = [
+        '''
+            CREATE TABLE IF NOT EXISTS public.pubmed_ingestion_log
+            (
+                id SERIAL PRIMARY KEY,
+                pubmed_id INTEGER NOT NULL,
+                parent_id INTEGER NOT NULL,
+                parent_id_nodes_count INTEGER default 0,
+                children_nodes_count INTEGER default 0,
+                parsed_fulltext_json JSONB default '{}',
+                created_at timestamp default now(),
+                updated_at timestamp default now()
+            );
+        ''',
+        '''
+            CREATE INDEX ON public.pubmed_ingestion_log (pubmed_id);
+        '''
+    ]
 
 
 class PsqlSettings(BaseSettings):
