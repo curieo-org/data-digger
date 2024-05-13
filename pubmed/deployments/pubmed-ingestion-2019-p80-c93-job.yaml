@@ -9,7 +9,7 @@ spec:
     spec:
       containers:
       - name: pubmed-ingestion
-        image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ingestion:0.0.10
+        image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ingestion:0.0.12
         resources:
           requests:
             memory: "16Gi"

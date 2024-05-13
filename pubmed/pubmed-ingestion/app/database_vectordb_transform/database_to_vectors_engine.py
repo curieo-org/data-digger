@@ -128,7 +128,7 @@ class DatabaseVectorsEngine:
         """
         id_to_dense_embedding = {}
         dense_embeddings = await self.embed_model.aget_text_embedding_batch(
-            [node.get_content(metadata_mode="embed") for node in nodes], show_progress=True
+            [node.get_content(metadata_mode="embed") for node in nodes]
             )
         id_to_dense_embedding = {
             node.id_: dense_embedding for node, dense_embedding in zip(nodes, dense_embeddings)
@@ -222,9 +222,6 @@ class DatabaseVectorsEngine:
         parent_id = parent_nodes[0].id_
         #prepare all the parent nodes and children nodes(if any)
         all_cur_nodes = parent_nodes + children_nodes
-
-        logger.info(f"ainsert_single_record. parent_id: {parent_id}. parent_nodes_count: {len(parent_nodes)}")
-        logger.info(f"ainsert_single_record. parent_id: {parent_id}. children_nodes_count: {len(children_nodes)}")
         
         #call the embedding and splade embedding apis       
         dense_emb = await self.calculate_embeddings(nodes=all_cur_nodes)
@@ -291,6 +288,8 @@ class DatabaseVectorsEngine:
                 "parsed_fulltext_json": {} if len(children_nodes) == 0 else parsed_fulltext
             }
         )
+        logger.info(f"{id} : Uploaded - Points Count: {len(nodes_to_be_added)}")
+
 
     async def process_batch_records(self, records: list[defaultdict]) -> None:
         """
