@@ -1,16 +1,4 @@
 # pull official base image
-FROM python:3.11.8-slim
-
-# install system dependencies
-RUN apt-get update && apt-get -y install libpq-dev gcc git
-
-# install python dependencies
-COPY ./pyproject.toml /
-COPY ./poetry.lock /
-RUN pip install poetry
-RUN poetry config virtualenvs.create false
-RUN poetry install --compile
+FROM 698471419283.dkr.ecr.eu-central-1.amazonaws.com/curieo-python-base-cpu-img:latest
 
 COPY . .
-
-# CMD ["poetry", "run", "python", "app/main.py", "-y", "2024"]

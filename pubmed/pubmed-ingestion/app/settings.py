@@ -28,23 +28,24 @@ class DatabaseVectorsEngineSettings(BaseSettings):
     child_chunk_size: int = 512
     child_chunk_overlap: int = 30
     tree_depth: int = 2
+    s3_analytics_bucket: str = "pubmed-ingestion-analytics"
 
 
 class QdrantSettings(BaseSettings):
     api_port: int = 6333
-    api_url: str = "https://qdrant.dev.curieo.org"
+    api_url: str = "http://qdrant.qdrant.svc.cluster.local"
     collection_name: str = "pubmed_hybrid"
     api_key: SecretStr
 
 
 class EmbeddingSettings(BaseSettings):
-    api_url: str = "http://text-embedding.dev.curieo.org"
+    api_url: str = "http://text-embedding.dev.svc.cluster.local"
     api_key: SecretStr
     embed_batch_size: int = 4
 
 
 class SpladedocSettings(BaseSettings):
-    api_url: str = "http://text-splade-doc.dev.curieo.org"
+    api_url: str = "http://text-splade-doc.dev.svc.cluster.local"
     api_key: SecretStr
     embed_batch_size: int = 2
 
@@ -59,54 +60,9 @@ class PubmedDatabaseReaderSettings(BaseSettings):
     fulltext_fetch_query: str = "SELECT pubmed, {column} FROM public.{table} where pubmed in ({ids})"
     parsed_record_abstract_key: str = "abstractText"
     parsed_record_titles_key: str = "titles"
-    parsed_record_publicationDate_key: str = "publicationDate"
+    parsed_record_publicationdate_key: str = "publicationDate"
     parsed_record_year_key: str = "year"
     parsed_record_authors_key: str = "authors"
-    parsed_record_references_key: str = "references"
-    parsed_record_identifiers_key: str = "identifiers"
-
-    percentile_config: dict = {
-        2024 : {
-            "parent": 100,
-            "child": 100
-        },
-        2023 : {
-            "parent": 0.66,
-            "child": 0.33
-        },
-        2022 : {
-            "parent": 0.66,
-            "child": 0.33
-        },
-        2021 : {
-            "parent": 0.66,
-            "child": 0.33
-        },
-        2020 : {
-            "parent": 0.66,
-            "child": 0.33
-        },
-        2019 : {
-            "parent": 0.66,
-            "child": 0.33
-        },
-        2018 : {
-            "parent": 80,
-            "child": 95
-        },
-        2017 : {
-            "parent": 0.66,
-            "child": 0.33
-        },
-        2016 : {
-            "parent": 0.66,
-            "child": 0.33
-        },
-        2015 : {
-            "parent": 0.66,
-            "child": 0.33
-        }
-    }
 
 
 class PsqlSettings(BaseSettings):

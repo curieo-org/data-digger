@@ -1,9 +1,8 @@
-import logging
 from pathlib import Path
 from enum import Enum
 from typing import List
 import boto3
-import httpx
+import datetime
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError 
 
 class BaseNodeTypeEnum(Enum):
@@ -12,18 +11,6 @@ class BaseNodeTypeEnum(Enum):
     
 def get_project_root() -> Path:
     return Path(__file__).parent.parent
-
-def setup_logger(tag):
-    logger = logging.getLogger(tag)
-    logger.setLevel(logging.DEBUG)
-
-    handler: logging.StreamHandler = logging.StreamHandler()
-    formatter: logging.Formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    return logger
 
 def download_s3_file(s3_bucket, s3_object):
         s3 = boto3.client("s3")
@@ -47,3 +34,18 @@ def download_s3_file(s3_bucket, s3_object):
             print("Error: Partial AWS credentials found. Please ensure your credentials are complete.")
         except Exception as e:
             print(f"An error occurred: {e}")
+
+def upload_to_s3(bucket_name, log_json, year):
+    # If S3 object_name was not specified, use file_name
+    s3_client = boto3.resource('s3')
+    timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+    file_name = f"{year}_{timestamp}.json"
+    s3object = s3_client.Object(bucket_name, file_name)
+    try:
+        s3object.put(
+            Body=(bytes(log_json.encode('UTF-8')))
+        )
+    except Exception as e:
+        print("Error uploading: ", e)
+        return False
+    return True
