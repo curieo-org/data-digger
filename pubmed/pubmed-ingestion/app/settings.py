@@ -68,8 +68,8 @@ class PubmedDatabaseReaderSettings(BaseSettings):
             CREATE TABLE IF NOT EXISTS pubmed_ingestion_log
             (
                 id SERIAL PRIMARY KEY,
-                pubmed_id INTEGER NOT NULL,
-                parent_id INTEGER NOT NULL,
+                pubmed_id BIGINT NOT NULL,
+                parent_id VARCHAR(255) NOT NULL,
                 parent_id_nodes_count INTEGER default 0,
                 children_nodes_count INTEGER default 0,
                 parsed_fulltext_json JSONB default '{}',
