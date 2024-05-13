@@ -7,13 +7,14 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": false
+            "justMyCode": false,
+            "args": ["2024"]
         },
         {
             "name": "Debug My Script",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/cli.py",
+            "program": "${workspaceFolder}/app/main.py",
             "console": "integratedTerminal"
         }
     ]
