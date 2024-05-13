@@ -65,7 +65,7 @@ class PubmedDatabaseReaderSettings(BaseSettings):
     parsed_record_authors_key: str = "authors"
     pubmed_ingestion_log_queries: list[str] = [
         '''
-            CREATE TABLE IF NOT EXISTS public.pubmed_ingestion_log
+            CREATE TABLE IF NOT EXISTS pubmed_ingestion_log
             (
                 id SERIAL PRIMARY KEY,
                 pubmed_id INTEGER NOT NULL,
@@ -78,7 +78,10 @@ class PubmedDatabaseReaderSettings(BaseSettings):
             );
         ''',
         '''
-            CREATE INDEX ON public.pubmed_ingestion_log (pubmed_id);
+            CREATE INDEX IF NOT EXISTS pubmed_ingestion_log_pubmed_id ON pubmed_ingestion_log (pubmed_id);
+        ''',
+        '''
+            CREATE INDEX IF NOT EXISTS pubmed_ingestion_log_parent_id ON pubmed_ingestion_log (parent_id);
         '''
     ]
 
