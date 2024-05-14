@@ -20,35 +20,35 @@ spec:
         env:
           - name: ENVIRONMENT
             value: "prod"
-          - name: POSTGRES__DBNAME
+          - name: POSTGRES__DATABASE
             valueFrom:
               configMapKeyRef:
                 name: pubmed-datadigger-ranking-config
-                key: POSTGRES_DBNAME
+                key: POSTGRES__DATABASE
                 optional: false
-          - name: POSTGRES__USER
+          - name: POSTGRES__USERNAME
             valueFrom:
               configMapKeyRef:
                 name: pubmed-datadigger-ranking-config
-                key: POSTGRES_USER
+                key: POSTGRES__USERNAME
                 optional: false
           - name: POSTGRES__PASSWORD
             valueFrom:
               configMapKeyRef:
                 name: pubmed-datadigger-ranking-config
-                key: POSTGRES_PASSWORD
+                key: POSTGRES__PASSWORD
                 optional: false
           - name: POSTGRES__HOST
             valueFrom:
               configMapKeyRef:
                 name: pubmed-datadigger-ranking-config
-                key: POSTGRES_HOST
+                key: POSTGRES__HOST
                 optional: false
           - name: POSTGRES__PORT
             valueFrom:
               configMapKeyRef:
                 name: pubmed-datadigger-ranking-config
-                key: POSTGRES_PORT
+                key: POSTGRES__PORT
       restartPolicy: Never
       nodeSelector:
         role: large-workloads

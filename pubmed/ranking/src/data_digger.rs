@@ -3,6 +3,7 @@ use deadpool_postgres::Pool;
 use futures_util::{pin_mut, TryStreamExt};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use tokio_postgres::types::ToSql;
 
 pub struct CitationCount {
     pub id: String,
@@ -32,14 +33,17 @@ pub async fn read_citation_counts(
     db_pool: &Pool,
     table: &str,
 ) -> Result<HashMap<i32, Vec<CitationCount>>> {
-    let query = "SELECT identifier, citationcount, year FROM $1";
+    let query = format!(
+        "SELECT CAST(identifier AS VARCHAR(255)) as identifier, citationcount, year FROM {table}"
+    );
     println!("Issuing query {query}");
 
     let mut map: HashMap<i32, Vec<CitationCount>> = HashMap::new();
     let mut record_count: u32 = 0;
 
     let client = db_pool.get().await?;
-    let result_stream = client.query_raw(query, &[table]).await?;
+    let params: [&(dyn ToSql + Sync); 0] = [];
+    let result_stream = client.query_raw(query.as_str(), params).await?;
     pin_mut!(result_stream);
 
     while let Some(row) = result_stream.try_next().await? {

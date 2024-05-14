@@ -23,6 +23,8 @@ RUN cargo build --release --bin ranking
 FROM debian:bookworm-slim AS runtime
 WORKDIR app
 COPY sql sql
+COPY config config
+COPY ca-certificates ca-certificates
 COPY --from=builder /app/target/release/ranking /usr/local/bin
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends openssl \
