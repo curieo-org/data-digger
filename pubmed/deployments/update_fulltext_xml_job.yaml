@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pubmed-fulltext-xml-job
+spec:
+  template:
+    metadata:
+      name: pubmed-fulltext-xml-job
+    spec:
+      containers:
+      - name: pubmed-fulltext-xml
+        image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-fulltext-xml:1.0
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+        command: ["sh", "-c", "/usr/local/bin/script.sh"]
+      restartPolicy: OnFailure
