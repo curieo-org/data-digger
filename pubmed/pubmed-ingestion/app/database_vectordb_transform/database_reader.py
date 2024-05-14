@@ -37,6 +37,12 @@ class PubmedDatabaseReader:
         self.processed_records = defaultdict(list)
         self.num_workers = 32
 
+        self.create_logs_table()
+
+    def create_logs_table(self) -> bool:
+        for query in self.settings.database_reader.pubmed_ingestion_log_queries:
+            run_sql(self.engine, query)
+
     async def check_pubmed_percentile_tbl(self) -> bool:
         """
         Asynchronously checks if the 'pubmed_percentiles_tbl' exists in the database.
