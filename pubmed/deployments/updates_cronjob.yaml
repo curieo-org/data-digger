@@ -18,15 +18,15 @@ spec:
                 memory: "8Gi"
                 cpu: "4"
               limits:
-                memory: "8Gi"
-                cpu: "4"
+                memory: "16Gi"
+                cpu: "6"
             command: ["/bin/sh"]
             args:
             - -c
             - >-
               ./data-digger-etl/scripts/load-pubmed.sh pubmed-updates-2-postgres &&
-              ./data-digger-etl/scripts/load-pubmed.sh pubmedcentral-s3-seed &&
-              ./data-digger-etl/scripts/load-pubmed.sh pubmedcentral-s3-synchronize
+              ./data-digger-etl/scripts/load-pubmed.sh pubmedcentral-bulk-comm &&
+              ./data-digger-etl/scripts/load-pubmed.sh pubmedcentral-bulk-noncomm
             env:
               - name: ENVIRONMENT
                 value: "production"
