@@ -1,13 +1,39 @@
+from collections import defaultdict
 from pathlib import Path
 from enum import Enum
 from typing import List
 import boto3
 import datetime
+import json
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError 
 
 class BaseNodeTypeEnum(Enum):
     PARENT = "parent"
     CHILD = "child"
+
+
+class ProcessingResultEnum(Enum):
+    VECTORDB_FAILED = -1
+    PMC_RECORD_PARSING_FAILED = -2
+    PMC_RECORD_NOT_FOUND = -3
+    ID_ABSTRACT_BAD_DATA = -4
+    SUCCESS = 1
+    ONPROGRESS = 2
+
+def update_result_status(pubmed_id: int,
+                         status:int,
+                         parent_id_nodes_count: int = 0,
+                         parent_id: str = "",
+                         children_nodes_count: int = 0,
+                         parsed_fulltext: defaultdict = json.dumps({})) -> defaultdict:
+        ip_dict = defaultdict()
+        ip_dict["pubmed_id"] = pubmed_id
+        ip_dict["status"] = status
+        ip_dict["parent_id_nodes_count"] = parent_id_nodes_count
+        ip_dict["parent_id"] = parent_id
+        ip_dict["children_nodes_count"] = children_nodes_count
+        ip_dict["parsed_fulltext_json"] = json.dumps(parsed_fulltext, ensure_ascii=True)
+        return ip_dict
     
 def get_project_root() -> Path:
     return Path(__file__).parent.parent

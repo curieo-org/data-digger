@@ -69,7 +69,8 @@ class PubmedDatabaseReaderSettings(BaseSettings):
             (
                 id SERIAL PRIMARY KEY,
                 pubmed_id BIGINT NOT NULL,
-                parent_id VARCHAR(255) NOT NULL,
+				status INTEGER default 0,
+                parent_id VARCHAR(255) default '',
                 parent_id_nodes_count INTEGER default 0,
                 children_nodes_count INTEGER default 0,
                 parsed_fulltext_json JSONB default '{}',
@@ -84,7 +85,18 @@ class PubmedDatabaseReaderSettings(BaseSettings):
             CREATE INDEX IF NOT EXISTS pubmed_ingestion_log_parent_id ON pubmed_ingestion_log (parent_id);
         '''
     ]
-
+    pubmed_citation_ingested_log_filter: str = (
+        "SELECT cc.identifier FROM public.citationcounts cc "
+        "LEFT JOIN public.pubmed_ingestion_log pil ON cc.identifier = pil.pubmed_id "
+        "WHERE pil.pubmed_id IS NULL AND cc.year = {year} AND cc.citationcount >= {citationcount}"
+    )
+    pubmed_citation_ingested_log_filter_children_push_only: str = (
+        "SELECT cc.identifier,pil.parent_id FROM public.citationcounts cc "
+        "INNER JOIN public.pubmed_ingestion_log pil ON cc.identifier = pil.pubmed_id "
+        "WHERE pil.children_nodes_count != 0 AND cc.year = {year} AND cc.citationcount >= {citationcount}"
+    )
+    pubmed_ingestion_log: str = "pubmed_ingestion_log"
+    
 
 class PsqlSettings(BaseSettings):
     connection: SecretStr
