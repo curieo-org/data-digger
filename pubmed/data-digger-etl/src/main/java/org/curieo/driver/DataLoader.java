@@ -4,7 +4,6 @@ import static org.curieo.driver.OptionDefinitions.*;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.*;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
@@ -49,8 +48,7 @@ public record DataLoader(
             .addOption(
                 new Option(
                     "y", "source type", true, "source type - can currently only be \"pubmed\""))
-            .addOption(
-                new Option("d", "data-set", true, "data set to load (defined in credentials)"))
+            .addOption(dataSetOption)
             .addOption(previousJobOption)
             .addOption(maxFiles)
             .addOption(new Option("f", "full-records", false, "full records to sql database"))
@@ -61,11 +59,13 @@ public record DataLoader(
     CommandLineParser parser = new DefaultParser();
     CommandLine parse = parser.parse(options, args);
     Config config = new Config();
-    String job = StringUtils.requireNonEmpty(parse.getOptionValue('d', "pubmed-baseline"));
+    String job =
+        StringUtils.requireNonEmpty(parse.getOptionValue(dataSetOption, "pubmed-baseline"));
     String previousJob = parse.getOptionValue(previousJobOption);
     String sourceType = parse.getOptionValue('y', SourceReader.PUBMED);
     int maximumNumberOfRecords = getIntOption(parse, maxFiles).orElse(Integer.MAX_VALUE);
     int batchSize = getIntOption(parse, batchSizeOption).orElse(SQLSinkFactory.DEFAULT_BATCH_SIZE);
+    String tasksTable = "tasks";
 
     PostgreSQLClient postgreSQLClient = PostgreSQLClient.getPostgreSQLClient(config);
 
@@ -82,7 +82,7 @@ public record DataLoader(
     SQLSinkFactory sqlSinkFactory =
         new SQLSinkFactory(postgreSQLClient, batchSize, parse.hasOption(useKeysOption));
 
-    Sink<TS<PubmedTask>> tasksSink = sqlSinkFactory.createTasksSink();
+    Sink<TS<PubmedTask>> tasksSink = sqlSinkFactory.createTasksSink(tasksTable);
     Sink<Record> tsink = new Sink.Noop<>();
 
     // store authorships
@@ -139,7 +139,7 @@ public record DataLoader(
 
     try (FTPProcessing ftpProcessing = new FTPProcessing(config)) {
       Map<String, TS<PubmedTask>> tasks =
-          PostgreSQLClient.retrieveJobTasks(postgreSQLClient.getConnection(), job);
+          PostgreSQLClient.retrieveJobTasks(postgreSQLClient.getConnection(), tasksTable, job);
 
       ftpProcessing.processRemoteDirectory(
           job,

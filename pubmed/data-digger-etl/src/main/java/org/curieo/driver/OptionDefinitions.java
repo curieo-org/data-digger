@@ -34,7 +34,6 @@ public class OptionDefinitions {
           .longOpt("bulk-processing")
           .hasArg()
           .desc("a step in the bulk processing (1, 2 or 3)")
-          .type(Integer.class)
           .build();
 
   static Option executeQueryOption =
@@ -53,6 +52,7 @@ public class OptionDefinitions {
           .desc("execute these queries (in files) before starting the job")
           .build();
 
+  static Option dataSetOption = new Option("d", "data-set", true, "data set to load");
   static Option postprocessQueryOption =
       Option.builder()
           .option("v")

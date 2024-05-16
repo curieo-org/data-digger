@@ -1,6 +1,7 @@
 package org.curieo.sources;
 
 import static org.apache.commons.lang3.StringUtils.rightPad;
+import static org.curieo.utils.StringUtils.joinPath;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -13,9 +14,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
+import org.apache.commons.compress.utils.IOUtils;
 import org.apache.commons.io.FileUtils;
+import org.curieo.consumer.S3Helpers;
+import software.amazon.awssdk.services.s3.S3Client;
 
 // https://www.baeldung.com/java-extract-tar-file
 public class TarExtractor {
@@ -75,5 +80,21 @@ public class TarExtractor {
       }
     }
     return files;
+  }
+
+  public static void untarToS3(File file, S3Client s3, String bucket, String basePath, boolean gzip)
+      throws IOException {
+    try (FileInputStream fis = new FileInputStream(file);
+        BufferedInputStream inputStream = new BufferedInputStream(fis);
+        TarArchiveInputStream tar =
+            new TarArchiveInputStream(
+                gzip ? new GzipCompressorInputStream(inputStream) : inputStream)) {
+      TarArchiveEntry entry;
+      while ((entry = (TarArchiveEntry) tar.getNextEntry()) != null) {
+        String remotePath = joinPath(basePath, entry.getName());
+        byte[] content = IOUtils.toByteArray(tar);
+        S3Helpers.putObject(s3, content, bucket, remotePath);
+      }
+    }
   }
 }

@@ -40,6 +40,30 @@ case $1 in
         $CMD $ARGS
     ;;
 
+    # PMC bulk comm folder
+    pubmedcentral-bulk-comm)
+        echo "Pubmed Central Bulk"
+        CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
+        ARGS="--bulk-processing comm --job-table-name pmctasks"
+        $CMD $ARGS
+    ;;
+
+    # PMC bulk noncomm folder
+    pubmedcentral-bulk-noncomm)
+        echo "Pubmed Central Bulk"
+        CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
+        ARGS="--bulk-processing noncomm --job-table-name pmctasks"
+        $CMD $ARGS
+    ;;
+
+    # PMC bulk other folder
+    pubmedcentral-bulk-other)
+        echo "Pubmed Central Bulk"
+        CMD="java -cp $JAR -Xmx64G org.curieo.driver.DataLoaderPMC"
+        ARGS="--bulk-processing other --job-table-name pmctasks"
+        $CMD $ARGS
+    ;;
+
     # retrieve pubmed central full text, seeded by the "linktable" produced during a Pubmed Run
     # the seed queries can (and must) change
     pubmedcentral-s3-seed)

@@ -152,6 +152,10 @@
             </exclusion>
         </exclusions>
     </dependency>
+	<dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>s3-transfer-manager</artifactId>
+   </dependency>
 	<!--  Required for identity center authentication. -->
     <dependency>
         <groupId>software.amazon.awssdk</groupId>

@@ -12,6 +12,7 @@ import org.curieo.model.FullTextRecord;
 import org.curieo.model.FullTextTask;
 import org.curieo.model.LinkedField;
 import org.curieo.model.Metadata;
+import org.curieo.model.PMCLocation;
 import org.curieo.model.PubmedTask;
 import org.curieo.model.Reference;
 import org.curieo.model.ReferenceType;
@@ -24,7 +25,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int IDENTIFIER_LENGTH = 100;
 
-  public Sink<TS<PubmedTask>> createTasksSink() throws SQLException {
+  public Sink<TS<PubmedTask>> createTasksSink(String tableName) throws SQLException {
 
     FieldSpec name =
         FieldSpec.builder().field("name").type(ExtractType.String).size(60).nullable(false).build();
@@ -35,7 +36,7 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
 
     TableSpec specification =
         TableSpec.of(
-            "tasks",
+            tableName,
             List.of(name, state, groupName, FieldSpec.timestamp("timestamp")),
             CompositeUniqueKey.of(name, groupName));
 
@@ -238,6 +239,45 @@ public record SQLSinkFactory(PostgreSQLClient psqlClient, int batchSize, boolean
     extracts.add(fieldSpecs.get(0).extractString(FullTextRecord::getIdentifier));
     extracts.add(fieldSpecs.get(1).extractInt(FullTextRecord::getYear));
     extracts.add(fieldSpecs.get(2).extractString(FullTextRecord::getContent));
+
+    return createAbstractSink(extracts, insert, batchSize);
+  }
+
+  public Sink<PMCLocation> createPMCRecordSink(String tableName) throws SQLException {
+    /*
+    	 *
+    String container; // tar.gz blob file that contains this record
+    //Article File	Article Citation	AccessionID	LastUpdated (YYYY-MM-DD HH:MM:SS)	PMID	License	Retracted
+    String articleFile; // path *within* the tar.gz file that contains this record
+    String articleCitation;
+    String accessionId;
+    Timestamp lastUpdated;
+    String pmId;
+    String license;
+    String retracted;
+    	 */
+    List<FieldSpec> fieldSpecs =
+        Arrays.asList(
+            new FieldSpec("container", ExtractType.String, 30, useKeys),
+            new FieldSpec("articlefile", ExtractType.String, 100),
+            new FieldSpec("articlecitation", ExtractType.String, 200),
+            new FieldSpec("pmcId", ExtractType.String, 30),
+            new FieldSpec("pmid", ExtractType.BigInteger),
+            new FieldSpec("lastupdate", ExtractType.Timestamp),
+            new FieldSpec("license", ExtractType.String, 30),
+            new FieldSpec("retracted", ExtractType.String, 5));
+    createTable(tableName, fieldSpecs);
+    PreparedStatement insert = insertStatement(tableName, fieldSpecs);
+
+    List<Extract<PMCLocation>> extracts = new ArrayList<>();
+    extracts.add(fieldSpecs.get(0).extractString(PMCLocation::getContainer));
+    extracts.add(fieldSpecs.get(1).extractString(PMCLocation::getArticleFile));
+    extracts.add(fieldSpecs.get(2).extractString(PMCLocation::getArticleCitation));
+    extracts.add(fieldSpecs.get(3).extractString(PMCLocation::getPmcId));
+    extracts.add(fieldSpecs.get(4).extractLong(PMCLocation::getPmId));
+    extracts.add(fieldSpecs.get(5).extractTimestamp(PMCLocation::getLastUpdated));
+    extracts.add(fieldSpecs.get(6).extractString(PMCLocation::getLicense));
+    extracts.add(fieldSpecs.get(7).extractString(PMCLocation::getRetracted));
 
     return createAbstractSink(extracts, insert, batchSize);
   }

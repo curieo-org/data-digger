@@ -1,59 +1,62 @@
 apiVersion: batch/v1
-kind: Job
+kind: CronJob
 metadata:
   name: pubmed-ranking-job
 spec:
-  template:
-    metadata:
-      name: pubmed-ranking-job
+  schedule: "0 12 * * *"
+  jobTemplate:
     spec:
-      containers:
-      - name: pubmed-ranking-job
-        image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ranking:latest
-        resources:
-          requests:
-            memory: "8Gi"
-            cpu: "4"
-          limits:
-            memory: "16Gi"
-            cpu: "6"
-        env:
-          - name: ENVIRONMENT
-            value: "prod"
-          - name: POSTGRES__DBNAME
-            valueFrom:
-              configMapKeyRef:
-                name: pubmed-datadigger-ranking-config
-                key: POSTGRES_DBNAME
-                optional: false
-          - name: POSTGRES__USER
-            valueFrom:
-              configMapKeyRef:
-                name: pubmed-datadigger-ranking-config
-                key: POSTGRES_USER
-                optional: false
-          - name: POSTGRES__PASSWORD
-            valueFrom:
-              configMapKeyRef:
-                name: pubmed-datadigger-ranking-config
-                key: POSTGRES_PASSWORD
-                optional: false
-          - name: POSTGRES__HOST
-            valueFrom:
-              configMapKeyRef:
-                name: pubmed-datadigger-ranking-config
-                key: POSTGRES_HOST
-                optional: false
-          - name: POSTGRES__PORT
-            valueFrom:
-              configMapKeyRef:
-                name: pubmed-datadigger-ranking-config
-                key: POSTGRES_PORT
-      restartPolicy: Never
-      nodeSelector:
-        role: large-workloads
-      tolerations:
-      - key: "type"
-        operator: "Equal"
-        value: "large-workloads"
-        effect: "NoSchedule"
+      template:
+        metadata:
+          name: pubmed-ranking-job
+        spec:
+          containers:
+          - name: pubmed-ranking-job
+            image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ranking:latest
+            resources:
+              requests:
+                memory: "4Gi"
+                cpu: "2"
+              limits:
+                memory: "8Gi"
+                cpu: "4"
+            env:
+              - name: ENVIRONMENT
+                value: "prod"
+              - name: POSTGRES__DATABASE
+                valueFrom:
+                  configMapKeyRef:
+                    name: pubmed-datadigger-ranking-config
+                    key: POSTGRES__DATABASE
+                    optional: false
+              - name: POSTGRES__USERNAME
+                valueFrom:
+                  configMapKeyRef:
+                    name: pubmed-datadigger-ranking-config
+                    key: POSTGRES__USERNAME
+                    optional: false
+              - name: POSTGRES__PASSWORD
+                valueFrom:
+                  configMapKeyRef:
+                    name: pubmed-datadigger-ranking-config
+                    key: POSTGRES__PASSWORD
+                    optional: false
+              - name: POSTGRES__HOST
+                valueFrom:
+                  configMapKeyRef:
+                    name: pubmed-datadigger-ranking-config
+                    key: POSTGRES__HOST
+                    optional: false
+              - name: POSTGRES__PORT
+                valueFrom:
+                  configMapKeyRef:
+                    name: pubmed-datadigger-ranking-config
+                    key: POSTGRES__PORT
+          restartPolicy: OnFailure
+          nodeSelector:
+            role: large-workloads
+          tolerations:
+          - key: "type"
+            operator: "Equal"
+            value: "large-workloads"
+            effect: "NoSchedule"

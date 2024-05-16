@@ -148,32 +148,26 @@ We execute the download in 2 steps:
 
 ##### step &#9312;
 
-First we (daily) download any new csv files, keeping track in a regular `tasks` table in the `postgres` database of the files we have seen and not seen. The tar files we have seen we upload to S3 as a whole.
+First we (daily) synchronize a regular `tasks`  table with the remote files.
+Remote files come in pairs, xxx.filelist.csv and xxx.tar.gz. The .csv file is a listing of the contents of the .tar.gz file. 
 
 ##### step &#9313;
+We deal with pairs of (index, content) files as follows (these two processes happen in parallel)
 
-After we synchronize on bulk file (`tar.gz`) level, we parse the csv files and dump the entire contents of these files into the `pmc_origin` table. This table contains both the filename of origin (which is _not_ in the CSV file itself but rather the prefix of that file + `.tgz`) _and_ the relative path of the PMC record (this _is_ in the CSV file).
+1. we download csv and store in DB as 'pmc_location' table, which doubles as a task tracker table; delete the csv.
+2. we download tar.gz
+
+after both these steps have completed we can (a) delete the csv (b) go through the `pmc_location` for each pmc record, extract from the tar.gz and upload.
+
+During the downloads of the larger bulk files (`tar.gz`), we parse the csv files and dump the entire contents of these files into the `pmc_location` table. This table contains both the filename of origin (which is _not_ in the CSV file itself but rather the prefix of that file + `.tgz`) _and_ the relative path of the PMC record (this _is_ in the CSV file).
 Since there may be multiple versions for each PMC record we simply dump and defer decision on download/not download to a later stage.
 
 ##### step &#9314;
 
-Then we (daily) look at the `pmc_origin` table and add the following to the `full_text_location` table:
+Then we (daily) look at the `pmc_location` table and update the following to the `full_text_location` table:
 
-* we update the records with PMCIDs for which there are _newer_ origin files available in `pmc_origin` and reset the status to 'TODO'
-* we add records that have a PMCID in `pmc_origin` but not in `full-text-location`
-
-Then we process the `full-text-location` table in the following way:
-
-* for all filename in `SELECT DISTINCT filename FROM full_text_location`
-	`WHERE status=TODO` do:
-	* download filename to BIGTAR
-	* for all pmcid, path\_in\_file in `SELECT f.pmcid, c.path_in_file `
-	`FROM pmc_origin c JOIN full_text_location f `
-	`ON f.pmcid=c.pmcid WHERE filename=filename AND status=TODO` do:
-		* extract xml from BIGTAR
-		* upload xml to S3
-		* update record in `full_text_location`
-
+* we update the records with PMCIDs for which there are _newer_ origin files available in `pmc_location`
+* we add records that have a PMCID in `pmc_location` but not in `full-text-location`
 
 Doing this will result in continous up-to-date full text repository on S3. 
 All tables must be synchronized with remote tables on S3. If there are yet other options to acquire more full text, we need to synchronize these (avoid double downloads) with these tables.
