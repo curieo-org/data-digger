@@ -1,6 +1,6 @@
 import asyncio
 from collections import defaultdict
-from typing import List
+from typing import List, Union
 from sqlalchemy import create_engine
 from loguru import logger
 from tqdm import tqdm
@@ -122,17 +122,17 @@ class ProcessNodes:
             result.append(node)
         return result
 
-    """
-    This function downloads text content from an S3 bucket, parses the text to extract meaningful
-    sections, and then applies transformations to generate child nodes.
-
-    Parameters:
-        record
-        s3_object (str): The S3 object key from which the text content is downloaded.
-    """
     async def process_single_record(self,
-                                    record: defaultdict,
+                                    record: Union[tuple, dict],
                                     only_children_push: bool = False):
+        """
+        This function downloads text content from an S3 bucket, parses the text to extract meaningful
+        sections, and then applies transformations to generate child nodes.
+
+        Parameters:
+            record
+            only_children_push (bool): push the children
+        """
         children_nodes = []
         parent_nodes = []
         cur_children_dict = defaultdict(list)
@@ -172,6 +172,11 @@ class ProcessNodes:
             if self.fulltext_pmc_sources.get(id):
                 s3_loc = "bulk/" + self.fulltext_pmc_sources.get(id)
                 fulltext_content = download_s3_file(self.settings.jatsparser.bucket_name, s3_object=s3_loc)
+
+                # here we compute the clusters
+                # then for each cluster we compute the centroids
+                # we push the children to the PG database
+                # we push the cluster to the cluster vector DB
                 if fulltext_content:
                     cur_children_dict, parsed_fulltext = await self.generate_children_nodes(fulltext_content, s3_loc.split("/")[-1])
                     children_nodes = [item for sublist in cur_children_dict.values() for item in sublist]
