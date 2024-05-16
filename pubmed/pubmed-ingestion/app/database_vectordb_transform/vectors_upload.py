@@ -16,6 +16,12 @@ logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} 
 
 class VectorsUpload:
 
+    def average_child_sparse_vectors(
+            self,
+            cluster,
+        ):
+        pass
+
     def sparse_doc_vectors(
             self,
             texts: List[str],
@@ -42,7 +48,7 @@ class VectorsUpload:
     def __init__(self,
                 settings: Settings):
         """
-        Initializes the PubmedDatabaseReader with necessary settings and configurations.
+        Initializes the VectorsUpload with necessary settings and configurations.
         
         Args:
             settings (Settings): Contains all necessary database configurations.
@@ -70,12 +76,21 @@ class VectorsUpload:
             https=False
             )   
 
-        self.vector_store = QdrantVectorStore(
+        self.parent_vector_store = QdrantVectorStore(
             client=self.client,
-            collection_name=self.settings.qdrant.collection_name, 
+            collection_name=self.settings.vector_store_parent.collection_name, 
             sparse_doc_fn=self.sparse_doc_vectors,
             enable_hybrid=True,
             )
+        
+        self.cluster_vector_store = QdrantVectorStore(
+            client=self.client,
+            collection_name=self.settings.vector_store_cluster.collection_name, 
+            sparse_doc_fn=self.average_child_sparse_vectors,
+            enable_hybrid=True,
+            )
+        
+        self.child_data_database = ## PSQL DATABASE
         
         self.storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
         self.index = VectorStoreIndex(

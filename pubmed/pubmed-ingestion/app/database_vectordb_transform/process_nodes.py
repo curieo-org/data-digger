@@ -203,7 +203,7 @@ class ProcessNodes:
                 )
 
         #all nodes operation
-        nodes = await self.tn.tree_transformation(parent_nodes, children_nodes, cur_children_dict)
+        nodes, clusters = await self.tn.tree_transformation(parent_nodes, children_nodes, cur_children_dict)
         nodes_ready_to_b_added = await self.node_metadata_transform(parent_id, id, nodes, record, only_children_push)
 
         try:

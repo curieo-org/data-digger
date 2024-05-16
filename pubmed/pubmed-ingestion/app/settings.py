@@ -111,6 +111,7 @@ class Settings(BaseSettings):
 
     vector_store_parent: QdrantSettings
     vector_store_cluster: QdrantSettings
+    child_storage_table : str
     jatsparser: JatsParserSettings = JatsParserSettings()
     embedding : EmbeddingSettings
     spladedoc: SpladedocSettings
@@ -118,3 +119,4 @@ class Settings(BaseSettings):
     d2vengine: DatabaseVectorsEngineSettings = DatabaseVectorsEngineSettings()
     psql: PsqlSettings
     psql_child: PsqlSettings
+
