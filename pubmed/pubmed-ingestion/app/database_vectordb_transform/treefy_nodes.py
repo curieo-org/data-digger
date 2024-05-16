@@ -51,27 +51,26 @@ class TreefyNodes:
                     cur_node.metadata["node_level"] = BaseNodeTypeEnum.PARENT.value
                     cur_node.embedding = dense_emb[cur_node.id_]
                     nodes_to_be_added.append(cur_node)
-            #set children nodes
-            elif cur_level == 0:
-                if len(children_nodes) > 0:
-                    #cluster create 
-                    for k, children_section_nodes in cur_children_dict.items():                 
-                        children_section_nodes_ids = [node.id_ for node in children_section_nodes]
-                        cur_id_to_dense_embedding = {k: v for k, v in dense_emb.items() if k in children_section_nodes_ids}
+            #set children nodes - if any
+            elif cur_level == 0 and len(children_nodes) > 0:
+                #cluster create 
+                for children_section_nodes in cur_children_dict.values():                 
+                    children_section_nodes_ids = [node.id_ for node in children_section_nodes]
+                    cur_id_to_dense_embedding = {k: v for k, v in dense_emb.items() if k in children_section_nodes_ids}
 
-                        if len(children_section_nodes):
-                            nodes_per_cluster = get_clusters(
-                                children_section_nodes,
-                                cur_id_to_dense_embedding
-                            )
-                            for cluster, summary_doc in zip(nodes_per_cluster, children_section_nodes):
-                                current_cluster_id = str(uuid.uuid4())
-                                for cur_node in cluster:
-                                    cur_node.metadata["level"] = 0
-                                    cur_node.metadata["node_level"] = BaseNodeTypeEnum.CHILD.value
-                                    cur_node.metadata["cluster_id"] = current_cluster_id
-                                    cur_node.embedding = dense_emb[cur_node.id_]
-                                    nodes_to_be_added.append(cur_node)
+                    if len(children_section_nodes):
+                        nodes_per_cluster = get_clusters(
+                            children_section_nodes,
+                            cur_id_to_dense_embedding
+                        )
+                        for cluster, summary_doc in zip(nodes_per_cluster, children_section_nodes):
+                            current_cluster_id = str(uuid.uuid4())
+                            for cur_node in cluster:
+                                cur_node.metadata["level"] = 0
+                                cur_node.metadata["node_level"] = BaseNodeTypeEnum.CHILD.value
+                                cur_node.metadata["cluster_id"] = current_cluster_id
+                                cur_node.embedding = dense_emb[cur_node.id_]
+                                nodes_to_be_added.append(cur_node)
             
             cur_level = cur_level - 1
         return nodes_to_be_added

@@ -72,16 +72,14 @@ class ProcessNodes:
             self,
             fulltext_content: str,
             file_name: str
-    ):
+    ) -> defaultdict:
         """
-        Asynchronously generates children nodes from a specified S3 object's text content by parsing it
+        Asynchronously generates children nodes from a specified JATS text content by parsing it
         and applying transformations.
 
-        This function downloads text content from an S3 bucket, parses the text to extract meaningful
-        sections, and then applies transformations to generate child nodes.
-
         Parameters:
-            s3_object (str): The S3 object key from which the text content is downloaded.
+            fulltext_content: the full text of the file in JATS form
+            file_name: file name of the content
 
         Returns:
             Dict[str, List[Document]]: A dictionary mapping sections of the parsed text to lists of
@@ -124,6 +122,14 @@ class ProcessNodes:
             result.append(node)
         return result
 
+    """
+    This function downloads text content from an S3 bucket, parses the text to extract meaningful
+    sections, and then applies transformations to generate child nodes.
+
+    Parameters:
+        record
+        s3_object (str): The S3 object key from which the text content is downloaded.
+    """
     async def process_single_record(self,
                                     record: defaultdict,
                                     only_children_push: bool = False):
@@ -162,6 +168,7 @@ class ProcessNodes:
 
         # Need to retrieve the children nodes here
         if id in self.children_pubmed_ids:
+            # if there is a PMC source for this record
             if self.fulltext_pmc_sources.get(id):
                 s3_loc = "bulk/" + self.fulltext_pmc_sources.get(id)
                 fulltext_content = download_s3_file(self.settings.jatsparser.bucket_name, s3_object=s3_loc)
