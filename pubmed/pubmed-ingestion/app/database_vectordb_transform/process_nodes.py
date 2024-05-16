@@ -86,8 +86,7 @@ class ProcessNodes:
             Document objects representing children nodes.
 
         Usage:
-            # Assuming 's3_key' is predefined and valid
-            children_dict = await self.generate_children_nodes(s3_key)
+            children_dict = await self.generate_children_nodes(fulltext_content, file_name)
         """
         cur_children_dict = defaultdict(list)
         parsed_fulltext = await self.parse_clean_fulltext(fulltext=fulltext_content, name=file_name, split_depth=self.settings.jatsparser.split_depth)

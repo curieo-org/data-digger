@@ -34,9 +34,8 @@ class DatabaseVectorsEngineSettings(BaseSettings):
 class QdrantSettings(BaseSettings):
     api_port: int = 6333
     api_url: str = "http://qdrant.qdrant.svc.cluster.local"
-    collection_name: str = "pubmed_hybrid"
+    collection_name: str =  "pubmed_hybrid"
     api_key: SecretStr
-
 
 class EmbeddingSettings(BaseSettings):
     api_url: str = "http://text-embedding.dev.svc.cluster.local"
@@ -110,10 +109,12 @@ class Settings(BaseSettings):
         env_nested_delimiter="__",
     )
 
-    qdrant: QdrantSettings
+    vector_store_parent: QdrantSettings
+    vector_store_cluster: QdrantSettings
     jatsparser: JatsParserSettings = JatsParserSettings()
     embedding : EmbeddingSettings
     spladedoc: SpladedocSettings
     database_reader: PubmedDatabaseReaderSettings = PubmedDatabaseReaderSettings()
     d2vengine: DatabaseVectorsEngineSettings = DatabaseVectorsEngineSettings()
     psql: PsqlSettings
+    psql_child: PsqlSettings
