@@ -31,11 +31,12 @@ pydantic-settings = "^2.2.1"
 jupyterlab = "^4.1.7"
 asyncpg = "^0.29.0"
 loguru = "^0.7.2"
-
+flameprof = "^0.4"
+snakeviz = "^2.2.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-run-main = "app.main:entrypoint"
+run-main = "pubmed-ingestion.main:entrypoint"

@@ -36,6 +36,7 @@ class PubmedDatabaseReader:
         self.cn = ProcessChildrenNodes(settings)
         self.engine = create_engine(self.settings.psql.connection.get_secret_value())
         self.db_fetch_batch_size: int = 1000
+        self.year = 1900
 
     async def check_pubmed_percentile_tbl(self) -> bool:
         try:
@@ -53,10 +54,10 @@ class PubmedDatabaseReader:
                             **params)-> Dict[int, Any]:
         all_records = defaultdict(list)
         if len(ids):
-            for i in tqdm(range(0, len(ids)), desc="Processing fetch_details batch"):
+            for i in tqdm(range(0, len(ids)), desc="Gathering full records batch"):
                 formatted_ids = list_to_sql_tuple(ids)
                 
-                query = query_template.format(ids=formatted_ids, **params)
+                query = query_template.format(year=self.year, ids=formatted_ids, **params)
                 try:
                     result = run_select_sql(self.engine, query)
                     for id, record in result.get('result'):
@@ -99,25 +100,23 @@ class PubmedDatabaseReader:
         mode: str = Union["parent", "children"]
     ) -> Dict[int, Any]:
         query_template = self.get_query_template(mode)
-        parent_query = self.format_parent_query(query_template, year, lowercriteria, highercriteria)
+        self.year = year
+        parent_query = self.format_parent_query(query_template, lowercriteria, highercriteria)
     
         with self.engine.connect() as conn:
             with conn.execution_options(stream_results=True, max_row_buffer=self.db_fetch_batch_size).execute(
                 text(parent_query)
             ) as result:
                 count = 0
-
                 for partition in result.partitions():
+                    logger.info(f"To be processed Parent Processed Records: {len(partition)}")
                     ids = []
-
                     for row in partition:
                         ids.append(row[0])
-
                         if len(ids) < self.db_fetch_batch_size:
                             continue
 
                         await self.process_batch_records(ids, mode)
-                        
                         count = count + self.db_fetch_batch_size
                         logger.info(f"Parent Processed Records {count}")
                         ids = []
@@ -134,9 +133,9 @@ class PubmedDatabaseReader:
             return self.settings.database_reader.pubmed_fetch_children_records
         raise ValueError("Unsupported mode")
 
-    def format_parent_query(self, query_template: str, year: int, lowercriteria: int, highercriteria: int) -> str:
+    def format_parent_query(self, query_template: str, lowercriteria: int, highercriteria: int) -> str:
         return query_template.format(
-            year=year,
+            year=self.year,
             parent_criteria_upper=100 - highercriteria,
             parent_criteria_lower=100 - lowercriteria
         )

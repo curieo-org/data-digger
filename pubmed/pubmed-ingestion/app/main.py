@@ -45,7 +45,7 @@ def parse_args(commands: List[str] = None) -> argparse.Namespace:
         help="mode to process records",
     )
     parser.add_argument("-hl", "--highercriteria", type=int, help="Higher PercentileCriteria to process", default=100)
-    parser.add_argument("-ll", "--lowercriteria", type=int, help="Lower Percentile Criteria to process", default=9)
+    parser.add_argument("-ll", "--lowercriteria", type=int, help="Lower Percentile Criteria to process", default=90)
     args, _ = parser.parse_known_args(args=commands)
     return args
     

@@ -33,20 +33,20 @@ class DatabaseVectorsEngineSettings(BaseSettings):
 
 class QdrantSettings(BaseSettings):
     api_port: int = 6333
-    api_url: str = "localhost"
+    api_url: str = "http://qdrant.qdrant.svc.cluster.local"
     parent_collection_name: str = "pubmed_parent_hybrid"
     cluster_collection_name: str = "pubmed_cluster_hybrid"
     api_key: SecretStr
 
 
 class EmbeddingSettings(BaseSettings):
-    api_url: str = "http://localhost:8080"
+    api_url: str = "http://text-embedding.dev.svc.cluster.local"
     api_key: SecretStr
     embed_batch_size: int = 4
 
 
 class SpladedocSettings(BaseSettings):
-    api_url: str = "http://localhost:8082"
+    api_url: str = "http://text-splade-doc.dev.svc.cluster.local"
     api_key: SecretStr
     embed_batch_size: int = 2
 
@@ -57,7 +57,7 @@ class PubmedDatabaseReaderSettings(BaseSettings):
     pubmed_percentiles_tbl: str = "pubmed_percentiles"
     percentile_select_query: str = "SELECT citationcount from pubmed_percentiles where year = {year} and percentile = {percentile}"
     record_select_query: str = "SELECT identifier FROM public.citationcounts where year = {year} and citationcount >= {citationcount}"
-    records_fetch_details: str = "SELECT identifier, record FROM public.records where identifier in {ids}"
+    records_fetch_details: str = "SELECT identifier, record FROM public.records where year = {year} and identifier in {ids}"
     fulltext_fetch_query: str = "SELECT pubmed, {column} FROM public.{table} where pubmed in ({ids})"
     parsed_record_abstract_key: str = "abstractText"
     parsed_record_titles_key: str = "titles"
@@ -99,6 +99,7 @@ class PubmedDatabaseReaderSettings(BaseSettings):
         ");"
     )
 
+    #TODO
     pubmed_fetch_children_records: str = (
         "SELECT cc.identifier"
         "FROM public.citationcounts cc"

@@ -35,12 +35,8 @@ class ProcessParentNodes:
             settings (Settings): Contains all necessary database configurations.
         """
         self.settings = settings
-        self.processed_records = defaultdict(list)
-        self.children_pubmed_ids = []
-        self.fulltext_pmc_sources = defaultdict(list)
-        self.num_workers = 32
+        self.num_workers = 16
         self.engine = create_engine(self.settings.psql.connection.get_secret_value())
-        self.tn = TreefyNodes(settings)
         self.embed_model = TextEmbeddingsInference(
             model_name="",
             base_url=self.settings.embedding.api_url,
@@ -87,7 +83,6 @@ class ProcessParentNodes:
         self.assign_embeddings_to_nodes(parent_nodes, id_to_dense_embedding)
 
         nodes_ready_to_be_added = await self.node_metadata_transform(parent_id, record_id, parent_nodes, record)
-
         self.insert_nodes_into_index(record_id, parent_id, nodes_ready_to_be_added)
 
     def is_valid_record(self, record: Union[tuple, dict], record_id: int) -> bool:
@@ -155,7 +150,7 @@ class ProcessParentNodes:
                                                batch_size:int = 100):
         keys = list(records.keys())
         total_batches = (len(keys) + batch_size - 1) // batch_size
-        for i in tqdm(range(total_batches), desc="Processing batches"):
+        for i in tqdm(range(total_batches), desc="Transforming batches"):
             self.log_dict = []
             start_index = i * batch_size
             end_index = start_index + batch_size
