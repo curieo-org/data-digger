@@ -78,23 +78,28 @@ class VectorsUpload:
 
         self.parent_vector_store = QdrantVectorStore(
             client=self.client,
-            collection_name=self.settings.vector_store_parent.collection_name, 
+            collection_name=self.settings.qdrant.parent_collection_name, 
             sparse_doc_fn=self.sparse_doc_vectors,
             enable_hybrid=True,
             )
         
         self.cluster_vector_store = QdrantVectorStore(
             client=self.client,
-            collection_name=self.settings.vector_store_cluster.collection_name, 
+            collection_name=self.settings.qdrant.cluster_collection_name, 
             sparse_doc_fn=self.average_child_sparse_vectors,
             enable_hybrid=True,
             )
         
-        self.child_data_database = ## PSQL DATABASE
+        self.parent_storage_context = StorageContext.from_defaults(vector_store=self.parent_vector_store)
+        self.cluster_storage_context = StorageContext.from_defaults(vector_store=self.cluster_vector_store)
         
-        self.storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
-        self.index = VectorStoreIndex(
-            storage_context=self.storage_context,
+        self.parent_vectordb_index = VectorStoreIndex(
+            storage_context=self.parent_storage_context,
+            embed_model = self.embed_model,
+            nodes =[]
+        )  
+        self.cluster_vectordb_index = VectorStoreIndex(
+            storage_context=self.cluster_storage_context,
             embed_model = self.embed_model,
             nodes =[]
         )   

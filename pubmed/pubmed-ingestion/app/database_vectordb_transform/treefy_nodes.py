@@ -89,9 +89,4 @@ class TreefyNodes:
         
         self.settings = settings
 
-        self.embed_model = TextEmbeddingsInference(
-            model_name="",
-            base_url=self.settings.embedding.api_url,
-            auth_token=self.settings.embedding.api_key.get_secret_value(),
-            timeout=60,
-            embed_batch_size=self.settings.embedding.embed_batch_size)
+        
