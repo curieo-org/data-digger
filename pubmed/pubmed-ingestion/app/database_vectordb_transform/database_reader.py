@@ -85,33 +85,33 @@ class PubmedDatabaseReader:
             with conn.execution_options(stream_results=True, max_row_buffer=self.db_fetch_batch_size).execute(
                 text(parent_query)
             ) as result:
-                ids = []
                 count = 0
+
                 for partition in result.partitions():
+                    ids = []
+
                     for row in partition:
                         ids.append(row[0])
-                        if len(ids) >= self.db_fetch_batch_size:
-                            if mode == "parent":
-                                database_records = self.fetch_details(
-                                    ids=ids,
-                                    query_template=self.settings.database_reader.records_fetch_details,
-                                    json_parse_required=True
-                                )
-                                await self.pn.batch_process_records_to_vectors(database_records, 100)
-                                count = count + self.db_fetch_batch_size
-                                logger.info(f"Parent Processed Records {count}")
-                                ids = []
-                            else:
-                                database_records = self.fetch_details(
-                                    ids=ids,
-                                    query_template=self.settings.database_reader.records_fetch_details,
-                                    json_parse_required=False
-                                )
-                                await self.cn.batch_process_records_to_vectors(database_records, 100)
-                                count = count + self.db_fetch_batch_size
-                                logger.info(f"Parent Processed Records {count}")
-                                ids = []
-    
+
+                    if mode == "parent":
+                        database_records = self.fetch_details(
+                            ids=ids,
+                            query_template=self.settings.database_reader.records_fetch_details,
+                            json_parse_required=True
+                        )
+                        await self.pn.batch_process_records_to_vectors(database_records, 100)
+                    else:
+                        database_records = self.fetch_details(
+                            ids=ids,
+                            query_template=self.settings.database_reader.records_fetch_details,
+                            json_parse_required=False
+                        )
+                        await self.cn.batch_process_records_to_vectors(database_records, 100)
+                    
+                    count = count + self.db_fetch_batch_size
+                    logger.info(f"Parent Processed Records {count}")
+                    ids = []
+
     def get_query_template(self, mode: str) -> str:
         if mode == "parent":
             return self.settings.database_reader.pubmed_fetch_parent_records
