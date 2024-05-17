@@ -70,6 +70,26 @@ class PubmedDatabaseReader:
             return all_records
         else:
             return {}
+        
+    async def process_batch_records(
+        self,
+        ids: List[str],
+        mode: str = Union["parent", "children"]
+    ) -> None:
+        if mode == "parent":
+            database_records = self.fetch_details(
+                ids=ids,
+                query_template=self.settings.database_reader.records_fetch_details,
+                json_parse_required=True
+            )
+            await self.pn.batch_process_records_to_vectors(database_records, 100)
+        else:
+            database_records = self.fetch_details(
+                ids=ids,
+                query_template=self.settings.database_reader.records_fetch_details,
+                json_parse_required=False
+            )
+            await self.cn.batch_process_records_to_vectors(database_records, 100)
 
     async def collect_records_by_year(
         self,
@@ -93,24 +113,19 @@ class PubmedDatabaseReader:
                     for row in partition:
                         ids.append(row[0])
 
-                    if mode == "parent":
-                        database_records = self.fetch_details(
-                            ids=ids,
-                            query_template=self.settings.database_reader.records_fetch_details,
-                            json_parse_required=True
-                        )
-                        await self.pn.batch_process_records_to_vectors(database_records, 100)
-                    else:
-                        database_records = self.fetch_details(
-                            ids=ids,
-                            query_template=self.settings.database_reader.records_fetch_details,
-                            json_parse_required=False
-                        )
-                        await self.cn.batch_process_records_to_vectors(database_records, 100)
-                    
-                    count = count + self.db_fetch_batch_size
-                    logger.info(f"Parent Processed Records {count}")
-                    ids = []
+                        if len(ids) < self.db_fetch_batch_size:
+                            continue
+
+                        await self.process_batch_records(ids, mode)
+                        
+                        count = count + self.db_fetch_batch_size
+                        logger.info(f"Parent Processed Records {count}")
+                        ids = []
+
+                    if len(ids) > 0:
+                        await self.process_batch_records(ids, mode)
+                        count = count + len(ids)
+                        logger.info(f"Parent Processed Records {count}")
 
     def get_query_template(self, mode: str) -> str:
         if mode == "parent":
