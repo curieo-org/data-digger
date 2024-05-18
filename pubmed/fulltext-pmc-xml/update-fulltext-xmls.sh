@@ -33,7 +33,7 @@ process_ftp_files() {
         if [ "$file_exists" == "f" ]; then
             echo "Downloading File: $file"
 
-            query="INSERT INTO pmctasks (name, state, job, timestamp) VALUES ('$file_name', $Completed, '$job_name', now()) ON CONFLICT (name, job) DO UPDATE SET state = $InProgress, timestamp = now();"
+            query="INSERT INTO pmctasks (name, state, job, timestamp) VALUES ('$file_name', $InProgress, '$job_name', now()) ON CONFLICT (name, job) DO UPDATE SET state = $InProgress, timestamp = now();"
             psql -h $HOST -p $PORT -U $USERNAME -d $DATABASE -c "$query"
 
             files_to_be_updates+=("$file_name")
