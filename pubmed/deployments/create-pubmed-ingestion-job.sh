@@ -1,23 +1,40 @@
+#!/bin/bash
+
+# Check if the correct number of arguments are provided
+if [ "$#" -ne 7 ]; then
+    echo "Usage: $0 <mode> <year> <higher-criteria> <lower-criteria> <image-tag> <memory> <cpu>"
+    exit 1
+fi
+
+MODE=$1
+YEAR=$2
+HIGHERCRITERIA=$3
+LOWERCRITERIA=$4
+IMAGE_TAG=$5
+MEMORY=$6
+CPU=$7
+
+JOB_NAME="pubmed-ingestion-${MODE}-${YEAR}-${HIGHERCRITERIA}-${LOWERCRITERIA}-${MEMORY}-${CPU}"
+
+# Create a YAML file for the job
+cat <<EOF > ${JOB_NAME}-job.yaml
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: pubmed-ingestion-2015-p75-c92-job
+  name: ${JOB_NAME}
 spec:
   template:
     metadata:
-      name: pubmed-ingestion-2015-p75-c92-job
+      name: ${JOB_NAME}
     spec:
       containers:
       - name: pubmed-ingestion
-        image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ingestion:0.0.12
+        image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-ingestion:${IMAGE_TAG}
         resources:
           requests:
-            memory: "16Gi"
-            cpu: "2"
-          limits:
-            memory: "32Gi"
-            cpu: "4"
-        command: ["sh", "-c", "poetry install && poetry run python app/main.py --year 2015 --parentcriteria 75 --childcriteria 92"]
+            memory: "${MEMORY}Gi"
+            cpu: "${CPU}"
+        command: ["sh", "-c", "poetry install && poetry run python app/main.py --year ${YEAR} --highercriteria ${HIGHERCRITERIA} --lowercriteria ${LOWERCRITERIA}"]
         env:
           - name: DEBUG
             value: "true"
@@ -53,3 +70,12 @@ spec:
         operator: "Equal"
         value: "large-workloads"
         effect: "NoSchedule"
+EOF
+
+# Apply the job YAML file
+kubectl apply -f ${JOB_NAME}-job.yaml -n dev
+
+# Clean up the YAML file
+rm ${JOB_NAME}-job.yaml
+
+echo "Job ${JOB_NAME} has been created."

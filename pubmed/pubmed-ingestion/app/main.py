@@ -11,7 +11,7 @@ logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} 
 
 async def run_transform(commands: argparse.Namespace):
     dbReader = PubmedDatabaseReader(settings)
-    logger.bind(special=True).info("Starting the INGESTION Process!!!")
+    logger.bind(special=True).info("Starting the INGESTION Process 0.0.24!!!")
     
     if await dbReader.check_pubmed_percentile_tbl():
         if commands.lowercriteria <= commands.highercriteria:
@@ -37,7 +37,7 @@ def parse_args(commands: List[str] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Process records from PubMed database for a given year.", formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("-y", "--year", type=int, help="year to process record", default=2018)
+    parser.add_argument("-y", "--year", type=int, help="year to process record", default=2005)
     parser.add_argument(
         "--mode",
         default="parent",
@@ -45,13 +45,15 @@ def parse_args(commands: List[str] = None) -> argparse.Namespace:
         help="mode to process records",
     )
     parser.add_argument("-hl", "--highercriteria", type=int, help="Higher PercentileCriteria to process", default=100)
-    parser.add_argument("-ll", "--lowercriteria", type=int, help="Lower Percentile Criteria to process", default=90)
+    parser.add_argument("-ll", "--lowercriteria", type=int, help="Lower Percentile Criteria to process", default=65)
     args, _ = parser.parse_known_args(args=commands)
     return args
     
 def entrypoint():
     args = parse_args()
     asyncio.run(run_transform(commands=args))
+
+
 
 if __name__ == "__main__":
     entrypoint()

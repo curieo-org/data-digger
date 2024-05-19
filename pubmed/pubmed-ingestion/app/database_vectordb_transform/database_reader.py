@@ -1,4 +1,3 @@
-import asyncio
 from collections import defaultdict
 from typing import Any, Dict, List, Union
 import json
@@ -35,7 +34,7 @@ class PubmedDatabaseReader:
         self.pn = ProcessParentNodes(settings)
         self.cn = ProcessChildrenNodes(settings)
         self.engine = create_engine(self.settings.psql.connection.get_secret_value())
-        self.db_fetch_batch_size: int = 1000
+        self.db_fetch_batch_size: int = 500
         self.year = 1900
 
     async def check_pubmed_percentile_tbl(self) -> bool:
@@ -102,11 +101,13 @@ class PubmedDatabaseReader:
         query_template = self.get_query_template(mode)
         self.year = year
         parent_query = self.format_parent_query(query_template, lowercriteria, highercriteria)
-    
+        
+        logger.info(f"collect_records_by_year: Year: {year}: lowercriteria: {lowercriteria} : highercriteria: {highercriteria}")
         with self.engine.connect() as conn:
             with conn.execution_options(stream_results=True, max_row_buffer=self.db_fetch_batch_size).execute(
                 text(parent_query)
             ) as result:
+                logger.info(f"collect_records_by_year: Year: {year}: Streaming Started")
                 count = 0
                 for partition in result.partitions():
                     logger.info(f"To be processed Parent Processed Records: {len(partition)}")
