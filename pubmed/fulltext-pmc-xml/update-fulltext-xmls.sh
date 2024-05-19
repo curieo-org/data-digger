@@ -1,8 +1,4 @@
-apk update
-apk upgrade
-apk add wget
-apk add aws-cli
-apk add postgresql
+#!/bin/bash
 
 mkdir pubmed-fulltext || true
 cd pubmed-fulltext
@@ -25,7 +21,7 @@ export PGPASSWORD=$PASSWORD
 process_ftp_files() {
     ftp_files="$1"
     job_name="$2"
-    files_to_be_updates=$()
+    files_to_be_updates=()
     
     for file in $ftp_files; do
         file_name=$(echo $file | awk -F'/' '{print $NF}')
@@ -38,7 +34,7 @@ process_ftp_files() {
             query="INSERT INTO pmctasks (name, state, job, timestamp) VALUES ('$file_name', $InProgress, '$job_name', now()) ON CONFLICT (name, job) DO UPDATE SET state = $InProgress, timestamp = now();"
             psql -h $HOST -p $PORT -U $USERNAME -d $DATABASE -c "$query"
 
-            files_to_be_updates+=$("$file_name")
+            files_to_be_updates=("${files_to_be_updates[@]}" "$file_name")
 
             wget --ftp-user='anonymous' --ftp-password='anonymous' --continue $file
         fi
