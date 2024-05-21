@@ -4,13 +4,13 @@ SELECT
 	studies.nct_id,
 	studies.brief_title as title,
 	concat(bs.description, dd.description) as description,
-	json_build_object(
+	jsonb_build_object(
 		'source', studies.source,
 		'study_type', studies.study_type,
 		'enrollment', studies.enrollment,
 		'status', studies.overall_status,
 		'phase', studies.phase,
-		'posted_date', json_build_object(
+		'posted_date', jsonb_build_object(
 			'first_date', studies.study_first_posted_date,
 			'last_updated_date', studies.last_update_posted_date
 		)
@@ -40,7 +40,7 @@ with temp_studies_eligibilities as (
 	group by studies.nct_id
 )
 SELECT 
-	tsi.nct_id as id,
+	tsi.nct_id as nct_id,
 	tsi.title as title,
 	tse.eligibility as eligibility_details
 INTO
@@ -65,12 +65,12 @@ with studies_sponsors_collab as(
 	)
 	SELECT 
 		sc.nct_id as nct_id,
-		json_agg(sc.collab_details) as CollaboratorDetails
+		jsonb_agg(sc.collab_details) as CollaboratorDetails
 	FROM
 		temp_sponsors_collab sc
 	GROUP BY sc.nct_id)
 SELECT 
-	tsi.nct_id as id,
+	tsi.nct_id as nct_id,
 	tsi.title as title,
 	ssc.CollaboratorDetails as CollaboratorDetails
 INTO
@@ -85,6 +85,7 @@ LEFT JOIN studies_sponsors_collab ssc ON tsi.nct_id = ssc.nct_id;
 with tmp_adverse_details as (
 	SELECT 
 		studies.nct_id,
+		rg.ctgov_group_code as ctgov_group_code,
 		jsonb_object_agg('EventType', COALESCE(ret.event_type, 'NA')) ||
 		jsonb_object_agg('Classification', COALESCE(ret.classification, 'NA')) ||
 		jsonb_object_agg('SubjectAffected', COALESCE(ret.subjects_affected, -1)) ||
@@ -96,8 +97,9 @@ with tmp_adverse_details as (
 	WHERE rg.result_type = 'Reported Event'
 	group by studies.nct_id, rg.ctgov_group_code)
 SELECT 
-	tsi.nct_id as id,
+	tsi.nct_id as nct_id,
 	tsi.title as title,
+	tad.ctgov_group_code as ctgov_group_code,
 	tad.adverse_details as adverse_details
 INTO
 	public.tbl_studies_adverse_details
@@ -118,7 +120,7 @@ with tmp_study_details as (
 	LEFT JOIN ctgov.study_references sr ON studies.nct_id = sr.nct_id		
 	group by studies.nct_id)
 SELECT 
-	tsi.nct_id as id,
+	tsi.nct_id as nct_id,
 	tsi.title as title,
 	tsd.PubmedCitation as PubmedCitation
 INTO
@@ -131,15 +133,15 @@ LEFT JOIN tmp_study_details tsd ON tsi.nct_id = tsd.nct_id;
 -- ============= tbl_studies_conditions ===============================
 
 SELECT 
-	tsi.nct_id as id,
-	tsi.title as title,
+	tsi.nct_id as nct_id,
+	string_agg(tsi.title, ',') as title,
 	string_agg(distinct cond.downcase_name, ',') as condition_name
 INTO
 	public.tbl_studies_conditions
 FROM 
 	public.tbl_studies_info tsi
 LEFT JOIN ctgov.conditions cond ON tsi.nct_id = cond.nct_id
-GROUP BY tsi.nct_id, tsi.title, tsi.description;
+GROUP BY tsi.nct_id;
 
 
 -- ============= tbl_primary_outcome_measurement =====================
@@ -163,7 +165,7 @@ with tmp_tbl_primary_measurements as (
 	WHERE oc.outcome_type = 'Primary'
 	group by studies.nct_id)
 SELECT 
-	tsi.nct_id as id,
+	tsi.nct_id as nct_id,
 	tsi.title as title,
 	ttpm.outcome_primary_measurement_details as Outcome_Primary_Measurement_Details,
 	ttpm.outcome_primary_measurement_value_details as Outcome_Primary_Measurement_Value_Details
@@ -195,7 +197,7 @@ with tmp_tbl_secondary_measurements as (
 	WHERE oc.outcome_type = 'Secondary'
 	group by studies.nct_id)
 SELECT 
-	tsi.nct_id as id,
+	tsi.nct_id as nct_id,
 	tsi.title as title,
 	ttsm.outcome_secondary_measurement_details as Outcome_Secondary_Measurement_Details,
 	ttsm.outcome_secondary_measurement_value_details as Outcome_Secondary_Measurement_Value_Details
@@ -211,6 +213,8 @@ LEFT JOIN tmp_tbl_secondary_measurements ttsm ON tsi.nct_id = ttsm.nct_id;
 with tmp_tbl_baseline_details as (
 	SELECT 
 		studies.nct_id,
+		rg.ctgov_group_code as ctgov_group_code,
+		bm.title as title,
 		jsonb_object_agg('Title', COALESCE(bm.title, 'NA')) ||
 		jsonb_object_agg('Classification', COALESCE(bm.classification, 'NA')) ||
 		jsonb_object_agg('Category', COALESCE(bm.category, 'NA')) ||
@@ -230,8 +234,10 @@ with tmp_tbl_baseline_details as (
 	WHERE rg.result_type = 'Baseline'
 	group by studies.nct_id, rg.ctgov_group_code, bm.title)
 SELECT 
-	tsi.nct_id as id,
+	tsi.nct_id as nct_id,
 	tsi.title as title,
+	ttbd.ctgov_group_code as ctgov_group_code,
+	ttbd.title as baseline_title,
 	ttbd.baseline_measurement_details as Baseline_Measurement_Details,
 	ttbd.baseline_group_details as Baseline_Group_Details
 INTO
@@ -262,7 +268,7 @@ with tmp_tbl_studies_interventions as (
 		studies_interventions si
 	GROUP BY si.nct_id)
 SELECT 
-	tsi.nct_id as id,
+	tsi.nct_id as nct_id,
 	tsi.title as title,
 	ttsi.study_intervention_compressed_details as Study_Intervention_Compressed_Details
 INTO
@@ -285,7 +291,7 @@ with tmp_tbl_studies_arms_details as (
 	LEFT JOIN ctgov.design_groups dg ON studies.nct_id = dg.nct_id
 	GROUP BY studies.nct_id)
 SELECT 
-	tsi.nct_id as id,
+	tsi.nct_id as nct_id,
 	tsi.title as title,
 	ttsad.arm_details as Arm_Details
 INTO
@@ -309,7 +315,7 @@ with tmp_tbl_studies_design_outcomes as (
 	LEFT JOIN ctgov.design_outcomes dou ON studies.nct_id = dou.nct_id
 	GROUP BY studies.nct_id)
 SELECT 
-	tsi.nct_id as id,
+	tsi.nct_id as nct_id,
 	tsi.title as title,
 	ttsdo.design_outcome_measures as Design_Outcome_Measures	
 INTO
@@ -333,7 +339,7 @@ with tmp_tbl_studies_designs as (
 	LEFT JOIN ctgov.designs des ON studies.nct_id = des.nct_id
 	GROUP BY studies.nct_id)
 SELECT 
-	tsi.nct_id as id,
+	tsi.nct_id as nct_id,
 	tsi.title as title,
 	ttsd.design_details as Design_Details	
 INTO

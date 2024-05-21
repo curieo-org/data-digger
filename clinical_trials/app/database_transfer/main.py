@@ -16,7 +16,8 @@ def transfer_tbl_studies_info(
         local_pg_engine,
         prod_pg_engine,
         'tbl_studies_info',
-        ['nct_id', 'title', 'description', 'study_details']
+        ['nct_id', 'title', 'description', 'study_details'],
+        ['nct_id']
     )
 
 def transfer_tbl_baseline_details(
@@ -27,7 +28,8 @@ def transfer_tbl_baseline_details(
         local_pg_engine,
         prod_pg_engine,
         'tbl_baseline_details',
-        ['id', 'title', 'baseline_measurement_details', 'baseline_group_details']
+        ['nct_id', 'ctgov_group_code', 'baseline_title', 'title', 'baseline_measurement_details', 'baseline_group_details'],
+        ['nct_id', 'ctgov_group_code', 'baseline_title']
     )
 
 def transfer_tbl_primary_outcome_measurement(
@@ -38,7 +40,8 @@ def transfer_tbl_primary_outcome_measurement(
         local_pg_engine,
         prod_pg_engine,
         'tbl_primary_outcome_measurement',
-        ['id', 'title', 'outcome_primary_measurement_details', 'outcome_primary_measurement_value_details']
+        ['nct_id', 'title', 'outcome_primary_measurement_details', 'outcome_primary_measurement_value_details'],
+        ['nct_id']
     )
 
 def transfer_tbl_secondary_outcome_measurement(
@@ -49,7 +52,8 @@ def transfer_tbl_secondary_outcome_measurement(
         local_pg_engine,
         prod_pg_engine,
         'tbl_secondary_outcome_measurement',
-        ['id', 'title', 'outcome_secondary_measurement_details', 'outcome_secondary_measurement_value_details']
+        ['nct_id', 'title', 'outcome_secondary_measurement_details', 'outcome_secondary_measurement_value_details'],
+        ['nct_id']
     )
 
 def transfer_tbl_studies_adverse_details(
@@ -60,7 +64,8 @@ def transfer_tbl_studies_adverse_details(
         local_pg_engine,
         prod_pg_engine,
         'tbl_studies_adverse_details',
-        ['id', 'title', 'adverse_details']
+        ['nct_id', 'ctgov_group_code', 'title', 'adverse_details'],
+        ['nct_id', 'ctgov_group_code']
     )
 
 def transfer_tbl_studies_arms_details(
@@ -71,7 +76,8 @@ def transfer_tbl_studies_arms_details(
         local_pg_engine,
         prod_pg_engine,
         'tbl_studies_arms_details',
-        ['id', 'title', 'arm_details']
+        ['nct_id', 'title', 'arm_details'],
+        ['nct_id']
     )
 
 def transfer_tbl_studies_conditions(
@@ -82,7 +88,8 @@ def transfer_tbl_studies_conditions(
         local_pg_engine,
         prod_pg_engine,
         'tbl_studies_conditions',
-        ['id', 'title', 'condition_name']
+        ['nct_id', 'title', 'condition_name'],
+        ['nct_id']
     )
 
 def transfer_tbl_studies_design_outcomes(
@@ -93,7 +100,8 @@ def transfer_tbl_studies_design_outcomes(
         local_pg_engine,
         prod_pg_engine,
         'tbl_studies_design_outcomes',
-        ['id', 'title', 'design_outcome_measures']
+        ['nct_id', 'title', 'design_outcome_measures'],
+        ['nct_id']
     )
 
 def transfer_tbl_studies_designs(
@@ -104,7 +112,8 @@ def transfer_tbl_studies_designs(
         local_pg_engine,
         prod_pg_engine,
         'tbl_studies_designs',
-        ['id', 'title', 'design_details']
+        ['nct_id', 'title', 'design_details'],
+        ['nct_id']
     )
 
 def transfer_tbl_studies_eligibilities(
@@ -115,7 +124,8 @@ def transfer_tbl_studies_eligibilities(
         local_pg_engine,
         prod_pg_engine,
         'tbl_studies_eligibilities',
-        ['id', 'title', 'eligibility_details']
+        ['nct_id', 'title', 'eligibility_details'],
+        ['nct_id']
     )
 
 def transfer_tbl_studies_interventions(
@@ -126,7 +136,8 @@ def transfer_tbl_studies_interventions(
         local_pg_engine,
         prod_pg_engine,
         'tbl_studies_interventions',
-        ['id', 'title', 'study_intervention_compressed_details']
+        ['nct_id', 'title', 'study_intervention_compressed_details'],
+        ['nct_id']
     )
 
 def transfer_tbl_studies_pubmed_links(
@@ -137,7 +148,8 @@ def transfer_tbl_studies_pubmed_links(
         local_pg_engine,
         prod_pg_engine,
         'tbl_studies_pubmed_links',
-        ['id', 'title', 'pubmedcitation']
+        ['nct_id', 'title', 'pubmedcitation'],
+        ['nct_id']
     )
 
 def transfer_tbl_studies_sponsors(
@@ -148,7 +160,8 @@ def transfer_tbl_studies_sponsors(
         local_pg_engine,
         prod_pg_engine,
         'tbl_studies_sponsors',
-        ['id', 'title', 'collaboratordetails']
+        ['nct_id', 'title', 'collaboratordetails'],
+        ['nct_id']
     )
 
 async def transfer_all_tables() -> None:

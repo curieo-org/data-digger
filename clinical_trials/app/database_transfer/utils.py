@@ -58,11 +58,12 @@ def transfer_table_data(
     local_pg_engine: PGEngine,
     prod_pg_engine: PGEngine,
     table_name: str,
-    columns: List[str]
+    columns: List[str],
+    primary_keys: List[str],
 ) -> None:
-    select_query = 'SELECT ' + ', '.join(columns) + ' FROM ' + table_name + ' ORDER BY ' + columns[0] + ' ASC LIMIT {batch_size} OFFSET {offset};'
+    select_query = 'SELECT ' + ', '.join(columns) + ' FROM ' + table_name + ' ORDER BY ' + primary_keys[0] + ' ASC LIMIT {batch_size} OFFSET {offset};'
 
-    insert_query = 'INSERT INTO ' + table_name + ' (' + ', '.join(columns) + ') VALUES (' + ', '.join([f':{column}' for column in columns]) + ') ON CONFLICT (' + columns[0] + ') DO UPDATE SET ' + ', '.join([f'{column} = EXCLUDED.{column}' for column in columns[1:]]) + ';'
+    insert_query = 'INSERT INTO ' + table_name + ' (' + ', '.join(columns) + ') VALUES (' + ', '.join([f':{column}' for column in columns]) + ') ON CONFLICT (' + ', '.join([f'{column}' for column in primary_keys]) + ') DO UPDATE SET ' + ', '.join([f'{column} = EXCLUDED.{column}' for column in columns[1:]]) + ';'
 
     count_query = f'SELECT count(*) FROM {table_name}'
 
@@ -72,7 +73,7 @@ def transfer_table_data(
         raise Exception(f'Error in getting the row count for the table: {table_name}')
     print(f'Number of rows in the local {table_name}: {row_count}')
     
-    batch_size = 100
+    batch_size = 10000
 
     with ThreadPoolExecutor(max_workers=10) as executor:
         event_loop = asyncio.get_event_loop()
