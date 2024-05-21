@@ -1,6 +1,6 @@
 Image = data-digger-clinical-trials-db-dump
 ECR = 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-clinical-trials-db-dump
-TAG = 2.0
+TAG = 3.0
 
 ecr_deploy: login
 	docker buildx build --platform linux/amd64 -t $(Image) .
