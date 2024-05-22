@@ -1,7 +1,7 @@
 from collections import defaultdict
 from pathlib import Path
 from enum import Enum
-from typing import List
+from typing import List, Union
 import boto3
 import datetime
 import json
@@ -20,16 +20,30 @@ class ProcessingResultEnum(Enum):
     SUCCESS = 1
     ONPROGRESS = 2
 
-def update_result_status(pubmed_id: int,
-                         status:int,
-                         parent_id_nodes_count: int = 0,
-                         parent_id: str = "") -> defaultdict:
-        ip_dict = defaultdict()
-        ip_dict["pubmed_id"] = pubmed_id
-        ip_dict["status"] = status
-        ip_dict["parent_id_nodes_count"] = parent_id_nodes_count
+def is_valid_record(record: Union[tuple, dict], abstract_key: str, record_id: int) -> bool:
+    return record_id > 0 and bool(record.get(abstract_key))
+
+def get_abstract(record: Union[tuple, dict], abstract_key: str) -> str:
+    return ",".join(abstract["string"] for abstract in record.get(abstract_key, []))
+
+def update_result_status(
+        mode: str,
+        pubmed_id: int,
+        status: int,
+        nodes_count: int = 0,
+        parent_id: str = "") -> defaultdict:
+    
+    ip_dict = defaultdict()
+    ip_dict["pubmed_id"] = pubmed_id
+    ip_dict["status"] = status
+    
+    if mode == "parent":
+        ip_dict["parent_id_nodes_count"] = nodes_count
         ip_dict["parent_id"] = parent_id
-        return ip_dict
+    else:
+        ip_dict["children_nodes_count"] = nodes_count
+    
+    return ip_dict
     
 def get_project_root() -> Path:
     return Path(__file__).parent.parent

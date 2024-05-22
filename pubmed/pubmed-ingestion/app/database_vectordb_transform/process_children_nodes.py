@@ -23,7 +23,7 @@ from database_vectordb_transform.treefy_nodes import TreefyNodes
 from database_vectordb_transform.vectors_upload import VectorsUpload
 from utils.process_jats import JatsXMLParser
 from utils.database_utils import run_insert_sql
-from utils.utils import ProcessingResultEnum, update_result_status, download_s3_file
+from utils.utils import ProcessingResultEnum, update_result_status, download_s3_file, update_result_status, is_valid_record, get_abstract
 from utils.embeddings_utils import calculate_embeddings
 
 logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}")
@@ -114,7 +114,29 @@ class ProcessChildrenNodes:
                 in_place=False)
         return cur_children_dict, parsed_fulltext
     
-    async def process_single_child_id(self, id: int, pmc_location: str):
+    async def process_single_child_id(self, record: dict):
+        record_id = int(record.get('identifier'))
+
+        if not is_valid_record(record, self.settings.database_reader.parsed_record_abstract_key, record_id):
+            self.log_dict.append(
+                update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.ID_ABSTRACT_BAD_DATA.value)
+            )
+            return
+
+        abstract = get_abstract(record, self.settings.database_reader.parsed_record_abstract_key)
+        if not abstract:
+            self.log_dict.append(
+                update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.ID_ABSTRACT_BAD_DATA.value)
+            )
+            return
+        
+        pmc_location = "bulk/" + self.pmc_sources.get(record_id, "") 
+        if not pmc_location:
+            self.log_dict.append(
+                update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.PMC_RECORD_NOT_FOUND.value)
+            )
+            return
+        
         fulltext_content = download_s3_file(self.settings.jatsparser.bucket_name, s3_object=pmc_location)
 
         if fulltext_content:
@@ -122,12 +144,16 @@ class ProcessChildrenNodes:
             children_nodes = [item for sublist in cur_children_dict.values() for item in sublist]
         else:
             self.log_dict.append(
-                update_result_status(pubmed_id=id, status=ProcessingResultEnum.PMC_RECORD_PARSING_FAILED.value)
+                update_result_status(mode="children", pubmed_id=id, status=ProcessingResultEnum.PMC_RECORD_PARSING_FAILED.value)
             )
+        
+        id_to_dense_embedding = await calculate_embeddings(self.embed_model, children_nodes)
+        r = await self.tn.tree_children_transformation(id_to_dense_embedding, cur_children_dict)
 
-        id_to_dense_embedding = await calculate_embeddings(self.embed_model, nodes_ready_to_b_added)
+        
         self.assign_embeddings_to_nodes(nodes_ready_to_b_added, id_to_dense_embedding)
-                    
+            
+
         #all nodes operation Marius will add the details here
 
 
@@ -147,11 +173,11 @@ class ProcessChildrenNodes:
             )
         
     async def process_batch_children_ids(self,
-                                    ids: list) -> None:
+                                    records: list[defaultdict]) -> None:
         jobs = []
-        for id in ids:           
+        for each_record in records:           
             jobs.append(
-                self.process_single_child_id(id)
+                self.process_single_child_id(each_record)
             )
 
         lock = asyncio.Semaphore(self.num_workers)
@@ -162,8 +188,10 @@ class ProcessChildrenNodes:
 
     async def batch_process_children_ids_to_vectors(self,
                                                records: defaultdict, 
+                                               pmc_sources: defaultdict,
                                                batch_size:int = 100):
         keys = list(records.keys())
+        self.pmc_sources = pmc_sources
         total_batches = (len(keys) + batch_size - 1) // batch_size
         for i in tqdm(range(total_batches), desc="Transforming batches"):
             self.log_dict = []

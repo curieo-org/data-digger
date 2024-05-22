@@ -20,7 +20,7 @@ from settings import Settings
 from database_vectordb_transform.treefy_nodes import TreefyNodes
 from database_vectordb_transform.vectors_upload import VectorsUpload
 from utils.database_utils import run_insert_sql
-from utils.utils import ProcessingResultEnum, update_result_status
+from utils.utils import ProcessingResultEnum, update_result_status, is_valid_record, get_abstract
 from utils.embeddings_utils import calculate_embeddings
 
 logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}")
@@ -67,13 +67,17 @@ class ProcessParentNodes:
     async def process_single_parent_record(self, record: dict):
         record_id = int(record.get('identifier'))
 
-        if not self.is_valid_record(record, record_id):
-            self.log_bad_data(record_id)
+        if not is_valid_record(record, record_id, self.settings.database_reader.parsed_record_abstract_key):
+            self.log_dict.append(
+                update_result_status(mode="parent", pubmed_id=record_id, status=ProcessingResultEnum.ID_ABSTRACT_BAD_DATA.value)
+            )
             return
 
-        abstract = self.get_abstract(record)
+        abstract = get_abstract(record, self.settings.database_reader.parsed_record_abstract_key)
         if not abstract:
-            self.log_bad_data(record_id)
+            self.log_dict.append(
+                update_result_status(mode="parent", pubmed_id=record_id, status=ProcessingResultEnum.ID_ABSTRACT_BAD_DATA.value)
+            )
             return
 
         parent_nodes = self.create_parent_nodes(abstract)
@@ -84,19 +88,6 @@ class ProcessParentNodes:
 
         nodes_ready_to_be_added = await self.node_metadata_transform(parent_id, record_id, parent_nodes, record)
         self.insert_nodes_into_index(record_id, parent_id, nodes_ready_to_be_added)
-
-    def is_valid_record(self, record: Union[tuple, dict], record_id: int) -> bool:
-        abstract_key = self.settings.database_reader.parsed_record_abstract_key
-        return record_id > 0 and bool(record.get(abstract_key))
-
-    def log_bad_data(self, record_id: int):
-        self.log_dict.append(
-            update_result_status(pubmed_id=record_id, status=ProcessingResultEnum.ID_ABSTRACT_BAD_DATA.value)
-        )
-
-    def get_abstract(self, record: Union[tuple, dict]) -> str:
-        abstract_key = self.settings.database_reader.parsed_record_abstract_key
-        return ",".join(abstract["string"] for abstract in record.get(abstract_key, []))
 
     def create_parent_nodes(self, abstract: str) -> List[Document]:
         return run_transformations(
@@ -119,6 +110,7 @@ class ProcessParentNodes:
             self.vu.parent_vectordb_index.insert_nodes(nodes_to_be_added)
             self.log_dict.append(
                 update_result_status(
+                    mode="parent",
                     pubmed_id=record_id,
                     status=ProcessingResultEnum.SUCCESS.value,
                     parent_id_nodes_count=len(nodes_to_be_added),
@@ -128,7 +120,7 @@ class ProcessParentNodes:
         except Exception as e:
             logger.exception(f"VectorDb problem: {e}")
             self.log_dict.append(
-                update_result_status(pubmed_id=record_id, status=ProcessingResultEnum.VECTORDB_FAILED.value)
+                update_result_status(mode="parent", pubmed_id=record_id, status=ProcessingResultEnum.VECTORDB_FAILED.value)
             )
         
     async def process_batch_parent_records(self,

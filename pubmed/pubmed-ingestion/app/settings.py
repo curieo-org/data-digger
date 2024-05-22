@@ -58,7 +58,7 @@ class PubmedDatabaseReaderSettings(BaseSettings):
     percentile_select_query: str = "SELECT citationcount from pubmed_percentiles where year = {year} and percentile = {percentile}"
     record_select_query: str = "SELECT identifier FROM public.citationcounts where year = {year} and citationcount >= {citationcount}"
     records_fetch_details: str = "SELECT identifier, record FROM public.records where year = {year} and identifier in {ids}"
-    fulltext_fetch_query: str = "SELECT pubmed, {column} FROM public.{table} where pubmed in ({ids})"
+    fulltext_fetch_query: str = "SELECT pubmed, {column} FROM public.{table} where pubmed in {ids}"
     parsed_record_abstract_key: str = "abstractText"
     parsed_record_titles_key: str = "titles"
     parsed_record_publicationdate_key: str = "publicationDate"

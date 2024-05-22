@@ -57,7 +57,7 @@ class PubmedDatabaseReader:
             logger.exception(f"An error occurred while fetching the percentile count: {e}")
         return count
 
-    def fetch_details(self,
+    async def fetch_details(self,
                             ids,
                             query_template,
                             json_parse_required,
@@ -95,12 +95,21 @@ class PubmedDatabaseReader:
             )
             await self.pn.batch_process_records_to_vectors(database_records, 100)
         else:
-            database_records = self.fetch_details(
-                ids=ids,
-                query_template=self.settings.database_reader.records_fetch_details,
-                json_parse_required=False
+            database_records, pmc_sources = await asyncio.gather(
+                self.fetch_details(
+                    ids=ids,
+                    query_template=self.settings.database_reader.records_fetch_details,
+                    json_parse_required=True
+                ),
+                self.fetch_details(
+                    ids=ids,
+                    query_template=self.settings.database_reader.fulltext_fetch_query,
+                    json_parse_required=False,
+                    column="location",
+                    table="linktable"
+                )
             )
-            await self.cn.batch_process_children_ids_to_vectors(database_records, 100)
+            await self.cn.batch_process_children_ids_to_vectors(database_records, pmc_sources, 100)
 
     async def collect_records_by_year(
         self,
@@ -154,5 +163,4 @@ class PubmedDatabaseReader:
             citation_lower=citation_lower,
             citation_upper=citation_upper
         )
-
-
+    
