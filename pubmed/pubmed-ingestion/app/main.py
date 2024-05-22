@@ -40,12 +40,12 @@ def parse_args(commands: List[str] = None) -> argparse.Namespace:
     parser.add_argument("-y", "--year", type=int, help="year to process record", default=2005)
     parser.add_argument(
         "--mode",
-        default="parent",
+        default="children",
         choices=["parent", "children"],
         help="mode to process records",
     )
     parser.add_argument("-hl", "--highercriteria", type=int, help="Higher PercentileCriteria to process", default=100)
-    parser.add_argument("-ll", "--lowercriteria", type=int, help="Lower Percentile Criteria to process", default=65)
+    parser.add_argument("-ll", "--lowercriteria", type=int, help="Lower Percentile Criteria to process", default=99)
     args, _ = parser.parse_known_args(args=commands)
     return args
     

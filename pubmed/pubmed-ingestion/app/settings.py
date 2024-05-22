@@ -33,20 +33,20 @@ class DatabaseVectorsEngineSettings(BaseSettings):
 
 class QdrantSettings(BaseSettings):
     api_port: int = 6333
-    api_url: str = "http://qdrant.qdrant.svc.cluster.local"
+    api_url: str = "localhost"
     parent_collection_name: str = "pubmed_parent_hybrid"
     cluster_collection_name: str = "pubmed_cluster_hybrid"
     api_key: SecretStr
 
 
 class EmbeddingSettings(BaseSettings):
-    api_url: str = "http://text-embedding.dev.svc.cluster.local"
+    api_url: str = "http://localhost:8080"
     api_key: SecretStr
     embed_batch_size: int = 4
 
 
 class SpladedocSettings(BaseSettings):
-    api_url: str = "http://text-splade-doc.dev.svc.cluster.local"
+    api_url: str = "http://localhost:8082"
     api_key: SecretStr
     embed_batch_size: int = 2
 
@@ -82,41 +82,18 @@ class PubmedDatabaseReaderSettings(BaseSettings):
         '''
     ]
 
-    pubmed_fetch_parent_records: str = (
+    pubmed_fetch_records: str = (
         "SELECT cc.identifier "
         "FROM public.citationcounts cc "
-        "LEFT JOIN public.pubmed_parent_ingestion_log ppil ON cc.identifier = ppil.pubmed_id "
+        "LEFT JOIN public.{table_name} ppil ON cc.identifier = ppil.pubmed_id "
         "WHERE "
         "cc.year = {year} "
-        "AND cc.citationcount IN ("
-            "SELECT pp.citationcount "
-            "FROM pubmed_percentiles pp "
-            "WHERE pp.year = {year} "
-            "AND pp.percentile BETWEEN {parent_criteria_upper} AND {parent_criteria_lower}) "
-        "AND ("
-            "ppil.pubmed_id IS NULL"
-        ");"
+        "AND ppil.pubmed_id IS NULL "
+        "AND cc.citationcount BETWEEN {citation_lower} AND {citation_upper} order by cc.citationcount desc"
     )
 
-    #TODO
-    pubmed_fetch_children_records: str = (
-        "SELECT cc.identifier"
-        "FROM public.citationcounts cc"
-        "LEFT JOIN public.pubmed_parent_ingestion_log ppil ON cc.identifier = ppil.pubmed_id"
-        "WHERE "
-        "cc.year = {year}"
-        "AND cc.citationcount IN ("
-            "SELECT pp.citationcount"
-            "FROM pubmed_percentiles pp"
-            "WHERE pp.year = {year} "
-            "AND pp.percentile IN ({children_criteria_upper}, {children_criteria_lower})"
-        ")"
-        "AND ("
-            "ppil.pubmed_id IS NULL "
-            "OR ppil.children_nodes_count = 0"
-        ");"
-    )
     pubmed_parent_ingestion_log: str = "pubmed_parent_ingestion_log"
+    pubmed_children_ingestion_log: str = "pubmed_children_ingestion_log"
 
     
 class PsqlSettings(BaseSettings):

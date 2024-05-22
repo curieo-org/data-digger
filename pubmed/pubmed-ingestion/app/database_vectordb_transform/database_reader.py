@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, inspect, text
 from loguru import logger
 from tqdm import tqdm
 from tqdm.asyncio import tqdm
+import asyncio
 
 from settings import Settings
 from database_vectordb_transform.process_parent_nodes import ProcessParentNodes
@@ -45,6 +46,16 @@ class PubmedDatabaseReader:
         except Exception as e:
             logger.exception(f"Error checking table existence: {e}")
             return False
+        
+    async def get_percentile_count(self, year: int, criteria: int) -> int:
+        query = self.settings.database_reader.percentile_select_query.format(year=year, percentile=100 - criteria)
+        count = 0
+        try:
+            result = run_select_sql(self.engine, query)
+            count = result['result'][0][0] if result['result'] else 0
+        except Exception as e:
+            logger.exception(f"An error occurred while fetching the percentile count: {e}")
+        return count
 
     def fetch_details(self,
                             ids,
@@ -89,7 +100,7 @@ class PubmedDatabaseReader:
                 query_template=self.settings.database_reader.records_fetch_details,
                 json_parse_required=False
             )
-            await self.cn.batch_process_records_to_vectors(database_records, 100)
+            await self.cn.batch_process_children_ids_to_vectors(database_records, 100)
 
     async def collect_records_by_year(
         self,
@@ -98,14 +109,20 @@ class PubmedDatabaseReader:
         highercriteria: int = 0,
         mode: str = Union["parent", "children"]
     ) -> Dict[int, Any]:
-        query_template = self.get_query_template(mode)
         self.year = year
-        parent_query = self.format_parent_query(query_template, lowercriteria, highercriteria)
+
+        #retrieve the citation count according to the lowercriteria and highercriteria
+        lower_cc, higher_cc = await asyncio.gather(
+            self.get_percentile_count(year, lowercriteria),
+            self.get_percentile_count(year, highercriteria)
+        )
+
+        query = self.format_citation_query(mode, lower_cc, higher_cc)
         
-        logger.info(f"collect_records_by_year: Year: {year}: lowercriteria: {lowercriteria} : highercriteria: {highercriteria}")
+        logger.info(f"collect_records_by_year: Model: {mode}, Year: {year}: lowercriteria: {lowercriteria} : highercriteria: {highercriteria}")
         with self.engine.connect() as conn:
             with conn.execution_options(stream_results=True, max_row_buffer=self.db_fetch_batch_size).execute(
-                text(parent_query)
+                text(query)
             ) as result:
                 logger.info(f"collect_records_by_year: Year: {year}: Streaming Started")
                 count = 0
@@ -127,16 +144,15 @@ class PubmedDatabaseReader:
                         count = count + len(ids)
                         logger.info(f"Parent Processed Records {count}")
 
-    def get_query_template(self, mode: str) -> str:
-        if mode == "parent":
-            return self.settings.database_reader.pubmed_fetch_parent_records
-        elif mode == "children":
-            return self.settings.database_reader.pubmed_fetch_children_records
-        raise ValueError("Unsupported mode")
-
-    def format_parent_query(self, query_template: str, lowercriteria: int, highercriteria: int) -> str:
+    def format_citation_query(self, mode: str, citation_lower: int, citation_upper: int) -> str:
+        query_template = self.settings.database_reader.pubmed_fetch_records
+        table_name = (self.settings.database_reader.pubmed_parent_ingestion_log if mode == "parent"
+                  else self.settings.database_reader.pubmed_children_ingestion_log)
         return query_template.format(
+            table_name=table_name,
             year=self.year,
-            parent_criteria_upper=100 - highercriteria,
-            parent_criteria_lower=100 - lowercriteria
+            citation_lower=citation_lower,
+            citation_upper=citation_upper
         )
+
+

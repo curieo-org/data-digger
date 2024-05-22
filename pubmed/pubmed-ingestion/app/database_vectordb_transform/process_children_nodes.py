@@ -161,20 +161,21 @@ class ProcessChildrenNodes:
                 await job
 
     async def batch_process_children_ids_to_vectors(self,
-                                               children_ids: list, 
+                                               records: defaultdict, 
                                                batch_size:int = 100):
-        total_batches = (len(children_ids) + batch_size - 1) // batch_size
-        for i in tqdm(range(total_batches), desc="Processing batches"):
+        keys = list(records.keys())
+        total_batches = (len(keys) + batch_size - 1) // batch_size
+        for i in tqdm(range(total_batches), desc="Transforming batches"):
             self.log_dict = []
             start_index = i * batch_size
             end_index = start_index + batch_size
-            batch_data = children_ids[start_index:end_index]
+            batch_data = [records[key] for key in keys[start_index:end_index]]
 
             start_time = time.time()
             await self.process_batch_children_ids(batch_data)
             logger.info(f"Processed Batch size of {batch_size} in {time.time() - start_time:.2f}s")
             run_insert_sql(engine=self.engine,
-                                 table_name=self.settings.database_reader.pubmed_parent_ingestion_log,
+                                 table_name=self.settings.database_reader.pubmed_children_ingestion_log,
                                  data_dict=self.log_dict)
 
-        logger.info(f"Processed Completed!!!")     
+        logger.info(f"Processed Completed!!!")  
