@@ -1,12 +1,14 @@
 # Import the required libraries
-import requests
-import ssl
-import zipfile
-from urllib.request import urlretrieve
-from datetime import date
 import os
 import shutil
+import ssl
+import zipfile
+from datetime import date
+from urllib.request import urlretrieve
+
+import requests
 from bs4 import BeautifulSoup
+
 
 def scrape_clinical_trial_database():
     # Download the latest AACT database HTML page

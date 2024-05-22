@@ -1,1 +1,3 @@
-from .clinicaltrailengine import ClinicalTrailVectorDbEngine # noqa
+__all__ = ["VectorDBEngine"]
+
+from app.vector_transfer.transfer import VectorDBEngine
