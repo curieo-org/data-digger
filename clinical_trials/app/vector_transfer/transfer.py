@@ -151,7 +151,6 @@ class VectorDBEngine:
             ))
 
     def database_to_vectors(self, database_engine: PGEngine, table_structure: TableStructure) -> None:
-        return
         reader = ClinicalTrailsDatabaseReader(
             database_engine=database_engine,
             table_structure=table_structure,
