@@ -7,8 +7,6 @@ This directory contains the code and documentation for updating the new clinical
 
 ### Prerequisites
 - Python 3
-- Docker
-- Bash
 
 ### Installation
 - Make sure `pyenv` is installed.
@@ -48,12 +46,6 @@ cp .env.template .env
 Setup Qdrant vector database for local development by running the following command:
 ```
 docker run -p 6333:6333 --name aact_vectordb -d qdrant/qdrant
-```
-
-Setup a local Postgres database for local development by running the following command:
-```
-docker build -t aact_cloud_db . -f assets/Dockerfile_DB
-docker run -p 5431:5432 --name aact_cloud_db -d aact_cloud_db
 ```
 
 ### Running the pipeline
