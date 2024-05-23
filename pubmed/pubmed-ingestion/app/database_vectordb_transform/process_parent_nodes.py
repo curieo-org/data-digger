@@ -48,7 +48,7 @@ class ProcessParentNodes:
         self.eu = EmbeddingUtil(settings)
 
     async def node_metadata_transform(self, parent_id, pubmedid, nodes_to_be_added, record) -> list[CurieoBaseNode]:
-        result: list[TextNode] = []
+        result: list[CurieoBaseNode] = []
         keys_to_update = ["publicationDate", "year", "authors", "identifiers"]
         for node in nodes_to_be_added:
             for key in keys_to_update:
@@ -83,13 +83,10 @@ class ProcessParentNodes:
             return
 
         parent_nodes = [CurieoBaseNode.from_text_node(text_node) for text_node in self.create_parent_nodes(abstract)]
+        parent_nodes_with_embeddings = await self.eu.calculate_dense_sparse_embeddings(parent_nodes)
+
         parent_id = parent_nodes[0].id_
-
-        dense_emb, sparse_emb = await self.eu.calculate_dense_sparse_embeddings(parent_nodes)
-        for node in parent_nodes:
-            node.embedding, node.sparse_embedding = dense_emb[node.id_], sparse_emb[node.id_]
-
-        nodes_ready_to_be_added = await self.node_metadata_transform(parent_id, record_id, parent_nodes, record)
+        nodes_ready_to_be_added = await self.node_metadata_transform(parent_id, record_id, parent_nodes_with_embeddings, record)
         self.insert_nodes_into_index(record_id, parent_id, nodes_ready_to_be_added)
 
     def create_parent_nodes(self, abstract: str) -> List[TextNode]:

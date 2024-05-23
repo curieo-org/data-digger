@@ -1,4 +1,5 @@
-from typing import Any, List, Tuple
+import json
+from typing import Any, Dict, List, Tuple
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 
 from llama_index.core.schema import BaseNode
@@ -10,6 +11,25 @@ from utils.custom_basenode import CurieoBaseNode
 
 
 class CurieoVectorStore(QdrantVectorStore):
+
+    def node_process_to_metadata_dict(
+            self,
+            node: CurieoBaseNode,
+            text_required: bool = True
+    ) -> Dict[str, Any]:
+        """Common logic for saving Node data into metadata dict."""
+        node_dict = node.dict()
+        metadata: Dict[str, Any] = node_dict.get("metadata", {})
+
+        node_dict["embedding"] = None
+        node_dict["sparse_embedding"] = None
+
+        metadata["_node_type"] = node.class_name()
+        if text_required:
+            metadata["text"] = node.text
+        metadata["id"] = node.id_
+
+        return metadata
 
     def _build_points(self, nodes: List[BaseNode]) -> Tuple[List[Any], List[str]]:
         ids = []
@@ -33,8 +53,8 @@ class CurieoVectorStore(QdrantVectorStore):
                     }
                 )
 
-                metadata = node_to_metadata_dict(
-                    node, remove_text=False, flat_metadata=self.flat_metadata
+                metadata = self.node_process_to_metadata_dict(
+                    node, text_required=True
                 )
                 payloads.append(metadata)
 

@@ -59,9 +59,11 @@ class EmbeddingUtil:
         }
         return id_to_sparse_embedding
     
-    async def calculate_dense_sparse_embeddings(self, nodes: List[CurieoBaseNode]):
+    async def calculate_dense_sparse_embeddings(self, nodes: List[CurieoBaseNode]) -> List[CurieoBaseNode]:
         id_to_dense_embedding, id_to_sparse_embedding = await asyncio.gather(
             self.calculate_dense_embeddings(nodes), self.calculate_sparse_embeddings(nodes)
             )
+        for node in nodes:
+            node.embedding, node.sparse_embedding = id_to_dense_embedding[node.id_], id_to_sparse_embedding[node.id_]
         
-        return id_to_dense_embedding, id_to_sparse_embedding
+        return nodes
