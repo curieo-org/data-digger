@@ -178,3 +178,62 @@ def get_clusters(
             node_clusters.append(cluster_nodes)
 
     return node_clusters
+
+
+def get_clusters_dict(
+    embeddings : List[List[float]],
+    ids : List[str],
+    texts : Dict[str, str],
+    max_length_in_cluster: int = 10000,  # 10k tokens max per cluster
+    tokenizer: tiktoken.Encoding = tiktoken.get_encoding("cl100k_base"),
+    reduction_dimension: int = 10,
+    threshold: float = 0.1,
+    prev_total_length=None,  # to keep track of the total length of the previous clusters
+) -> List[List[str]]:
+    
+    # Perform the clustering
+    clusters = perform_clustering(
+        embeddings, dim=reduction_dimension, threshold=threshold
+    )
+
+    # Initialize an empty list to store the clusters of nodes
+    node_clusters = []
+
+    # Iterate over each unique label in the clusters
+    for label in np.unique(np.concatenate(clusters)):
+        # Get the indices of the nodes that belong to this cluster
+        indices = [i for i, cluster in enumerate(clusters) if label in cluster]
+
+        # Add the corresponding nodes to the node_clusters list
+        cluster_nodes = [ids[i] for i in indices]
+
+        # Base case: if the cluster only has one node, do not attempt to recluster it
+        if len(cluster_nodes) == 1:
+            node_clusters.append(cluster_nodes)
+            continue
+
+        # Calculate the total length of the text in the nodes
+        total_length = sum([len(tokenizer.encode(texts[id])) for id in cluster_nodes])
+
+        # If the total length exceeds the maximum allowed length, recluster this cluster
+        # If the total length did not change from the previous call then don't try again to avoid infinite recursion!
+        if total_length > max_length_in_cluster and (
+            prev_total_length is None or total_length < prev_total_length
+        ):
+            slice = [embeddings[i] for i in indices]
+            node_clusters.extend(
+                get_clusters(
+                    slice,
+                    cluster_nodes,
+                    texts,
+                    max_length_in_cluster=max_length_in_cluster,
+                    tokenizer=tokenizer,
+                    reduction_dimension=reduction_dimension,
+                    threshold=threshold,
+                    prev_total_length=total_length,
+                )
+            )
+        else:
+            node_clusters.append(cluster_nodes)
+
+    return node_clusters
