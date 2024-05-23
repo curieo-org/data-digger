@@ -1,7 +1,9 @@
 from typing import Any, Dict, Tuple, Generator
 from sqlalchemy import text, insert, Table, MetaData
 from sqlalchemy.exc import SQLAlchemyError
+from loguru import logger
 
+logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}")
 
 def list_to_sql_tuple(values):
     # Convert list to tuple string
@@ -82,6 +84,23 @@ def run_insert_sql(engine, table_name, data_dict):
             connection.execute(stmt, data_dict)
             return True
         except (SQLAlchemyError, ValueError) as exc:
-            raise Exception("Failed to insert records to the database.") from exc
+            logger.exception(f"Failed to insert records to the database: {exc}")
             return False
+        
+def run_insert_tikv(client, data_dict):
+    def convert_to_bytes(data_dict):
+        return {str(key).encode('utf-8'): str(value).encode('utf-8') for key, value in data_dict.items()}
+    
+    bytes_dict = convert_to_bytes(data_dict)
+    with client.begin() as txn:
+        try:
+            txn.batch_put(bytes_dict)
+            txn.commit()
+            return True
+        except (SQLAlchemyError, ValueError) as exc:
+            logger.exception(f"Failed to insert records to the database: {exc}")
+            return False
+    
+
+
             

@@ -1,10 +1,8 @@
-import json
 from typing import Any, Dict, List, Tuple
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 
 from llama_index.core.schema import BaseNode
 from llama_index.core.utils import iter_batch
-from llama_index.core.vector_stores.utils import node_to_metadata_dict
 from qdrant_client.http import models as rest
 
 from utils.custom_basenode import CurieoBaseNode
@@ -27,7 +25,7 @@ class CurieoVectorStore(QdrantVectorStore):
         metadata["_node_type"] = node.class_name()
         if text_required:
             metadata["text"] = node.text
-        metadata["id"] = node.id_
+        metadata["doc_id"] = node.id_
 
         return metadata
 

@@ -72,15 +72,15 @@ def download_s3_file(s3_bucket, s3_object):
         except Exception as e:
             print(f"An error occurred: {e}")
 
-def upload_to_s3(bucket_name, log_json, year):
+def upload_to_s3(bucket_name: str, record: dict):
     # If S3 object_name was not specified, use file_name
     s3_client = boto3.resource('s3')
     timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-    file_name = f"{year}_{timestamp}.json"
+    file_name = f"{timestamp}.json"
     s3object = s3_client.Object(bucket_name, file_name)
     try:
         s3object.put(
-            Body=(bytes(log_json.encode('UTF-8')))
+            Body=(bytes(json.dumps(record).encode('UTF-8')))
         )
     except Exception as e:
         print("Error uploading: ", e)

@@ -1,5 +1,3 @@
-## WORKING
-
 import asyncio
 from collections import defaultdict
 from typing import List, Union
@@ -9,35 +7,36 @@ from tqdm import tqdm
 from tqdm.asyncio import tqdm
 import time
 
-from llama_index.core.schema import (
-    BaseNode,
-    Document,
-    TextNode
-)
+from llama_index.core.schema import Document
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.ingestion import run_transformations
-from llama_index.embeddings.text_embeddings_inference import TextEmbeddingsInference
+from tikv_client import TransactionClient
 
 from settings import Settings
 from database_vectordb_transform.treefy_nodes import TreefyNodes
 from database_vectordb_transform.vectors_upload import VectorsUpload
 from utils.process_jats import JatsXMLParser
 from utils.clustering import NodeCluster
-from utils.database_utils import run_insert_sql
-from utils.utils import ProcessingResultEnum, update_result_status, download_s3_file, update_result_status, is_valid_record, get_abstract
-from utils.embeddings_utils import EmbeddingUtil
+from utils.database_utils import (
+    run_insert_sql,
+    run_insert_tikv
+)
+from utils.custom_basenode import CurieoBaseNode
+from utils.utils import (
+    ProcessingResultEnum, 
+    update_result_status, 
+    download_s3_file, 
+    update_result_status, 
+    is_valid_record, 
+    get_abstract,
+    upload_to_s3
+)
 
 logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}")
 
 class ProcessChildrenNodes:
     def __init__(self,
                 settings: Settings):
-        """
-        Initializes the PubmedDatabaseReader with necessary settings and configurations.
-        
-        Args:
-            settings (Settings): Contains all necessary database configurations.
-        """
         self.settings = settings
         self.processed_records = defaultdict(list)
         self.children_pubmed_ids = []
@@ -45,27 +44,7 @@ class ProcessChildrenNodes:
         self.num_workers = 32
         self.engine = create_engine(self.settings.psql.connection.get_secret_value())
         self.tn = TreefyNodes(settings)
-        
         self.vu = VectorsUpload(settings)
-
-    async def node_metadata_transform(self, parent_id, pubmedid, nodes_to_be_added, record) -> list[BaseNode]:
-        result: list[TextNode] = []
-        keys_to_update = ["publicationDate", "year", "authors", "identifiers"]
-        for node in nodes_to_be_added:
-            for key in keys_to_update:
-                node.metadata[key] = record.get(key, "")
-
-        #metadata update for the nodes
-        excluded_keys = ["pubmedid"] + keys_to_update
-        for node in nodes_to_be_added:
-            node.metadata["pubmedid"] = pubmedid
-            node.metadata["parent_id"] = parent_id
-            
-            for key in excluded_keys:
-                node.excluded_embed_metadata_keys.append(key)
-                node.excluded_llm_metadata_keys.append(key)
-            result.append(node)
-        return result
     
     async def parse_clean_fulltext(
             self,
@@ -104,10 +83,11 @@ class ProcessChildrenNodes:
         #process the retrieved data
         for k, values in parsed_fulltext.items():
             base_nodes: List[Document] = [Document(text=each_value) for each_value in values if each_value.strip()]
-            cur_children_dict[k] = run_transformations(base_nodes, transformations=[
+            transformed_nodes: List[Document] = run_transformations(base_nodes, transformations=[
                 SentenceSplitter(chunk_size=self.settings.d2vengine.child_chunk_size, chunk_overlap=self.settings.d2vengine.child_chunk_overlap)
                 ],
                 in_place=False)
+            cur_children_dict[k] = [CurieoBaseNode.from_text_node(node) for node in transformed_nodes]
         return cur_children_dict, parsed_fulltext
     
     async def process_single_child_id(self, record: dict):
@@ -138,13 +118,16 @@ class ProcessChildrenNodes:
         if fulltext_content:
             cur_children_dict, parsed_fulltext = await self.generate_children_nodes(fulltext_content, pmc_location.split("/")[-1])
             children_nodes = [item for sublist in cur_children_dict.values() for item in sublist]
+            self.fulltext_details[record_id] = parsed_fulltext
         else:
             self.log_dict.append(
                 update_result_status(mode="children", pubmed_id=id, status=ProcessingResultEnum.PMC_RECORD_PARSING_FAILED.value)
             )
         
-        clusters = await self.tn.tree_children_transformation(children_nodes, cur_children_dict)
+        clusters, node_text_dict = await self.tn.tree_children_transformation(children_nodes, cur_children_dict)
         self.insert_nodes_into_index(record_id, clusters)
+        run_insert_sql(self.engine, self.settings.database_reader.pubmed_children_text_details, node_text_dict)
+        return True
 
     def assign_embeddings_to_nodes(self, nodes: List[Document], id_to_dense_embedding: dict):
         for node in nodes:
@@ -153,11 +136,18 @@ class ProcessChildrenNodes:
     def insert_nodes_into_index(self, id:int, clusters: List[NodeCluster]):
         try:
             self.vu.cluster_vectordb_index.insert_nodes(clusters)
+            self.log_dict.append(
+                update_result_status(
+                    mode="children",
+                    pubmed_id=id,
+                    status=ProcessingResultEnum.SUCCESS.value,
+                    nodes_count=len(clusters)
+                )
+            )
         except Exception as e:
             logger.exception(f"VectorDb problem: {e}")
             self.log_dict.append(update_result_status(mode="children", pubmed_id=id, status=ProcessingResultEnum.PMC_RECORD_PARSING_FAILED.value))
-
-        
+     
     async def process_batch_children_ids(self,
                                     records: list[defaultdict]) -> None:
         jobs = []
@@ -181,6 +171,7 @@ class ProcessChildrenNodes:
         total_batches = (len(keys) + batch_size - 1) // batch_size
         for i in tqdm(range(total_batches), desc="Transforming batches"):
             self.log_dict = []
+            self.fulltext_details = {}
             start_index = i * batch_size
             end_index = start_index + batch_size
             batch_data = [records[key] for key in keys[start_index:end_index]]
@@ -191,5 +182,6 @@ class ProcessChildrenNodes:
             run_insert_sql(engine=self.engine,
                                  table_name=self.settings.database_reader.pubmed_children_ingestion_log,
                                  data_dict=self.log_dict)
+            upload_to_s3(self.settings.d2vengine.s3_fulltext_bucket, self.fulltext_details)
 
         logger.info(f"Processed Completed!!!")  

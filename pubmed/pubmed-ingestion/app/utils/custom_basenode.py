@@ -85,6 +85,10 @@ class CurieoBaseNode(TextNode):
     @classmethod
     def class_name(cls) -> str:
         return "CURIEO_NODE"
+    
+    def set_metadata(self, key:str, value: Any) -> None:
+        """Set the content of the node."""
+        self.text = value
 
     def get_sparse_embedding(self) -> List[float]:
         """Get sparse embedding.

@@ -28,7 +28,7 @@ class DatabaseVectorsEngineSettings(BaseSettings):
     child_chunk_size: int = 512
     child_chunk_overlap: int = 30
     tree_depth: int = 2
-    s3_analytics_bucket: str = "pubmed-ingestion-analytics"
+    s3_fulltext_bucket: str = "pubmed-fulltext-parsed-details-jkhsfkjhsdfjk"
 
 
 class QdrantSettings(BaseSettings):
@@ -94,6 +94,7 @@ class PubmedDatabaseReaderSettings(BaseSettings):
 
     pubmed_parent_ingestion_log: str = "pubmed_parent_ingestion_log"
     pubmed_children_ingestion_log: str = "pubmed_children_ingestion_log"
+    pubmed_children_text_details: str = "pubmed_text_details"
 
     
 class PsqlSettings(BaseSettings):
