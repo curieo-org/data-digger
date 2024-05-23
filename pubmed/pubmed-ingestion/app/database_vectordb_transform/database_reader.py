@@ -88,7 +88,7 @@ class PubmedDatabaseReader:
         mode: str = Union["parent", "children"]
     ) -> None:
         if mode == "parent":
-            database_records = self.fetch_details(
+            database_records = await self.fetch_details(
                 ids=ids,
                 query_template=self.settings.database_reader.records_fetch_details,
                 json_parse_required=True

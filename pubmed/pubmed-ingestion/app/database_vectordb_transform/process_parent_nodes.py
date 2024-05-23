@@ -20,8 +20,9 @@ from settings import Settings
 from database_vectordb_transform.treefy_nodes import TreefyNodes
 from database_vectordb_transform.vectors_upload import VectorsUpload
 from utils.database_utils import run_insert_sql
+from utils.custom_basenode import CurieoBaseNode
 from utils.utils import ProcessingResultEnum, update_result_status, is_valid_record, get_abstract
-from utils.embeddings_utils import calculate_embeddings
+from utils.embeddings_utils import EmbeddingUtil
 
 logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}")
 
@@ -44,8 +45,9 @@ class ProcessParentNodes:
             timeout=60,
             embed_batch_size=self.settings.embedding.embed_batch_size)
         self.vu = VectorsUpload(settings)
+        self.eu = EmbeddingUtil(settings)
 
-    async def node_metadata_transform(self, parent_id, pubmedid, nodes_to_be_added, record) -> list[BaseNode]:
+    async def node_metadata_transform(self, parent_id, pubmedid, nodes_to_be_added, record) -> list[CurieoBaseNode]:
         result: list[TextNode] = []
         keys_to_update = ["publicationDate", "year", "authors", "identifiers"]
         for node in nodes_to_be_added:
@@ -67,7 +69,7 @@ class ProcessParentNodes:
     async def process_single_parent_record(self, record: dict):
         record_id = int(record.get('identifier'))
 
-        if not is_valid_record(record, record_id, self.settings.database_reader.parsed_record_abstract_key):
+        if not is_valid_record(record, self.settings.database_reader.parsed_record_abstract_key, record_id):
             self.log_dict.append(
                 update_result_status(mode="parent", pubmed_id=record_id, status=ProcessingResultEnum.ID_ABSTRACT_BAD_DATA.value)
             )
@@ -80,18 +82,19 @@ class ProcessParentNodes:
             )
             return
 
-        parent_nodes = self.create_parent_nodes(abstract)
+        parent_nodes = [CurieoBaseNode.from_text_node(text_node) for text_node in self.create_parent_nodes(abstract)]
         parent_id = parent_nodes[0].id_
 
-        id_to_dense_embedding = await calculate_embeddings(self.embed_model, parent_nodes)
-        self.assign_embeddings_to_nodes(parent_nodes, id_to_dense_embedding)
+        dense_emb, sparse_emb = await self.eu.calculate_dense_sparse_embeddings(parent_nodes)
+        for node in parent_nodes:
+            node.embedding, node.sparse_embedding = dense_emb[node.id_], sparse_emb[node.id_]
 
         nodes_ready_to_be_added = await self.node_metadata_transform(parent_id, record_id, parent_nodes, record)
         self.insert_nodes_into_index(record_id, parent_id, nodes_ready_to_be_added)
 
-    def create_parent_nodes(self, abstract: str) -> List[Document]:
+    def create_parent_nodes(self, abstract: str) -> List[TextNode]:
         return run_transformations(
-            nodes=[Document(text=abstract)],
+            nodes=[TextNode(text=abstract)],
             transformations=[
                 SentenceSplitter(
                     chunk_size=self.settings.d2vengine.parent_chunk_size,
@@ -100,11 +103,7 @@ class ProcessParentNodes:
             ],
             in_place=False
         )
-
-    def assign_embeddings_to_nodes(self, nodes: List[Document], id_to_dense_embedding: dict):
-        for node in nodes:
-            node.embedding = id_to_dense_embedding[node.id_]
-
+        
     def insert_nodes_into_index(self, record_id: int, parent_id: str, nodes_to_be_added: List[Document]):
         try:
             self.vu.parent_vectordb_index.insert_nodes(nodes_to_be_added)
@@ -113,7 +112,7 @@ class ProcessParentNodes:
                     mode="parent",
                     pubmed_id=record_id,
                     status=ProcessingResultEnum.SUCCESS.value,
-                    parent_id_nodes_count=len(nodes_to_be_added),
+                    nodes_count=len(nodes_to_be_added),
                     parent_id=parent_id,
                 )
             )

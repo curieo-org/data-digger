@@ -11,6 +11,7 @@ from llama_index.core import (
 
 from settings import Settings
 from utils.splade_embedding import SpladeEmbeddingsInference
+from utils.custom_vectorstore import CurieoVectorStore
 
 logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}")
 
@@ -38,11 +39,8 @@ class VectorsUpload:
             The second list is a list of lists, where each sublist represents the corresponding vectors derived
             from the input text data.
         """
-        splade_embeddings = self.splade_model.get_text_embedding_batch(texts)
-        indices = [[entry.get('index') for entry in sublist] for sublist in splade_embeddings]
-        vectors = [[entry.get('value') for entry in sublist] for sublist in splade_embeddings]
-
-        assert len(indices) == len(vectors)
+        
+        print()
         return indices, vectors
     
     def __init__(self,
@@ -76,11 +74,9 @@ class VectorsUpload:
             https=False
             )   
 
-        self.parent_vector_store = QdrantVectorStore(
+        self.parent_vector_store = CurieoVectorStore(
             client=self.client,
-            collection_name=self.settings.qdrant.parent_collection_name, 
-            sparse_doc_fn=self.sparse_doc_vectors,
-            enable_hybrid=True,
+            collection_name=self.settings.qdrant.parent_collection_name
             )
         
         self.cluster_vector_store = QdrantVectorStore(

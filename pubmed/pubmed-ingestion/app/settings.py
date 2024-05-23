@@ -32,7 +32,7 @@ class DatabaseVectorsEngineSettings(BaseSettings):
 
 
 class QdrantSettings(BaseSettings):
-    api_port: int = 6333
+    api_port: int = 7333
     api_url: str = "localhost"
     parent_collection_name: str = "pubmed_parent_hybrid"
     cluster_collection_name: str = "pubmed_cluster_hybrid"

@@ -22,9 +22,10 @@ from settings import Settings
 from database_vectordb_transform.treefy_nodes import TreefyNodes
 from database_vectordb_transform.vectors_upload import VectorsUpload
 from utils.process_jats import JatsXMLParser
+from utils.clustering import NodeCluster
 from utils.database_utils import run_insert_sql
 from utils.utils import ProcessingResultEnum, update_result_status, download_s3_file, update_result_status, is_valid_record, get_abstract
-from utils.embeddings_utils import calculate_embeddings
+from utils.embeddings_utils import EmbeddingUtil
 
 logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}")
 
@@ -44,12 +45,7 @@ class ProcessChildrenNodes:
         self.num_workers = 32
         self.engine = create_engine(self.settings.psql.connection.get_secret_value())
         self.tn = TreefyNodes(settings)
-        self.embed_model = TextEmbeddingsInference(
-            model_name="",
-            base_url=self.settings.embedding.api_url,
-            auth_token=self.settings.embedding.api_key.get_secret_value(),
-            timeout=60,
-            embed_batch_size=self.settings.embedding.embed_batch_size)
+        
         self.vu = VectorsUpload(settings)
 
     async def node_metadata_transform(self, parent_id, pubmedid, nodes_to_be_added, record) -> list[BaseNode]:
@@ -147,30 +143,20 @@ class ProcessChildrenNodes:
                 update_result_status(mode="children", pubmed_id=id, status=ProcessingResultEnum.PMC_RECORD_PARSING_FAILED.value)
             )
         
-        id_to_dense_embedding = await calculate_embeddings(self.embed_model, children_nodes)
-        r = await self.tn.tree_children_transformation(id_to_dense_embedding, cur_children_dict)
-
-        
-        self.assign_embeddings_to_nodes(nodes_ready_to_b_added, id_to_dense_embedding)
-            
-
-        #all nodes operation Marius will add the details here
-
-
-        self.insert_nodes_into_index()
+        clusters = await self.tn.tree_children_transformation(children_nodes, cur_children_dict)
+        self.insert_nodes_into_index(record_id, clusters)
 
     def assign_embeddings_to_nodes(self, nodes: List[Document], id_to_dense_embedding: dict):
         for node in nodes:
             node.embedding = id_to_dense_embedding[node.id_]
 
-    def insert_nodes_into_index(self, record_id: int, parent_id: str, nodes_to_be_added: List[Document]):
+    def insert_nodes_into_index(self, id:int, clusters: List[NodeCluster]):
         try:
-            self.vu.cluster_storage_context.insert_nodes(nodes_to_be_added)
+            self.vu.cluster_vectordb_index.insert_nodes(clusters)
         except Exception as e:
             logger.exception(f"VectorDb problem: {e}")
-            self.log_dict.append(
-                update_result_status(pubmed_id=record_id, status=ProcessingResultEnum.VECTORDB_FAILED.value)
-            )
+            self.log_dict.append(update_result_status(mode="children", pubmed_id=id, status=ProcessingResultEnum.PMC_RECORD_PARSING_FAILED.value))
+
         
     async def process_batch_children_ids(self,
                                     records: list[defaultdict]) -> None:

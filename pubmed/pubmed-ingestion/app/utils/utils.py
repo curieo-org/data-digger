@@ -6,6 +6,7 @@ import boto3
 import datetime
 import json
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError 
+from utils.custom_basenode import CurieoBaseNode
 
 class BaseNodeTypeEnum(Enum):
     PARENT = "parent"
