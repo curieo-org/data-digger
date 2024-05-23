@@ -2,6 +2,12 @@ from typing import Any, Dict, Tuple
 from sqlalchemy import text, insert, Table, MetaData
 from sqlalchemy.exc import SQLAlchemyError
 
+
+def list_to_sql_tuple(values):
+    # Convert list to tuple string
+    tuple_str = ', '.join(f"'{item}'" if isinstance(item, str) else str(item) for item in values)
+    return f"({tuple_str})"
+
 def run_select_sql(engine, command: str) -> Dict:
         """Execute a SQL statement and return a string representing the results.
 

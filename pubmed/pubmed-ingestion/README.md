@@ -66,4 +66,13 @@ This command will create a virtual environment and install all the necessary dep
 
    ```bash
    poetry run python app/main.py -y 2024 -pc 40 -cc 10
+
+   # Usage of profiler
+   # Option 1
+   poetry run python -m cProfile app/main.py -y 2024 -pc 40 -cc 10
+
+   # Option 1
+   pip install flameprof
+   poetry run python -m cProfile -o main.prof app/main.py -y 2024 -pc 40 -cc 10
+   flameprof  main.prof > main.svg
    ```

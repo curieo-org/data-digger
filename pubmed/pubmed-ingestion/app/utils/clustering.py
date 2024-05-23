@@ -18,6 +18,12 @@ from llama_index.core.schema import BaseNode
 RANDOM_SEED = 224
 random.seed(RANDOM_SEED)
 
+class NodeCluster:
+    def __init__(self, identifier, child_ids: List, dense_centroid: np.array, sparse_centroid: dict):
+        self.child_ids = child_ids
+        self.identifier = identifier
+        self.dense_vector = dense_centroid
+        self.sparse_vector = sparse_centroid
 
 def global_cluster_embeddings(
     embeddings: np.ndarray,

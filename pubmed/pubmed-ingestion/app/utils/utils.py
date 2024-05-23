@@ -23,16 +23,12 @@ class ProcessingResultEnum(Enum):
 def update_result_status(pubmed_id: int,
                          status:int,
                          parent_id_nodes_count: int = 0,
-                         parent_id: str = "",
-                         children_nodes_count: int = 0,
-                         parsed_fulltext: defaultdict = json.dumps({})) -> defaultdict:
+                         parent_id: str = "") -> defaultdict:
         ip_dict = defaultdict()
         ip_dict["pubmed_id"] = pubmed_id
         ip_dict["status"] = status
         ip_dict["parent_id_nodes_count"] = parent_id_nodes_count
         ip_dict["parent_id"] = parent_id
-        ip_dict["children_nodes_count"] = children_nodes_count
-        ip_dict["parsed_fulltext_json"] = json.dumps(parsed_fulltext, ensure_ascii=True)
         return ip_dict
     
 def get_project_root() -> Path:

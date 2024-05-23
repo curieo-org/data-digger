@@ -34,7 +34,8 @@ class DatabaseVectorsEngineSettings(BaseSettings):
 class QdrantSettings(BaseSettings):
     api_port: int = 6333
     api_url: str = "http://qdrant.qdrant.svc.cluster.local"
-    collection_name: str = "pubmed_hybrid"
+    parent_collection_name: str = "pubmed_parent_hybrid"
+    cluster_collection_name: str = "pubmed_cluster_hybrid"
     api_key: SecretStr
 
 
@@ -56,7 +57,7 @@ class PubmedDatabaseReaderSettings(BaseSettings):
     pubmed_percentiles_tbl: str = "pubmed_percentiles"
     percentile_select_query: str = "SELECT citationcount from pubmed_percentiles where year = {year} and percentile = {percentile}"
     record_select_query: str = "SELECT identifier FROM public.citationcounts where year = {year} and citationcount >= {citationcount}"
-    records_fetch_details: str = "SELECT identifier, record FROM public.records where identifier in ({ids})"
+    records_fetch_details: str = "SELECT identifier, record FROM public.records where year = {year} and identifier in {ids}"
     fulltext_fetch_query: str = "SELECT pubmed, {column} FROM public.{table} where pubmed in ({ids})"
     parsed_record_abstract_key: str = "abstractText"
     parsed_record_titles_key: str = "titles"
@@ -65,39 +66,59 @@ class PubmedDatabaseReaderSettings(BaseSettings):
     parsed_record_authors_key: str = "authors"
     pubmed_ingestion_log_queries: list[str] = [
         '''
-            CREATE TABLE IF NOT EXISTS pubmed_ingestion_log
+            CREATE TABLE IF NOT EXISTS pubmed_parent_ingestion_log
             (
                 id SERIAL PRIMARY KEY,
                 pubmed_id BIGINT NOT NULL,
-				status INTEGER default 0,
+                status INTEGER default 0,
                 parent_id VARCHAR(255) default '',
                 parent_id_nodes_count INTEGER default 0,
-                children_nodes_count INTEGER default 0,
-                parsed_fulltext_json JSONB default '{}',
                 created_at timestamp default now(),
                 updated_at timestamp default now()
-            );
-        ''',
-        '''
-            CREATE INDEX IF NOT EXISTS pubmed_ingestion_log_pubmed_id ON pubmed_ingestion_log (pubmed_id);
-        ''',
-        '''
-            CREATE INDEX IF NOT EXISTS pubmed_ingestion_log_parent_id ON pubmed_ingestion_log (parent_id);
+                );
+            CREATE INDEX IF NOT EXISTS pubmed_parent_ingestion_log_pubmed_id ON pubmed_parent_ingestion_log (pubmed_id);
+            CREATE INDEX IF NOT EXISTS pubmed_parent_ingestion_log_parent_id ON pubmed_parent_ingestion_log (parent_id);
+            CREATE INDEX IF NOT EXISTS pubmed_parent_ingestion_log_status ON pubmed_parent_ingestion_log (status);
         '''
     ]
-    pubmed_citation_ingested_log_filter: str = (
-        "SELECT cc.identifier FROM public.citationcounts cc "
-        "LEFT JOIN public.pubmed_ingestion_log pil ON cc.identifier = pil.pubmed_id "
-        "WHERE pil.pubmed_id IS NULL AND cc.year = {year} AND cc.citationcount >= {citationcount}"
-    )
-    pubmed_citation_ingested_log_filter_children_push_only: str = (
-        "SELECT cc.identifier,pil.parent_id FROM public.citationcounts cc "
-        "INNER JOIN public.pubmed_ingestion_log pil ON cc.identifier = pil.pubmed_id "
-        "WHERE pil.children_nodes_count != 0 AND cc.year = {year} AND cc.citationcount >= {citationcount}"
-    )
-    pubmed_ingestion_log: str = "pubmed_ingestion_log"
-    
 
+    pubmed_fetch_parent_records: str = (
+        "SELECT cc.identifier "
+        "FROM public.citationcounts cc "
+        "LEFT JOIN public.pubmed_parent_ingestion_log ppil ON cc.identifier = ppil.pubmed_id "
+        "WHERE "
+        "cc.year = {year} "
+        "AND cc.citationcount IN ("
+            "SELECT pp.citationcount "
+            "FROM pubmed_percentiles pp "
+            "WHERE pp.year = {year} "
+            "AND pp.percentile BETWEEN {parent_criteria_upper} AND {parent_criteria_lower}) "
+        "AND ("
+            "ppil.pubmed_id IS NULL"
+        ");"
+    )
+
+    #TODO
+    pubmed_fetch_children_records: str = (
+        "SELECT cc.identifier"
+        "FROM public.citationcounts cc"
+        "LEFT JOIN public.pubmed_parent_ingestion_log ppil ON cc.identifier = ppil.pubmed_id"
+        "WHERE "
+        "cc.year = {year}"
+        "AND cc.citationcount IN ("
+            "SELECT pp.citationcount"
+            "FROM pubmed_percentiles pp"
+            "WHERE pp.year = {year} "
+            "AND pp.percentile IN ({children_criteria_upper}, {children_criteria_lower})"
+        ")"
+        "AND ("
+            "ppil.pubmed_id IS NULL "
+            "OR ppil.children_nodes_count = 0"
+        ");"
+    )
+    pubmed_parent_ingestion_log: str = "pubmed_parent_ingestion_log"
+
+    
 class PsqlSettings(BaseSettings):
     connection: SecretStr
 
