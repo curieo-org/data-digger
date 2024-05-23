@@ -1,4 +1,4 @@
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Generator
 from sqlalchemy import text, insert, Table, MetaData
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -30,6 +30,31 @@ def run_select_sql(engine, command: str) -> Dict:
                 }
         return {}
 
+
+def run_query(engine, command: str) -> Generator[Dict, None, None]:
+        """Execute a SQL statement and return a dictionary for each result.
+
+        If the statement returns rows, a string of the results is returned.
+        If the statement returns no rows, an empty string is returned.
+        """
+        with engine.begin() as connection:
+            try:
+                cursor = connection.execution_options(stream_results=True).execute(text(command))
+            except (SQLAlchemyError, ValueError) as exc:
+                raise Exception("Failed to fetch records from the database.") from exc
+            while 'batch returns results':
+                batch = cursor.fetchmany(10000)  # 10,000 rows at a time
+
+                if not batch:
+                    break
+
+                for row in batch:
+                    res = dict()
+                    for k,v in row._mapping.items():
+                        res[k] = v
+                    yield res
+
+
 def run_insert_sql(engine, table_name, data_dict):
     """
     Insert a new row into the specified table in the database.
@@ -57,6 +82,6 @@ def run_insert_sql(engine, table_name, data_dict):
             connection.execute(stmt, data_dict)
             return True
         except (SQLAlchemyError, ValueError) as exc:
-            raise Exception("Failed to fetch records from the database.") from exc
+            raise Exception("Failed to insert records to the database.") from exc
             return False
             
