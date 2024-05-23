@@ -7,7 +7,11 @@ from app.settings import CTDatabaseReaderSettings
 
 class PGEngine():
     def __init__(self, database_url, database_reader: CTDatabaseReaderSettings) -> None:
-        self.engine = create_engine(database_url, pool_size=database_reader.pool_size, max_overflow=database_reader.max_overflow)
+        self.engine = create_engine(
+            database_url,
+            pool_size=database_reader.pool_size, 
+            max_overflow=database_reader.max_overflow
+        )
     
     def execute_query(self, query: str) -> List[Tuple]:
         with self.engine.connect() as connection:

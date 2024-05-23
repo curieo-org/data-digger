@@ -29,7 +29,8 @@ class ClinicalTrailsDatabaseReader():
         self.database_engine = database_engine
 
         self.query_template = f"""
-            SELECT {', '.join(table_structure.embeddable_columns)} FROM {table_structure.table_name}
+            SELECT {', '.join(table_structure.embeddable_columns)} 
+            FROM {table_structure.table_name}
             LIMIT {self.batch_size} OFFSET {{offset}};
         """
 
@@ -132,13 +133,18 @@ class VectorDBEngine:
         for i in range(0, len(lst), n):
             yield lst[i:i + n]
 
-    def process_records(self, records: List[Document], chunk_size=1000) -> None:    
+    def process_records(
+        self,
+        records: List[Document],
+        chunk_size=1000
+    ) -> None:    
         # Split records into chunks
         chunks = list(self.chunkify(records, chunk_size))
         # Setup a process pool and process chunks in parallel
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Executor.map expects a function and iterables for each of the function's arguments
+            # Executor.map expects a function and 
+            # iterables for each of the function's arguments
             process_func = partial(
                 self.process_records_chunk,
                 service_context=self.service_context, 
@@ -150,7 +156,11 @@ class VectorDBEngine:
                 total=len(chunks)
             ))
 
-    def database_to_vectors(self, database_engine: PGEngine, table_structure: TableStructure) -> None:
+    def database_to_vectors(
+        self,
+        database_engine: PGEngine,
+        table_structure: TableStructure
+    ) -> None:
         reader = ClinicalTrailsDatabaseReader(
             database_engine=database_engine,
             table_structure=table_structure,

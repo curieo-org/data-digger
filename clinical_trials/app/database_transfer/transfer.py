@@ -46,7 +46,9 @@ def transfer_table_data(
     try:
         row_count = source_pg_engine.execute_query(count_query)[0][0]
     except:
-        raise Exception(f'Error in getting the row count for the table: {table_name}')
+        raise Exception(
+            f'Error in getting the row count for the table: {table_name}'
+        )
     print(f'Number of rows in the local {table_name}: {row_count}')
 
     batch_size = database_reader.batch_size
@@ -73,7 +75,9 @@ def transfer_table_data(
     try:
         result = target_pg_engine.execute_query(count_query)[0][0]
     except:
-        raise Exception(f'Error in getting the row count for the table: {table_name}')
+        raise Exception(
+            f'Error in getting the row count for the table: {table_name}'
+        )
     print(f'Number of rows in the production {table_name}: {result}')
 
     if result == row_count:

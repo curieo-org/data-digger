@@ -24,8 +24,8 @@ class EmbeddingSettings(BaseSettings):
     embed_batch_size: int = 4
     timeout: float = 60.0
     model_name: str = ""
-    chunk_size: int = 100
-    max_workers: int = 15
+    chunk_size: int = 10
+    max_workers: int = 10
 
 class SpladedocSettings(BaseSettings):
     api_url: str = "http://text-splade-doc.dev.svc.cluster.local"
