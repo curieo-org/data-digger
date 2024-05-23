@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: clinical-trials-db-dump
+spec:
+  schedule: "0 8 * * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          name: clinical-trials-db-dump
+        spec:
+          containers:
+          - name: clinical-trials-db-dump
+            image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-clinical-trials-db-dump:3.0
+            resources:
+              requests:
+                memory: "2Gi"
+                cpu: "1"
+              limits:
+                memory: "4Gi"
+                cpu: "2"
+            command: ["bash", "/usr/local/bin/script.sh"]
+            envFrom:
+            - configMapRef:
+                name: clinical-trials-db-dump-configmap
+          restartPolicy: OnFailure

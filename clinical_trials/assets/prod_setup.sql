@@ -4,14 +4,12 @@ CREATE OR REPLACE FUNCTION update_timestamp()
     LANGUAGE 'plpgsql'
 AS $BODY$
 BEGIN
-    -- IF row(NEW.*) IS DISTINCT FROM row(OLD.*) THEN
-    --     NEW.updated_at = now();
-    --     RETURN NEW;
-    -- ELSE
-    --     RETURN OLD;
-    -- END IF;
-    NEW.updated_at = now();
-    RETURN NEW;
+    IF row(NEW.*) IS DISTINCT FROM row(OLD.*) THEN
+        NEW.updated_at = now();
+        RETURN NEW;
+    ELSE
+        RETURN OLD;
+    END IF;
 END;
 $BODY$;
 
@@ -19,12 +17,12 @@ $BODY$;
 -- Table: tbl_studies_info
 CREATE TABLE IF NOT EXISTS tbl_studies_info
 (
-    nct_id character varying COLLATE pg_catalog."default",
-    title text COLLATE pg_catalog."default",
-    description text COLLATE pg_catalog."default",
-    study_details json,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
+    nct_id varchar(255),
+    title text,
+    description text,
+    study_details jsonb,
+    created_at timestamp default now(),
+    updated_at timestamp default now(),
 
     CONSTRAINT tbl_studies_info_pkey PRIMARY KEY (nct_id)
 );
@@ -33,159 +31,162 @@ CREATE TABLE IF NOT EXISTS tbl_studies_info
 -- Table: tbl_baseline_details
 CREATE TABLE IF NOT EXISTS public.tbl_baseline_details
 (
-    id character varying COLLATE pg_catalog."default",
-    title text COLLATE pg_catalog."default",
+    nct_id varchar(255),
+    ctgov_group_code varchar(255),
+    baseline_title text,
+    title text,
     baseline_measurement_details jsonb,
     baseline_group_details jsonb,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
+    created_at timestamp default now(),
+    updated_at timestamp default now(),
 
-    CONSTRAINT tbl_baseline_details_pkey PRIMARY KEY (id)
+    CONSTRAINT tbl_baseline_details_pkey PRIMARY KEY (nct_id, ctgov_group_code, baseline_title)
 );
 
 
 -- Table: tbl_primary_outcome_measurement
 CREATE TABLE IF NOT EXISTS public.tbl_primary_outcome_measurement
 (
-    id character varying COLLATE pg_catalog."default",
-    title text COLLATE pg_catalog."default",
+    nct_id varchar(255),
+    title text,
     outcome_primary_measurement_details jsonb,
     outcome_primary_measurement_value_details jsonb,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
+    created_at timestamp default now(),
+    updated_at timestamp default now(),
 
-    CONSTRAINT tbl_primary_outcome_measurement_pkey PRIMARY KEY (id)
+    CONSTRAINT tbl_primary_outcome_measurement_pkey PRIMARY KEY (nct_id)
 );
 
 
 -- Table: tbl_secondary_outcome_measurement
 CREATE TABLE IF NOT EXISTS public.tbl_secondary_outcome_measurement
 (
-    id character varying COLLATE pg_catalog."default",
-    title text COLLATE pg_catalog."default",
+    nct_id varchar(255),
+    title text,
     outcome_secondary_measurement_details jsonb,
     outcome_secondary_measurement_value_details jsonb,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
+    created_at timestamp default now(),
+    updated_at timestamp default now(),
 
-    CONSTRAINT tbl_secondary_outcome_measurement_pkey PRIMARY KEY (id)
+    CONSTRAINT tbl_secondary_outcome_measurement_pkey PRIMARY KEY (nct_id)
 );
 
 
 -- Table: tbl_studies_adverse_details
 CREATE TABLE IF NOT EXISTS public.tbl_studies_adverse_details
 (
-    id character varying COLLATE pg_catalog."default",
-    title text COLLATE pg_catalog."default",
+    nct_id varchar(255),
+    ctgov_group_code varchar(255),
+    title text,
     adverse_details jsonb,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
+    created_at timestamp default now(),
+    updated_at timestamp default now(),
 
-    CONSTRAINT tbl_studies_adverse_details_pkey PRIMARY KEY (id)
+    CONSTRAINT tbl_studies_adverse_details_pkey PRIMARY KEY (nct_id, ctgov_group_code)
 );
 
 
 -- Table: tbl_studies_arms_details
 CREATE TABLE IF NOT EXISTS public.tbl_studies_arms_details
 (
-    id character varying COLLATE pg_catalog."default",
-    title text COLLATE pg_catalog."default",
+    nct_id varchar(255),
+    title text,
     arm_details jsonb,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
+    created_at timestamp default now(),
+    updated_at timestamp default now(),
 
-    CONSTRAINT tbl_studies_arms_details_pkey PRIMARY KEY (id)
+    CONSTRAINT tbl_studies_arms_details_pkey PRIMARY KEY (nct_id)
 );
 
 
 -- Table: tbl_studies_conditions
 CREATE TABLE IF NOT EXISTS public.tbl_studies_conditions
 (
-    id character varying COLLATE pg_catalog."default",
-    title text COLLATE pg_catalog."default",
-    condition_name text COLLATE pg_catalog."default",
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
+    nct_id varchar(255),
+    title text,
+    condition_name text,
+    created_at timestamp default now(),
+    updated_at timestamp default now(),
 
-    CONSTRAINT tbl_studies_conditions_pkey PRIMARY KEY (id)
+    CONSTRAINT tbl_studies_conditions_pkey PRIMARY KEY (nct_id)
 );
 
 
 -- Table: tbl_studies_design_outcomes
 CREATE TABLE IF NOT EXISTS public.tbl_studies_design_outcomes
 (
-    id character varying COLLATE pg_catalog."default",
-    title text COLLATE pg_catalog."default",
+    nct_id varchar(255),
+    title text,
     design_outcome_measures jsonb,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
+    created_at timestamp default now(),
+    updated_at timestamp default now(),
 
-    CONSTRAINT tbl_studies_design_outcomes_pkey PRIMARY KEY (id)
+    CONSTRAINT tbl_studies_design_outcomes_pkey PRIMARY KEY (nct_id)
 );
 
 
 -- Table: tbl_studies_designs
 CREATE TABLE IF NOT EXISTS public.tbl_studies_designs
 (
-    id character varying COLLATE pg_catalog."default",
-    title text COLLATE pg_catalog."default",
+    nct_id varchar(255),
+    title text,
     design_details jsonb,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
+    created_at timestamp default now(),
+    updated_at timestamp default now(),
 
-    CONSTRAINT tbl_studies_designs_pkey PRIMARY KEY (id)
+    CONSTRAINT tbl_studies_designs_pkey PRIMARY KEY (nct_id)
 );
 
 
 -- Table: tbl_studies_eligibilities
 CREATE TABLE IF NOT EXISTS public.tbl_studies_eligibilities
 (
-    id character varying COLLATE pg_catalog."default",
-    title text COLLATE pg_catalog."default",
+    nct_id varchar(255),
+    title text,
     eligibility_details jsonb,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
+    created_at timestamp default now(),
+    updated_at timestamp default now(),
 
-    CONSTRAINT tbl_studies_eligibilities_pkey PRIMARY KEY (id)
+    CONSTRAINT tbl_studies_eligibilities_pkey PRIMARY KEY (nct_id)
 );
 
 
 -- Table: tbl_studies_interventions
 CREATE TABLE IF NOT EXISTS public.tbl_studies_interventions
 (
-    id character varying COLLATE pg_catalog."default",
-    title text COLLATE pg_catalog."default",
+    nct_id varchar(255),
+    title text,
     study_intervention_compressed_details jsonb,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
+    created_at timestamp default now(),
+    updated_at timestamp default now(),
 
-    CONSTRAINT tbl_studies_interventions_pkey PRIMARY KEY (id)
+    CONSTRAINT tbl_studies_interventions_pkey PRIMARY KEY (nct_id)
 );
 
 
 -- Table: tbl_studies_pubmed_links
 CREATE TABLE IF NOT EXISTS public.tbl_studies_pubmed_links
 (
-    id character varying COLLATE pg_catalog."default",
-    title text COLLATE pg_catalog."default",
+    nct_id varchar(255),
+    title text,
     pubmedcitation jsonb,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
+    created_at timestamp default now(),
+    updated_at timestamp default now(),
 
-    CONSTRAINT tbl_studies_pubmed_links_pkey PRIMARY KEY (id)
+    CONSTRAINT tbl_studies_pubmed_links_pkey PRIMARY KEY (nct_id)
 );
 
 
 -- Table: tbl_studies_sponsors
 CREATE TABLE IF NOT EXISTS public.tbl_studies_sponsors
 (
-    id character varying COLLATE pg_catalog."default",
-    title text COLLATE pg_catalog."default",
-    collaboratordetails json,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
+    nct_id varchar(255),
+    title text,
+    collaboratordetails jsonb,
+    created_at timestamp default now(),
+    updated_at timestamp default now(),
 
-    CONSTRAINT tbl_studies_sponsors_pkey PRIMARY KEY (id)
+    CONSTRAINT tbl_studies_sponsors_pkey PRIMARY KEY (nct_id)
 );
 
 
