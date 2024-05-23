@@ -12,7 +12,7 @@ spec:
         spec:
           containers:
           - name: pubmed-fulltext-xml
-            image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-fulltext-xml:1.0
+            image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-fulltext-xml:2.0
             resources:
               requests:
                 memory: "2Gi"
@@ -20,5 +20,8 @@ spec:
               limits:
                 memory: "4Gi"
                 cpu: "2"
-            command: ["sh", "-c", "/usr/local/bin/script.sh"]
+            command: ["bash", "/usr/local/bin/script.sh"]
+            envFrom:
+            - configMapRef:
+                name: pubmed-fulltext-xml-configmap
           restartPolicy: OnFailure
