@@ -10,8 +10,6 @@ import uuid
 from sqlalchemy import create_engine
 from llama_index.embeddings.text_embeddings_inference import TextEmbeddingsInference
 
-load_dotenv()
-
 from utils.splade_embedding import SpladeEmbeddingsInference, Embedding
 from utils.process_jats import JatsXMLParser
 # from database_vectordb_transform.process_nodes import parse_clean_fulltext
@@ -466,6 +464,7 @@ ORDER BY query_id, dense_score + sparse_score DESC
     df.to_excel("output.xlsx")
 
 if __name__ == "__main__":
+    load_dotenv()
     settings = Settings()
     connection_string = settings.psql.connection.get_secret_value();
     psql_engine = create_engine(connection_string)
