@@ -62,10 +62,13 @@ This works, _all_ documents are retrieved with match scores exactly 1.0 (both de
 
 ## Learnings
 We noted a number of things along the way.
-
-1. Short documents tend to be found more than necessary and this is not a good thing. Length normalization needs to be thought through. However, this effect may go away with the QDrant database - we do not know exactly how the matching logic operates in the QDrant database; perhaps QDrant has length normalization built-in. The current numpy-based matching misses length-normalization.
-2. The algorithms need proofing against _empty_ texts and other marginal conditions. The JATS parser, in some marginal cases, outputs empty text (or just 'TABLE' content) and this needs to be dealt with appropriately.
-3. The JATS parser never seems to produce 1.* sections. This is unexpected.
+1. The core idea of mediating section searches through clusters has been validated. This works.
+2. Short documents tend to be found more than necessary and this is not a good thing. Length normalization needs to be thought through. However, this effect may go away with the QDrant database - we do not know exactly how the matching logic operates in the QDrant database; perhaps QDrant has length normalization built-in. The current numpy-based matching misses length-normalization.
+3. The algorithms need proofing against _empty_ texts and other marginal conditions. The JATS parser, in some marginal cases, outputs empty text (or just 'TABLE' content) and this needs to be dealt with appropriately.
+4. The JATS parser never seems to produce 1.* sections. This is unexpected.
+5. Scores by sparse-vector matching, normalized to 0.0 ... 1.0, are generally much lower than the scores on dense-vector matching.
+This is just a fact of the matching logic (both in-product, or dot-product computation) where sparse-vectors -by being so specific- have so much less overlap in dimensions that scores are dramatically pushed down. This effect _may_ go away on larger databases with more content, at which point sparse-vector matches are dramatically more precise than dense-vector matches. The exact mitigation for this effect needs to be decided by experimentation. A short-cut to boot sparse-vector matches may be to simply apply SQRT(sparse_score) but this feels like a sledge-hammer.
+6. Score cut-offs cannot be established on the limited set of data that we experimented with. The best approach should be to aim for a query response of a reasonable number of tokens (e.g. 2000 tokens) that are the basis for summarization and generation by the LLM, and then, by experimentation, establish what a reasonable score-cutoff is that results in 95% of the cases in a response of _at least_ that size; such that in the vast majority of cases, there is enough 'material' to work with.
 
 ---
 
