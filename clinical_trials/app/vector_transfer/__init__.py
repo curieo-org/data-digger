@@ -1,3 +1,3 @@
-__all__ = ["VectorDBEngine"]
+__all__ = ["VectorTransferProcessor"]
 
-from app.vector_transfer.transfer import VectorDBEngine
+from app.vector_transfer.transfer import VectorTransferProcessor

@@ -35,9 +35,11 @@ class TableStructure:
         table_name: str,
         columns: List[str],
         primary_keys: List[str],
-        embeddable_columns: List[str]
+        embeddable_columns: List[str] = [],
+        vector_metadata_columns: List[str] = []
     ) -> None:
         self.table_name = table_name
         self.columns = columns
         self.primary_keys = primary_keys
         self.embeddable_columns = embeddable_columns
+        self.vector_metadata_columns = vector_metadata_columns

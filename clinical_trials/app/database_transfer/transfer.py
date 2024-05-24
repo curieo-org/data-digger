@@ -27,7 +27,7 @@ def transfer_data_batch(
 
     print('Batch transfer completed: offset:', offset, 'batch_size:', batch_size)
 
-def transfer_table_data(
+async def transfer_table_data(
     source_pg_engine: PGEngine,
     target_pg_engine: PGEngine,
     table_structure: TableStructure,

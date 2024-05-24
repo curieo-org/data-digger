@@ -24,13 +24,19 @@ class EmbeddingSettings(BaseSettings):
     embed_batch_size: int = 4
     timeout: float = 60.0
     model_name: str = ""
-    chunk_size: int = 10
-    max_workers: int = 10
 
 class SpladedocSettings(BaseSettings):
     api_url: str = "http://text-splade-doc.dev.svc.cluster.local"
     api_key: SecretStr
     embed_batch_size: int = 2
+    timeout: float = 60.0
+    model_name: str = ""
+
+class DatabaseVectorsEngineSettings(BaseSettings):
+    chunk_size: int = 512
+    chunk_overlap: int = 30
+    max_workers: int = 20
+    batch_size: int = 200
 
 class CTDatabaseReaderSettings(BaseSettings):
     batch_size: int = 10000
@@ -54,5 +60,6 @@ class Settings(BaseSettings):
     qdrant: QdrantSettings
     embedding : EmbeddingSettings
     spladedoc: SpladedocSettings
+    d2vengine: DatabaseVectorsEngineSettings = DatabaseVectorsEngineSettings()
     database_reader: CTDatabaseReaderSettings = CTDatabaseReaderSettings()
     psql: PsqlSettings

@@ -1,178 +1,155 @@
-from concurrent.futures import ThreadPoolExecutor
-from functools import partial
+import asyncio
+import time
+from collections import defaultdict
 from typing import List
 
-from llama_index.core import ServiceContext, StorageContext, VectorStoreIndex
-from llama_index.core.node_parser import SimpleNodeParser
-from llama_index.core.schema import Document
+from llama_index.core.ingestion import run_transformations
+from llama_index.core.node_parser import SentenceSplitter
+from llama_index.core.schema import TextNode
 from llama_index.embeddings.text_embeddings_inference import \
     TextEmbeddingsInference
-from llama_index.vector_stores.qdrant import QdrantVectorStore
-from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams
+from loguru import logger
 from tqdm import tqdm
+from tqdm.asyncio import tqdm
 
-from app.database_transfer import TableStructure
-from app.database_transfer.utils import PGEngine
-from app.settings import CTDatabaseReaderSettings, Settings
+from app.database_transfer import PGEngine, TableStructure
+from app.settings import Settings
+from app.vector_transfer.database_reader import DatabaseReader
+from app.vector_transfer.utils import CurieoBaseNode, EmbeddingUtil
+from app.vector_transfer.vectors_upload import VectorsUpload
 
+logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}")
 
-class ClinicalTrailsDatabaseReader():
+class VectorTransferProcessor:
     def __init__(
         self,
         database_engine: PGEngine,
-        table_structure: TableStructure,
-        database_reader: CTDatabaseReaderSettings
+        settings: Settings
     ):
-        self.batch_size = database_reader.batch_size
-        self.table_structure = table_structure
-        self.database_engine = database_engine
-
-        self.query_template = f"""
-            SELECT {', '.join(table_structure.embeddable_columns)} 
-            FROM {table_structure.table_name}
-            LIMIT {self.batch_size} OFFSET {{offset}};
         """
-
-    def load_data_in_batches(self) -> List[Document]: # type: ignore
-        """Custom query and load data method.
-        
-        This overridden version might perform additional operations,
-        such as filtering results based on custom criteria or enriching
-        the documents with additional information.
+        Initializes the PubmedDatabaseReader with necessary settings and configurations.
         
         Args:
-            query (str): Query parameter to filter tables and rows.
-        
-        Returns:
-            List[Document]: A list of custom Document objects.
+            settings (Settings): Contains all necessary database configurations.
         """
-        offset = 0
-
-        while True:
-            query = self.query_template.format(offset=offset)
-            if query is None:
-                raise ValueError("A query parameter is necessary to filter the data")
-
-            documents = []
-            result = self.database_engine.execute_query(query)
-
-            for item in result:
-                row_object = dict(zip(self.table_structure.embeddable_columns, item))
-
-                row = " ".join(s if s is not None else "" for s in item)
-
-                documents.append(Document(text=row, metadata=row_object))
-
-            yield documents
-            offset += self.batch_size
-        
-class VectorDBEngine:
-    def __init__(
-        self,
-        settings: Settings,
-    ):
         self.settings = settings
-        self.chunk_size = settings.embedding.chunk_size
-        self.max_workers = settings.embedding.max_workers
+        self.num_workers = settings.d2vengine.max_workers
+        self.batch_size = settings.d2vengine.batch_size
+        self.database_reader = DatabaseReader(
+            database_engine=database_engine,
+        )
+        self.embed_model = TextEmbeddingsInference(
+            model_name=self.settings.embedding.model_name,
+            base_url=self.settings.embedding.api_url,
+            auth_token=self.settings.embedding.api_key.get_secret_value(),
+            timeout=self.settings.embedding.timeout,
+            embed_batch_size=self.settings.embedding.embed_batch_size
+        )
+        self.vu = VectorsUpload(settings)
+        self.eu = EmbeddingUtil(settings)
 
-        self.client = QdrantClient(
-            url=settings.qdrant.api_url,
-            port=settings.qdrant.api_port,
-            api_key=settings.qdrant.api_key.get_secret_value(),
-            https=settings.qdrant.https
+    async def node_metadata_transform(
+        self,
+        table_structure: TableStructure,
+        nodes_to_be_added: list[CurieoBaseNode],
+        row: dict,
+    ) -> list[CurieoBaseNode]:
+        columns_to_be_added = table_structure.vector_metadata_columns + table_structure.primary_keys
+
+        for node in nodes_to_be_added:
+            for key in columns_to_be_added:
+                node.metadata[key] = row[key]
+
+        # metadata update for the nodes
+        result: list[CurieoBaseNode] = []
+
+        for node in nodes_to_be_added:            
+            for key in columns_to_be_added:
+                node.excluded_embed_metadata_keys.append(key)
+                node.excluded_llm_metadata_keys.append(key)
+
+            result.append(node)
+
+        return result
+    
+    async def process_single_row(
+        self,
+        table_structure: TableStructure,
+        row: dict
+    ) -> None:
+        text_value = " ".join([str(row[column]) for column in table_structure.embeddable_columns])
+
+        nodes = [CurieoBaseNode.from_text_node(text_node) for text_node in self.create_nodes(text_value)]
+        nodes_with_embeddings = await self.eu.calculate_dense_sparse_embeddings(nodes)
+
+        nodes_ready_to_be_added = await self.node_metadata_transform(
+            table_structure,
+            nodes_with_embeddings,
+            row,
+        )
+        self.insert_nodes_into_index(nodes_ready_to_be_added)
+
+    def create_nodes(self, text_value: str) -> List[TextNode]:
+        return run_transformations(
+            nodes=[TextNode(text=text_value)],
+
+            transformations=[
+                SentenceSplitter(
+                    chunk_size=self.settings.d2vengine.chunk_size,
+                    chunk_overlap=self.settings.d2vengine.chunk_overlap
+                )
+            ],
+
+            in_place=False
         )
         
-        self.client.recreate_collection(
-            collection_name=settings.qdrant.collection_name,
-            vectors_config=VectorParams(
-                size=1024,
-                distance=Distance.COSINE
-            )
-        )
+    def insert_nodes_into_index(
+        self,
+        nodes_to_be_added: List[CurieoBaseNode]
+    ) -> None:
+        try:
+            self.vu.vectordb_index.insert_nodes(nodes_to_be_added)
+        except Exception as e:
+            logger.exception(f"VectorDb problem: {e}")
         
-        self.vector_store = QdrantVectorStore(
-            client=self.client,
-            collection_name=settings.qdrant.collection_name
-        )
-
-        self.node_parser = SimpleNodeParser.from_defaults(
-            chunk_size=1024,
-            chunk_overlap=32
-        )
-
-        self.service_context = ServiceContext.from_defaults(
-            embed_model=TextEmbeddingsInference(
-                base_url=settings.embedding.api_url,
-                auth_token=settings.embedding.api_key.get_secret_value(),
-                model_name=settings.embedding.model_name,
-                timeout=settings.embedding.timeout,
-                embed_batch_size=settings.embedding.embed_batch_size,
-            ),
-            llm=None,
-            node_parser=self.node_parser
-        )
-        self.storage_context = StorageContext.from_defaults(
-            vector_store=self.vector_store
-        )
-
-
-    @staticmethod
-    def process_records_chunk(chunk, service_context, storage_context):
-        # Process the whole chunk of records at once
-        VectorStoreIndex.from_documents(
-            documents=chunk,
-            show_progress=True,
-            service_context=service_context,
-            storage_context=storage_context,
-        )
-
-    @staticmethod
-    def chunkify(lst, n):
-        """Yield successive n-sized chunks from lst."""
-        for i in range(0, len(lst), n):
-            yield lst[i:i + n]
-
-    def process_records(
+    async def process_batch_rows(
         self,
-        records: List[Document],
-        chunk_size=1000
-    ) -> None:    
-        # Split records into chunks
-        chunks = list(self.chunkify(records, chunk_size))
-        # Setup a process pool and process chunks in parallel
-
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Executor.map expects a function and 
-            # iterables for each of the function's arguments
-            process_func = partial(
-                self.process_records_chunk,
-                service_context=self.service_context, 
-                storage_context=self.storage_context
+        table_structure: TableStructure,
+        rows: list[defaultdict]
+    ) -> None:
+        jobs = []
+        for each_row in rows:           
+            jobs.append(
+                self.process_single_row(
+                    table_structure=table_structure,
+                    row=each_row
+                )
             )
-            
-            list(tqdm(
-                executor.map(process_func, chunks),
-                total=len(chunks)
-            ))
 
-    def database_to_vectors(
+        lock = asyncio.Semaphore(self.num_workers)
+        # run the jobs while limiting the number of concurrent jobs to num_workers
+        for job in jobs:
+            async with lock:
+                await job
+
+    async def database_to_vectors(
         self,
-        database_engine: PGEngine,
         table_structure: TableStructure
     ) -> None:
-        reader = ClinicalTrailsDatabaseReader(
-            database_engine=database_engine,
-            table_structure=table_structure,
-            database_reader=self.settings.database_reader
-        )
-        
-        count = 0
-        for batch in tqdm(reader.load_data_in_batches()):
-            self.process_records(
-                list(batch),
-                chunk_size=self.chunk_size
+        for rows in tqdm(
+            self.database_reader.load_data_in_batches(
+                table_structure,
+                self.batch_size
+            ),
+            desc="Transforming batches"
+        ):
+            start_time = time.time()
+
+            await self.process_batch_rows(
+                table_structure=table_structure,
+                rows=rows
             )
 
-            count += len(batch)
-            print("Processed count  = %d" % count)
+            logger.info(f"Processed Batch size of {self.batch_size} in {time.time() - start_time:.2f}s")
+
+        logger.info("Processed Completed!!!")     
