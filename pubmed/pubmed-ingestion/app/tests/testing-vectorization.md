@@ -22,12 +22,21 @@ For each of these clusters, a _centroid_ is computed using `numpy`:
 cluster_dense_centroid = np.mean(np.array(embeddings), axis=0)
 ```
 
-The sparse embeddings are also averaged by a bespoke algorithm `average_sparse` (there may be a library method for this, but I did not find it).
+The sparse embeddings are also averaged. This is done by a bespoke algorithm `average_sparse` (there may be a library method for this, but I did not find it).
 
+The sparse and dense embeddings of the _parent_ nodes are stored in the _parent_ vector index (QDrant) along with their metadata.
+The (averaged!) sparse and dense embeddings of the clusters are stored in the _cluster_ vector index (QDrant) along with their metadata. This metadata includes _pointers to the child nodes_.
 
+### Searching pubmed documents.
+During the search stage, both the cluster and the parent vector databases are searched. On the best matches in the cluster database, the child nodes are retrieved (including vectors) and matched. These matched are mixed and balanced with the parent matches and combined into the final search results.
 
-STEP 1
-I'm going to pick 200 pubmed docs from 2024 with corresponding full text (that makes 155)
+# Testing the setup.
+In order to prove that this works, we need to prove that finding the child nodes by mediation through the cluster nodes works, and that the averaging of vectors works without loss of accuracy.
+
+For testing this (and testing the averaging) we set up the following test.
+
+### Testing step 1
+We pick a collection of pubmed documents (200 pubmed docs from 2023-2024 with corresponding full text; that makes 155).
 
 ```sql
     SELECT pubmed, pmc, CONCAT('s3://pubmed-fulltext/bulk/PMC', 
@@ -38,14 +47,30 @@ I'm going to pick 200 pubmed docs from 2024 with corresponding full text (that m
     ORDER BY YEAR DESC
     LIMIT 200
 ```
-And upload them into the database (#4841 rows)
+And upload them into a postgresql database (#4841 rows)
 
-STEP 2
-I'm going to process these in dense and sparse embeddings
+### Testing step 2
+We process these documents in dense and sparse embeddings following the logic described for the 'ingest'. Full text documents are JATS-parsed into subsections, sections are clustered, everything is vectorized and stored.
 
-STEP 3
-I'm going to cluster the child nodes
-I'm going to put these in postgres databases
+### Testing step 3
+We cluster the child nodes into clusters. Clusters are stored, also, in a postgresql database.
 
-STEP 4
-I'm going to pick random sentences from each document, and try to find them back.
+### Testing step 4
+All cluster vectors are retrieved from the database and stored in a numpy array.
+We select _n_ (5) random documents from the set, and try to find them back by mediation through the clusters. 
+This works, _all_ documents are retrieved with match scores exactly 1.0 (both dense and sparse vector match score). Other documents are ranked according to summated match scores and appear to be feasible matches. 
+
+## Learnings
+We noted a number of things along the way.
+
+1. Short documents tend to be found more than necessary and this is not a good thing. Length normalization needs to be thought through. However, this effect may go away with the QDrant database - we do not know exactly how the matching logic operates in the QDrant database; perhaps QDrant has length normalization built-in. The current numpy-based matching misses length-normalization.
+2. The algorithms need proofing against _empty_ texts and other marginal conditions. The JATS parser, in some marginal cases, outputs empty text (or just 'TABLE' content) and this needs to be dealt with appropriately.
+3. The JATS parser never seems to produce 1.* sections. This is unexpected.
+
+---
+
+
+
+![Ingest Process Overview](./ingest-process.drawio.png "Ingest process")
+
+
