@@ -12,7 +12,8 @@ class ProjectSettings(BaseSettings):
     prompt_language: str = "en-US"
 
 class QdrantSettings(BaseSettings):
-    api_port: int = 6333
+    api_port: int = 6334
+    prefer_grpc: bool = True
     api_url: str = "http://qdrant.qdrant.svc.cluster.local"
     collection_name: str = "clinical_trials_vector_db"
     api_key: SecretStr

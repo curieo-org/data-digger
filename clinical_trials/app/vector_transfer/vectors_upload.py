@@ -38,7 +38,8 @@ class VectorsUpload:
 
         self.client = QdrantClient(
             url=self.settings.qdrant.api_url, 
-            port=self.settings.qdrant.api_port,
+            grpc_port=self.settings.qdrant.api_port,
+            prefer_grpc=self.settings.qdrant.prefer_grpc,
             api_key=self.settings.qdrant.api_key.get_secret_value(),
             https=False
         )
