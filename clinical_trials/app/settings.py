@@ -36,8 +36,8 @@ class SpladedocSettings(BaseSettings):
 class DatabaseVectorsEngineSettings(BaseSettings):
     chunk_size: int = 512
     chunk_overlap: int = 30
-    max_workers: int = 20
-    batch_size: int = 200
+    max_workers: int = 50
+    batch_size: int = 1000
 
 class CTDatabaseReaderSettings(BaseSettings):
     batch_size: int = 10000

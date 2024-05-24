@@ -1,4 +1,4 @@
-from typing import List
+from typing import Generator, List
 
 from app.database_transfer import PGEngine, TableStructure
 
@@ -14,7 +14,7 @@ class DatabaseReader:
         self,
         table_structure: TableStructure,
         batch_size: int = 100,
-    ) -> List[dict]: # type: ignore
+    ) -> Generator[List[dict], None, None]:
         """Custom query and load data method.
         
         This overridden version might perform additional operations,
@@ -32,7 +32,8 @@ class DatabaseReader:
         columns = list(set(columns))
         query_template = f"""
             SELECT {', '.join(columns)} 
-            FROM {table_structure.table_name}
+            FROM {table_structure.table_name} 
+            ORDER BY {table_structure.primary_keys[0]} ASC 
             LIMIT {batch_size} OFFSET {{offset}};
         """
 

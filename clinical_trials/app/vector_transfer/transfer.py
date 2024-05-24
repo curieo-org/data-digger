@@ -1,6 +1,6 @@
 import asyncio
 import time
-from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
 from llama_index.core.ingestion import run_transformations
@@ -9,6 +9,7 @@ from llama_index.core.schema import TextNode
 from llama_index.embeddings.text_embeddings_inference import \
     TextEmbeddingsInference
 from loguru import logger
+from qdrant_client.http.models import FieldCondition, Filter, MatchValue
 from tqdm import tqdm
 from tqdm.asyncio import tqdm
 
@@ -87,7 +88,19 @@ class VectorTransferProcessor:
             nodes_with_embeddings,
             row,
         )
-        self.insert_nodes_into_index(nodes_ready_to_be_added)
+
+        node_identifiers = dict(zip(
+            table_structure.primary_keys,
+            [row[column] for column in table_structure.primary_keys]
+        ))
+        self.insert_nodes_into_index(node_identifiers, nodes_ready_to_be_added)
+
+    def process_single_row_sync(
+        self,
+        table_structure: TableStructure,
+        row: dict
+    ) -> None:
+        asyncio.run(self.process_single_row(table_structure, row))
 
     def create_nodes(self, text_value: str) -> List[TextNode]:
         return run_transformations(
@@ -105,32 +118,26 @@ class VectorTransferProcessor:
         
     def insert_nodes_into_index(
         self,
+        node_identifiers: dict,
         nodes_to_be_added: List[CurieoBaseNode]
     ) -> None:
         try:
+            conditions = [FieldCondition(
+                key=key,
+                match=MatchValue(value=value)
+            ) for key, value in node_identifiers.items()]
+
+            self.vu.client.delete(
+                collection_name=self.settings.qdrant.collection_name,
+                points_selector=Filter(must=conditions)
+            )
+            
             self.vu.vectordb_index.insert_nodes(nodes_to_be_added)
+
+            logger.info(f"Inserted {len(nodes_to_be_added)} nodes into the index")
+
         except Exception as e:
             logger.exception(f"VectorDb problem: {e}")
-        
-    async def process_batch_rows(
-        self,
-        table_structure: TableStructure,
-        rows: list[defaultdict]
-    ) -> None:
-        jobs = []
-        for each_row in rows:           
-            jobs.append(
-                self.process_single_row(
-                    table_structure=table_structure,
-                    row=each_row
-                )
-            )
-
-        lock = asyncio.Semaphore(self.num_workers)
-        # run the jobs while limiting the number of concurrent jobs to num_workers
-        for job in jobs:
-            async with lock:
-                await job
 
     async def database_to_vectors(
         self,
@@ -144,11 +151,19 @@ class VectorTransferProcessor:
             desc="Transforming batches"
         ):
             start_time = time.time()
+            tasks = []
+            event_loop = asyncio.get_event_loop()
 
-            await self.process_batch_rows(
-                table_structure=table_structure,
-                rows=rows
-            )
+            with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
+                for row in rows:
+                    tasks.append(event_loop.run_in_executor(
+                        executor,
+                        self.process_single_row_sync,
+                        table_structure,
+                        row
+                    ))
+
+            await asyncio.gather(*tasks)
 
             logger.info(f"Processed Batch size of {self.batch_size} in {time.time() - start_time:.2f}s")
 
