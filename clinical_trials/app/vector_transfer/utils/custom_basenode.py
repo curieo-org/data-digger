@@ -14,11 +14,13 @@ WRAP_WIDTH = 70
 
 RelatedNodeType = Union[RelatedNodeInfo, List[RelatedNodeInfo]]
 
+
 class MetadataMode(str, Enum):
     ALL = "all"
     EMBED = "embed"
     LLM = "llm"
     NONE = "none"
+
 
 class ObjectType(str, Enum):
     TEXT = auto()
@@ -26,6 +28,7 @@ class ObjectType(str, Enum):
     INDEX = auto()
     DOCUMENT = auto()
     CURIEO_NODE = auto()
+
 
 class CurieoBaseNode(TextNode):
     sparse_embedding: Any = None

@@ -11,9 +11,7 @@ from app.vector_transfer.utils.custom_basenode import CurieoBaseNode
 class CurieoVectorStore(QdrantVectorStore):
 
     def node_process_to_metadata_dict(
-        self,
-        node: CurieoBaseNode,
-        text_required: bool = True
+        self, node: CurieoBaseNode, text_required: bool = True
     ) -> Dict[str, Any]:
         """Common logic for saving Node data into metadata dict."""
         node_dict = node.dict()
@@ -29,10 +27,7 @@ class CurieoVectorStore(QdrantVectorStore):
 
         return metadata
 
-    def _build_points(
-        self,
-        nodes: List[BaseNode]
-    ) -> Tuple[List[Any], List[str]]:
+    def _build_points(self, nodes: List[BaseNode]) -> Tuple[List[Any], List[str]]:
         ids = []
         points = []
 
@@ -48,16 +43,14 @@ class CurieoVectorStore(QdrantVectorStore):
                 vectors.append(
                     {
                         "text-sparse": rest.SparseVector(
-                            indices=node.get_sparse_embedding().get('indices', []),
-                            values=node.get_sparse_embedding().get('vector', []),
+                            indices=node.get_sparse_embedding().get("indices", []),
+                            values=node.get_sparse_embedding().get("vector", []),
                         ),
-                         "text-dense": node.get_embedding(),
+                        "text-dense": node.get_embedding(),
                     }
                 )
 
-                metadata = self.node_process_to_metadata_dict(
-                    node, text_required=False
-                )
+                metadata = self.node_process_to_metadata_dict(node, text_required=False)
                 payloads.append(metadata)
 
             points.extend(

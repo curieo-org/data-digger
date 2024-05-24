@@ -14,7 +14,7 @@ def transfer_data_batch(
     insert_query: str,
     columns: List[str],
     batch_size: int,
-    offset: int
+    offset: int,
 ) -> None:
     select_query = select_query.format(batch_size=batch_size, offset=offset)
     rows = source_pg_engine.execute_query(select_query)
@@ -25,7 +25,8 @@ def transfer_data_batch(
 
     target_pg_engine.execute_query_with_params(insert_query, params)
 
-    print('Batch transfer completed: offset:', offset, 'batch_size:', batch_size)
+    print("Batch transfer completed: offset:", offset, "batch_size:", batch_size)
+
 
 async def transfer_table_data(
     source_pg_engine: PGEngine,
@@ -37,50 +38,68 @@ async def transfer_table_data(
     columns = table_structure.columns
     primary_keys = table_structure.primary_keys
 
-    select_query = 'SELECT ' + ', '.join(columns) + ' FROM ' + table_name + ' ORDER BY ' + table_structure.primary_keys[0] + ' ASC LIMIT {batch_size} OFFSET {offset};'
+    select_query = (
+        "SELECT "
+        + ", ".join(columns)
+        + " FROM "
+        + table_name
+        + " ORDER BY "
+        + table_structure.primary_keys[0]
+        + " ASC LIMIT {batch_size} OFFSET {offset};"
+    )
 
-    insert_query = 'INSERT INTO ' + table_name + ' (' + ', '.join(columns) + ') VALUES (' + ', '.join([f':{column}' for column in columns]) + ') ON CONFLICT (' + ', '.join([f'{column}' for column in primary_keys]) + ') DO UPDATE SET ' + ', '.join([f'{column} = EXCLUDED.{column}' for column in columns[1:]]) + ';'
+    insert_query = (
+        "INSERT INTO "
+        + table_name
+        + " ("
+        + ", ".join(columns)
+        + ") VALUES ("
+        + ", ".join([f":{column}" for column in columns])
+        + ") ON CONFLICT ("
+        + ", ".join([f"{column}" for column in primary_keys])
+        + ") DO UPDATE SET "
+        + ", ".join([f"{column} = EXCLUDED.{column}" for column in columns[1:]])
+        + ";"
+    )
 
-    count_query = f'SELECT count(*) FROM {table_name}'
+    count_query = f"SELECT count(*) FROM {table_name}"
 
     try:
         row_count = source_pg_engine.execute_query(count_query)[0][0]
     except:
-        raise Exception(
-            f'Error in getting the row count for the table: {table_name}'
-        )
-    print(f'Number of rows in the local {table_name}: {row_count}')
+        raise Exception(f"Error in getting the row count for the table: {table_name}")
+    print(f"Number of rows in the local {table_name}: {row_count}")
 
     batch_size = database_reader.batch_size
-    
+
     with ThreadPoolExecutor(max_workers=database_reader.max_workers) as executor:
         event_loop = asyncio.get_event_loop()
         tasks = []
 
         for offset in range(0, row_count, batch_size):
-            tasks.append(event_loop.run_in_executor(
-                executor,
-                transfer_data_batch,
-                source_pg_engine,
-                target_pg_engine,
-                select_query,
-                insert_query,
-                columns,
-                batch_size,
-                offset
-            ))
+            tasks.append(
+                event_loop.run_in_executor(
+                    executor,
+                    transfer_data_batch,
+                    source_pg_engine,
+                    target_pg_engine,
+                    select_query,
+                    insert_query,
+                    columns,
+                    batch_size,
+                    offset,
+                )
+            )
 
         asyncio.gather(*tasks)
 
     try:
         result = target_pg_engine.execute_query(count_query)[0][0]
     except:
-        raise Exception(
-            f'Error in getting the row count for the table: {table_name}'
-        )
-    print(f'Number of rows in the production {table_name}: {result}')
+        raise Exception(f"Error in getting the row count for the table: {table_name}")
+    print(f"Number of rows in the production {table_name}: {result}")
 
     if result == row_count:
-        print(f'Data transfer completed for {table_name}')
+        print(f"Data transfer completed for {table_name}")
     else:
-        print(f'Data transfer partially completed for {table_name}')
+        print(f"Data transfer partially completed for {table_name}")

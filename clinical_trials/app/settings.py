@@ -11,6 +11,7 @@ class ProjectSettings(BaseSettings):
     testing: bool = True
     prompt_language: str = "en-US"
 
+
 class QdrantSettings(BaseSettings):
     api_port: int = 6334
     prefer_grpc: bool = True
@@ -19,12 +20,14 @@ class QdrantSettings(BaseSettings):
     api_key: SecretStr
     https: bool = False
 
+
 class EmbeddingSettings(BaseSettings):
     api_url: str = "http://text-embedding.dev.svc.cluster.local"
     api_key: SecretStr
     embed_batch_size: int = 4
     timeout: float = 60.0
     model_name: str = ""
+
 
 class SpladedocSettings(BaseSettings):
     api_url: str = "http://text-splade-doc.dev.svc.cluster.local"
@@ -33,22 +36,26 @@ class SpladedocSettings(BaseSettings):
     timeout: float = 60.0
     model_name: str = ""
 
+
 class DatabaseVectorsEngineSettings(BaseSettings):
     chunk_size: int = 512
     chunk_overlap: int = 30
     max_workers: int = 50
     batch_size: int = 1000
 
+
 class CTDatabaseReaderSettings(BaseSettings):
     batch_size: int = 10000
     max_workers: int = 10
     pool_size: int = 10
     max_overflow: int = 0
-    table_creation_queries_file: str = 'sql/table_creation.sql'
-    
+    table_creation_queries_file: str = "sql/table_creation.sql"
+
+
 class PsqlSettings(BaseSettings):
     temporary_db: SecretStr
     main_db: SecretStr
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -59,7 +66,7 @@ class Settings(BaseSettings):
     )
 
     qdrant: QdrantSettings
-    embedding : EmbeddingSettings
+    embedding: EmbeddingSettings
     spladedoc: SpladedocSettings
     d2vengine: DatabaseVectorsEngineSettings = DatabaseVectorsEngineSettings()
     database_reader: CTDatabaseReaderSettings = CTDatabaseReaderSettings()
