@@ -88,12 +88,13 @@ class EmbeddingUtil:
             v_index = indices[i]
             v_value = values[i]
             vector_length_squared = 0.0
-            for j in range(0, len(v_index)):
-                summated[v_index[j]] = summated.get(v_index[j], 0.0) + v_value[j]
-                vector_length_squared += v_value[j]*v_value[j]
             dimension_count = len(v_index)
-            vector_length_sum = vector_length_sum + vector_length_squared**(1/float(dimension_count))
-            dimension_count_sum = dimension_count_sum + dimension_count
+            if dimension_count != 0:   # defensively checking marginal condition - zero-length vector
+                for j in range(0, len(v_index)):
+                    summated[v_index[j]] = summated.get(v_index[j], 0.0) + v_value[j]
+                    vector_length_squared += v_value[j]*v_value[j]
+                vector_length_sum = vector_length_sum + vector_length_squared**(1/float(dimension_count))
+                dimension_count_sum = dimension_count_sum + dimension_count
 
         avg_vector_length = vector_length_sum/float(len(indices))
         avg_dimension_count = int(dimension_count_sum/float(len(indices)))
