@@ -49,7 +49,6 @@ class CTDatabaseReaderSettings(BaseSettings):
     max_workers: int = 10
     pool_size: int = 10
     max_overflow: int = 0
-    table_creation_queries_file: str = "sql/table_creation.sql"
 
 
 class PsqlSettings(BaseSettings):

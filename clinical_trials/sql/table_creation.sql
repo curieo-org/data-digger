@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS tbl_studies_info
 
     CONSTRAINT tbl_studies_info_pkey PRIMARY KEY (nct_id)
 );
+CREATE INDEX IF NOT EXISTS tbl_studies_info_updated_at_idx ON tbl_studies_info(updated_at);
 
 
 -- Table: tbl_baseline_details
@@ -42,6 +43,8 @@ CREATE TABLE IF NOT EXISTS public.tbl_baseline_details
 
     CONSTRAINT tbl_baseline_details_pkey PRIMARY KEY (nct_id, ctgov_group_code, baseline_title)
 );
+CREATE INDEX IF NOT EXISTS tbl_studies_info_updated_at_idx ON tbl_studies_info(updated_at);
+CREATE INDEX IF NOT EXISTS tbl_studies_info_nct_id_idx ON tbl_studies_info(nct_id);
 
 
 -- Table: tbl_primary_outcome_measurement
@@ -56,6 +59,7 @@ CREATE TABLE IF NOT EXISTS public.tbl_primary_outcome_measurement
 
     CONSTRAINT tbl_primary_outcome_measurement_pkey PRIMARY KEY (nct_id)
 );
+CREATE INDEX IF NOT EXISTS tbl_studies_info_updated_at_idx ON tbl_studies_info(updated_at);
 
 
 -- Table: tbl_secondary_outcome_measurement
@@ -70,6 +74,7 @@ CREATE TABLE IF NOT EXISTS public.tbl_secondary_outcome_measurement
 
     CONSTRAINT tbl_secondary_outcome_measurement_pkey PRIMARY KEY (nct_id)
 );
+CREATE INDEX IF NOT EXISTS tbl_studies_info_updated_at_idx ON tbl_studies_info(updated_at);
 
 
 -- Table: tbl_studies_adverse_details
@@ -84,6 +89,8 @@ CREATE TABLE IF NOT EXISTS public.tbl_studies_adverse_details
 
     CONSTRAINT tbl_studies_adverse_details_pkey PRIMARY KEY (nct_id, ctgov_group_code)
 );
+CREATE INDEX IF NOT EXISTS tbl_studies_info_updated_at_idx ON tbl_studies_info(updated_at);
+CREATE INDEX IF NOT EXISTS tbl_studies_info_nct_id_idx ON tbl_studies_info(nct_id);
 
 
 -- Table: tbl_studies_arms_details
@@ -97,6 +104,7 @@ CREATE TABLE IF NOT EXISTS public.tbl_studies_arms_details
 
     CONSTRAINT tbl_studies_arms_details_pkey PRIMARY KEY (nct_id)
 );
+CREATE INDEX IF NOT EXISTS tbl_studies_info_updated_at_idx ON tbl_studies_info(updated_at);
 
 
 -- Table: tbl_studies_conditions
@@ -110,6 +118,7 @@ CREATE TABLE IF NOT EXISTS public.tbl_studies_conditions
 
     CONSTRAINT tbl_studies_conditions_pkey PRIMARY KEY (nct_id)
 );
+CREATE INDEX IF NOT EXISTS tbl_studies_info_updated_at_idx ON tbl_studies_info(updated_at);
 
 
 -- Table: tbl_studies_design_outcomes
@@ -123,6 +132,7 @@ CREATE TABLE IF NOT EXISTS public.tbl_studies_design_outcomes
 
     CONSTRAINT tbl_studies_design_outcomes_pkey PRIMARY KEY (nct_id)
 );
+CREATE INDEX IF NOT EXISTS tbl_studies_info_updated_at_idx ON tbl_studies_info(updated_at);
 
 
 -- Table: tbl_studies_designs
@@ -136,6 +146,7 @@ CREATE TABLE IF NOT EXISTS public.tbl_studies_designs
 
     CONSTRAINT tbl_studies_designs_pkey PRIMARY KEY (nct_id)
 );
+CREATE INDEX IF NOT EXISTS tbl_studies_info_updated_at_idx ON tbl_studies_info(updated_at);
 
 
 -- Table: tbl_studies_eligibilities
@@ -149,6 +160,7 @@ CREATE TABLE IF NOT EXISTS public.tbl_studies_eligibilities
 
     CONSTRAINT tbl_studies_eligibilities_pkey PRIMARY KEY (nct_id)
 );
+CREATE INDEX IF NOT EXISTS tbl_studies_info_updated_at_idx ON tbl_studies_info(updated_at);
 
 
 -- Table: tbl_studies_interventions
@@ -162,6 +174,7 @@ CREATE TABLE IF NOT EXISTS public.tbl_studies_interventions
 
     CONSTRAINT tbl_studies_interventions_pkey PRIMARY KEY (nct_id)
 );
+CREATE INDEX IF NOT EXISTS tbl_studies_info_updated_at_idx ON tbl_studies_info(updated_at);
 
 
 -- Table: tbl_studies_pubmed_links
@@ -175,6 +188,7 @@ CREATE TABLE IF NOT EXISTS public.tbl_studies_pubmed_links
 
     CONSTRAINT tbl_studies_pubmed_links_pkey PRIMARY KEY (nct_id)
 );
+CREATE INDEX IF NOT EXISTS tbl_studies_info_updated_at_idx ON tbl_studies_info(updated_at);
 
 
 -- Table: tbl_studies_sponsors
@@ -188,6 +202,7 @@ CREATE TABLE IF NOT EXISTS public.tbl_studies_sponsors
 
     CONSTRAINT tbl_studies_sponsors_pkey PRIMARY KEY (nct_id)
 );
+CREATE INDEX IF NOT EXISTS tbl_studies_info_updated_at_idx ON tbl_studies_info(updated_at);
 
 
 -- Trigger setup for updated_at in all tables

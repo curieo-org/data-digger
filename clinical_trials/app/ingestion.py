@@ -246,12 +246,6 @@ async def ingest_all_tables(settings: Settings) -> None:
 
     vector_transfer_processor = VectorTransferProcessor(target_pg_engine, settings)
 
-    # Setup the prod database if it is not already
-    with open(settings.database_reader.table_creation_queries_file, "r") as file:
-        queries = file.read()
-
-        target_pg_engine.execute_query_without_return(queries)
-
     # Ingest data for all tables
     await ingest_tbl_studies_info(
         source_pg_engine,
