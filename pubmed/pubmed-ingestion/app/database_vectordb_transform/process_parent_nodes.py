@@ -1,6 +1,7 @@
 import asyncio
 from collections import defaultdict
-from typing import List, Union
+from concurrent.futures import ThreadPoolExecutor
+from typing import List
 from sqlalchemy import create_engine
 from loguru import logger
 from tqdm import tqdm
@@ -8,7 +9,6 @@ from tqdm.asyncio import tqdm
 import time
 
 from llama_index.core.schema import (
-    BaseNode,
     Document,
     TextNode
 )
@@ -17,7 +17,6 @@ from llama_index.core.ingestion import run_transformations
 from llama_index.embeddings.text_embeddings_inference import TextEmbeddingsInference
 
 from settings import Settings
-from database_vectordb_transform.treefy_nodes import TreefyNodes
 from database_vectordb_transform.vectors_upload import VectorsUpload
 from utils.database_utils import run_insert_sql
 from utils.custom_basenode import CurieoBaseNode
@@ -47,7 +46,7 @@ class ProcessParentNodes:
         self.vu = VectorsUpload(settings)
         self.eu = EmbeddingUtil(settings)
 
-    async def node_metadata_transform(self, parent_id, pubmedid, nodes_to_be_added, record) -> list[CurieoBaseNode]:
+    def node_metadata_transform(self, parent_id, pubmedid, nodes_to_be_added, record) -> list[CurieoBaseNode]:
         result: list[CurieoBaseNode] = []
         keys_to_update = ["publicationDate", "year", "authors", "identifiers"]
         for node in nodes_to_be_added:
@@ -66,7 +65,7 @@ class ProcessParentNodes:
             result.append(node)
         return result
     
-    async def process_single_parent_record(self, record: dict):
+    def process_single_parent_record(self, record: dict):
         record_id = int(record.get('identifier'))
 
         if not is_valid_record(record, self.settings.database_reader.parsed_record_abstract_key, record_id):
@@ -83,10 +82,10 @@ class ProcessParentNodes:
             return
 
         parent_nodes = [CurieoBaseNode.from_text_node(text_node) for text_node in self.create_parent_nodes(abstract)]
-        parent_nodes_with_embeddings = await self.eu.calculate_dense_sparse_embeddings(parent_nodes)
+        parent_nodes_with_embeddings = self.eu.calculate_dense_sparse_embeddings(parent_nodes)
 
         parent_id = parent_nodes[0].id_
-        nodes_ready_to_be_added = await self.node_metadata_transform(parent_id, record_id, parent_nodes_with_embeddings, record)
+        nodes_ready_to_be_added = self.node_metadata_transform(parent_id, record_id, parent_nodes_with_embeddings, record)
         self.insert_nodes_into_index(record_id, parent_id, nodes_ready_to_be_added)
 
     def create_parent_nodes(self, abstract: str) -> List[TextNode]:
@@ -121,19 +120,18 @@ class ProcessParentNodes:
         
     async def process_batch_parent_records(self,
                                     records: list[defaultdict]) -> None:
-        jobs = []
-        for each_record in records:           
-            jobs.append(
-                self.process_single_parent_record(each_record)
-            )
+        loop = asyncio.get_running_loop()
+        with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
+            jobs = []
+            for each_record in records:
+                job = loop.run_in_executor(executor, self.process_single_parent_record, each_record)
+                jobs.append(job)
 
-        lock = asyncio.Semaphore(self.num_workers)
-        # run the jobs while limiting the number of concurrent jobs to num_workers
-        for job in jobs:
+            lock = asyncio.Semaphore(self.num_workers)
             async with lock:
-                await job
+                await asyncio.gather(*jobs)
 
-    async def batch_process_records_to_vectors(self,
+    def batch_process_records_to_vectors(self,
                                                records: defaultdict, 
                                                batch_size:int = 100):
         keys = list(records.keys())
@@ -145,7 +143,7 @@ class ProcessParentNodes:
             batch_data = [records[key] for key in keys[start_index:end_index]]
 
             start_time = time.time()
-            await self.process_batch_parent_records(batch_data)
+            asyncio.run(self.process_batch_parent_records(batch_data))
             logger.info(f"Processed Batch size of {batch_size} in {time.time() - start_time:.2f}s")
             run_insert_sql(engine=self.engine,
                                  table_name=self.settings.database_reader.pubmed_parent_ingestion_log,

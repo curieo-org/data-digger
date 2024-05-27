@@ -1,5 +1,3 @@
-from collections import defaultdict
-from typing import List
 import uuid
 from loguru import logger
 from functools import reduce
@@ -8,10 +6,9 @@ import operator
 from llama_index.core.schema import BaseNode
 import llama_index.core.instrumentation as instrument
 
-from utils.clustering import get_clusters, NodeCluster
+from utils.clustering import get_clusters
 from settings import Settings
-from utils.utils import BaseNodeTypeEnum
-from utils.embeddings_utils import EmbeddingUtil, average_sparse
+from utils.embeddings_utils import EmbeddingUtil
 from utils.custom_basenode import CurieoBaseNode
 
 import numpy as np
@@ -26,14 +23,14 @@ class TreefyNodes:
         self.settings = settings
         self.eu = EmbeddingUtil(settings)
     
-    async def tree_children_transformation(
+    def tree_children_transformation(
             self,
             children_nodes: list[BaseNode]= [],
             cur_children_dict: dict = {}
         ) -> list[CurieoBaseNode]:
 
         #call the embedding and splade embedding apis       
-        children_nodes = await self.eu.calculate_dense_sparse_embeddings(children_nodes)
+        children_nodes = self.eu.calculate_dense_sparse_embeddings(children_nodes)
         
         clusters = []
         node_text_details = []
@@ -47,12 +44,14 @@ class TreefyNodes:
                         current_cluster_id = str(uuid.uuid4())
                         metadata = {}
                         metadata["children_node_ids"] = [node.id_ for node in cluster]
+
                         dense_embeddings = [np.array(node.get_embedding(), dtype=float) for node in cluster]
                         dense_centroid = np.mean(dense_embeddings, axis=0).tolist()
+
                         sparse_indices_embeddings = [np.array(node.get_sparse_embedding().get('indices'), dtype=int) for node in cluster]
                         sparse_vector_embeddings = [np.array(node.get_sparse_embedding().get('vector'), dtype=float) for node in cluster]
-                        # this is a tuple of (indices, values)
-                        sparse_centroid = average_sparse(sparse_indices_embeddings, sparse_vector_embeddings)
+                        sparse_centroid = self.eu.average_sparse(sparse_indices_embeddings, sparse_vector_embeddings)
+
                         clusters.append(
                             CurieoBaseNode(
                                 id_=current_cluster_id,

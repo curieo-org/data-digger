@@ -32,21 +32,21 @@ class DatabaseVectorsEngineSettings(BaseSettings):
 
 
 class QdrantSettings(BaseSettings):
-    api_port: int = 7333
-    api_url: str = "localhost"
+    api_port: int = 6333
+    api_url: str = "http://qdrant.qdrant.svc.cluster.local"
     parent_collection_name: str = "pubmed_parent_hybrid"
     cluster_collection_name: str = "pubmed_cluster_hybrid"
     api_key: SecretStr
 
 
 class EmbeddingSettings(BaseSettings):
-    api_url: str = "http://localhost:8080"
+    api_url: str = "http://text-embedding.dev.svc.cluster.local"
     api_key: SecretStr
     embed_batch_size: int = 4
 
 
 class SpladedocSettings(BaseSettings):
-    api_url: str = "http://localhost:8082"
+    api_url: str = "http://text-splade-doc.dev.svc.cluster.local"
     api_key: SecretStr
     embed_batch_size: int = 2
 
@@ -79,6 +79,23 @@ class PubmedDatabaseReaderSettings(BaseSettings):
             CREATE INDEX IF NOT EXISTS pubmed_parent_ingestion_log_pubmed_id ON pubmed_parent_ingestion_log (pubmed_id);
             CREATE INDEX IF NOT EXISTS pubmed_parent_ingestion_log_parent_id ON pubmed_parent_ingestion_log (parent_id);
             CREATE INDEX IF NOT EXISTS pubmed_parent_ingestion_log_status ON pubmed_parent_ingestion_log (status);
+            CREATE TABLE IF NOT EXISTS pubmed_children_ingestion_log
+            (
+                id SERIAL PRIMARY KEY,
+                pubmed_id BIGINT NOT NULL,
+                status INTEGER default 0,
+                children_nodes_count INTEGER default 0,
+                created_at timestamp default now(),
+                updated_at timestamp default now()
+                );
+            CREATE INDEX IF NOT EXISTS pubmed_children_ingestion_log_pubmed_id ON pubmed_children_ingestion_log (pubmed_id);
+            CREATE INDEX IF NOT EXISTS pubmed_children_ingestion_log_status ON pubmed_children_ingestion_log (status);
+            CREATE TABLE IF NOT EXISTS public.pubmed_text_details
+            (
+            id character varying(100) COLLATE pg_catalog."default" NOT NULL,
+            node_text text COLLATE pg_catalog."default" NOT NULL,
+            CONSTRAINT pubmed_text_details_pkey PRIMARY KEY (id)
+            )
         '''
     ]
 

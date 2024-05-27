@@ -12,12 +12,12 @@ logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} 
 
 class VectorUpdate:
     def __init__(self):
-        self.num_workers = 256
+        self.num_workers = 200
         self.get_url = "http://localhost:6333/collections/pubmed_parent_hybrid/points/scroll"
         self.push_url = "http://localhost:6333/collections/pubmed_parent_hybrid/points/payload"
         
 
-    def hit_search_url(self, limit = 1000):
+    def hit_search_url(self, limit = 5000):
         payload = json.dumps({
         "filter": {
             "must": [
@@ -88,12 +88,16 @@ class VectorUpdate:
 vu = VectorUpdate()
 i = 0
 while True:
-    response = vu.hit_search_url()
-    points = response.get('result').get('points', [])
-    if len(points) != 0:
-        start_time = time.time()
-        asyncio.run(vu.batch_process_records_to_vectors(points, batch_size=100))
-        i = i + len(points)
-        logger.info(f"Processed Batch size of {i} in {time.time() - start_time:.2f}s")
+    response = vu.hit_search_url().get('result', [])
+    if len(response) > 0:
+        points = response.get('points', [])
+        if len(points) != 0:
+            start_time = time.time()
+            asyncio.run(vu.batch_process_records_to_vectors(points, batch_size=100))
+            i = i + len(points)
+            logger.info(f"Processed Batch size of {i} in {time.time() - start_time:.2f}s")
+        else:
+            continue
     else:
-        break
+        continue
+    

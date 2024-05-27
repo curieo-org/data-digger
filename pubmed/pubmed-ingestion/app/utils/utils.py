@@ -18,6 +18,7 @@ class ProcessingResultEnum(Enum):
     PMC_RECORD_PARSING_FAILED = -2
     PMC_RECORD_NOT_FOUND = -3
     ID_ABSTRACT_BAD_DATA = -4
+    NO_PMC_RECORDS = -5
     SUCCESS = 1
     ONPROGRESS = 2
 

@@ -1,4 +1,3 @@
-from typing import List, Tuple
 from loguru import logger
 
 from qdrant_client import QdrantClient
@@ -10,7 +9,6 @@ from llama_index.core import (
 )
 
 from settings import Settings
-from utils.splade_embedding import SpladeEmbeddingsInference
 from utils.custom_vectorstore import CurieoVectorStore
 
 logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}")

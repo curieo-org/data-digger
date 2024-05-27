@@ -1,5 +1,6 @@
 import json
 import textwrap
+import time
 import uuid
 from abc import abstractmethod
 from dataclasses import dataclass
@@ -71,8 +72,11 @@ class CurieoBaseNode(TextNode):
     def from_text_node(
         cls,
         node: TextNode,
+        node_id_generate: bool = False,
         sparse_embedding: dict = {},
     ):
+        if node_id_generate:
+            node.id_ = str(int(time.time() * 1000)) + "_" + node.id_
         return cls(
             **node.dict(),
             sparse_embedding=sparse_embedding,

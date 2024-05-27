@@ -33,6 +33,7 @@ asyncpg = "^0.29.0"
 loguru = "^0.7.2"
 flameprof = "^0.4"
 snakeviz = "^2.2.0"
+tikv-client = "^0.0.4"
 
 [build-system]
 requires = ["poetry-core"]
