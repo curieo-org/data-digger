@@ -42,6 +42,7 @@ class DatabaseVectorsEngineSettings(BaseSettings):
     chunk_overlap: int = 30
     max_workers: int = 50
     batch_size: int = 1000
+    ingestion_updates: bool = True
 
 
 class CTDatabaseReaderSettings(BaseSettings):

@@ -160,7 +160,10 @@ class VectorTransferProcessor:
             raise e
 
     async def database_to_vectors(self, table_structure: TableStructure) -> None:
-        self.database_reader.prepare_ingestion_status(table_structure)
+        self.database_reader.prepare_ingestion_status(
+            table_structure,
+            self.settings.d2vengine.ingestion_updates,
+        )
 
         for rows in tqdm(
             self.database_reader.load_data_in_batches(table_structure, self.batch_size),

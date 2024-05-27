@@ -50,6 +50,7 @@ class DatabaseReader:
     def prepare_ingestion_status(
         self,
         table_structure: TableStructure,
+        run_ingestion_updates: bool = False,
     ):
         """Prepare the ingestion status table for the transfer process."""
 
@@ -65,13 +66,17 @@ class DatabaseReader:
             ]
         )
 
+        update_condition = ''
+        if run_ingestion_updates:
+            update_condition = 'where updated_at >= now() - interval \'1 day\''
+
         query = f"""
-            INSERT INTO vector_ingestion_log ({", ".join(table_structure.primary_keys)}, status, embeddable_data, metadata, updated_at)
+            INSERT INTO {self.ingestion_status_table_name} ({", ".join(table_structure.primary_keys)}, status, embeddable_data, metadata, updated_at)
             SELECT {", ".join(table_structure.primary_keys)}, {VectorIngestionStatus.PENDING.value},
             jsonb_build_object({embeddable_json}) as embeddable_data,
             jsonb_build_object({metadata_json}) as metadata,
             NOW() as updated_at
-            FROM {table_structure.table_name}
+            FROM {table_structure.table_name} {update_condition}
             ON CONFLICT ({", ".join(table_structure.primary_keys)}) DO UPDATE SET embeddable_data = EXCLUDED.embeddable_data, metadata = EXCLUDED.metadata, status = EXCLUDED.status, updated_at = EXCLUDED.updated_at;
         """
 
@@ -86,7 +91,7 @@ class DatabaseReader:
         """Update the ingestion status table with the new status."""
 
         query = f"""
-            UPDATE vector_ingestion_log
+            UPDATE {self.ingestion_status_table_name}
             SET status = {status.value}
             WHERE {", ".join([f"{key} = '{value}'" for key, value in primary_keys.items()])};
         """
