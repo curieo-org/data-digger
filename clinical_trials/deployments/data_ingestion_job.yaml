@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: clinical-trials-data-ingestion
+spec:
+  schedule: "0 10 * * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          name: clinical-trials-data-ingestion
+        spec:
+          containers:
+          - name: clinical-trials-data-ingestion
+            image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-clinical-trials-ingestion:1.0
+            resources:
+              requests:
+                memory: "4Gi"
+                cpu: "2"
+              limits:
+                memory: "8Gi"
+                cpu: "4"
+            command: ["poetry", "run", "main"]
+            envFrom:
+            - configMapRef:
+                name: clinical-trials-data-ingestion-configmap
+          restartPolicy: OnFailure
