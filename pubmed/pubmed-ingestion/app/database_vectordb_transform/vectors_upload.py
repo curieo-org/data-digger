@@ -1,4 +1,3 @@
-from typing import List, Tuple
 from loguru import logger
 
 from qdrant_client import QdrantClient
@@ -10,40 +9,11 @@ from llama_index.core import (
 )
 
 from settings import Settings
-from utils.splade_embedding import SpladeEmbeddingsInference
+from utils.custom_vectorstore import CurieoVectorStore
 
 logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}")
 
 class VectorsUpload:
-
-    def average_child_sparse_vectors(
-            self,
-            cluster,
-        ):
-        pass
-
-    def sparse_doc_vectors(
-            self,
-            texts: List[str],
-        ) -> Tuple[List[List[int]], List[List[float]]]:
-        """
-        Computes vectors from logits and attention mask using ReLU, log, and max operations.
-
-        Args:
-            texts (List[str]): A list of strings representing the input text data.
-
-        Returns:
-            Tuple[List[List[int]], List[List[float]]]: A tuple containing two lists.
-            The first list is a list of lists, where each sublist represents the indices of the input text data.
-            The second list is a list of lists, where each sublist represents the corresponding vectors derived
-            from the input text data.
-        """
-        splade_embeddings = self.splade_model.get_text_embedding_batch(texts)
-        indices = [[entry.get('index') for entry in sublist] for sublist in splade_embeddings]
-        vectors = [[entry.get('value') for entry in sublist] for sublist in splade_embeddings]
-
-        assert len(indices) == len(vectors)
-        return indices, vectors
     
     def __init__(self,
                 settings: Settings):
@@ -61,13 +31,6 @@ class VectorsUpload:
             auth_token=self.settings.embedding.api_key.get_secret_value(),
             timeout=60,
             embed_batch_size=self.settings.embedding.embed_batch_size)
-        
-        self.splade_model = SpladeEmbeddingsInference(
-            model_name="",
-            base_url=self.settings.spladedoc.api_url,
-            auth_token=self.settings.spladedoc.api_key.get_secret_value(),
-            timeout=60,
-            embed_batch_size=self.settings.spladedoc.embed_batch_size)
 
         self.client = QdrantClient(
             url=self.settings.qdrant.api_url, 
@@ -76,18 +39,14 @@ class VectorsUpload:
             https=False
             )   
 
-        self.parent_vector_store = QdrantVectorStore(
+        self.parent_vector_store = CurieoVectorStore(
             client=self.client,
-            collection_name=self.settings.qdrant.parent_collection_name, 
-            sparse_doc_fn=self.sparse_doc_vectors,
-            enable_hybrid=True,
+            collection_name=self.settings.qdrant.parent_collection_name
             )
         
-        self.cluster_vector_store = QdrantVectorStore(
+        self.cluster_vector_store = CurieoVectorStore(
             client=self.client,
-            collection_name=self.settings.qdrant.cluster_collection_name, 
-            sparse_doc_fn=self.average_child_sparse_vectors,
-            enable_hybrid=True,
+            collection_name=self.settings.qdrant.cluster_collection_name
             )
         
         self.parent_storage_context = StorageContext.from_defaults(vector_store=self.parent_vector_store)

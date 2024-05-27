@@ -1,92 +1,67 @@
-from collections import defaultdict
-from typing import List
 import uuid
 from loguru import logger
+from functools import reduce
+import operator
 
 from llama_index.core.schema import BaseNode
-from llama_index.embeddings.text_embeddings_inference import TextEmbeddingsInference
 import llama_index.core.instrumentation as instrument
 
-from utils.clustering import get_clusters, NodeCluster
+from utils.clustering import get_clusters
 from settings import Settings
-from utils.utils import BaseNodeTypeEnum
+from utils.embeddings_utils import EmbeddingUtil
+from utils.custom_basenode import CurieoBaseNode
+
 import numpy as np
 
 dispatcher = instrument.get_dispatcher(__name__)
 logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}")
 
 class TreefyNodes:  
-    async def calculate_embeddings(
-            self,
-            nodes: List[BaseNode]):
-        id_to_dense_embedding = {}
-        dense_embeddings = await self.embed_model.aget_text_embedding_batch(
-            [node.get_content(metadata_mode="embed") for node in nodes]
-            )
-        id_to_dense_embedding = {
-            node.id_: dense_embedding for node, dense_embedding in zip(nodes, dense_embeddings)
-        }
-        return id_to_dense_embedding
-    
-    async def tree_transformation(
-            self,
-            parent_nodes: list[BaseNode] = [],
-            children_nodes: list[BaseNode]= [],
-            cur_children_dict: dict = {}
-        ) -> list[BaseNode]:
-        #prepare all the parent nodes and children nodes(if any)
-        all_cur_nodes = parent_nodes + children_nodes
-        
-        #call the embedding and splade embedding apis       
-        dense_emb = await self.calculate_embeddings(nodes=all_cur_nodes)
-        
-        #prepare the tree here
-        cur_level = self.settings.d2vengine.tree_depth - 1
-        nodes_to_be_added = []
-        clusters = []
-        while cur_level >= 0:
-            #set parent node
-            if cur_level == 1:
-                for p_node in parent_nodes:
-                    cur_node = p_node
-                    cur_node.metadata["level"] = 1
-                    cur_node.metadata["node_level"] = BaseNodeTypeEnum.PARENT.value
-                    cur_node.embedding = dense_emb[cur_node.id_]
-                    nodes_to_be_added.append(cur_node)
-            #set children nodes - if any
-            elif cur_level == 0 and len(children_nodes) > 0:
-                #cluster create 
-                for children_section_nodes in cur_children_dict.values():                 
-                    children_section_nodes_ids = [node.id_ for node in children_section_nodes]
-                    cur_id_to_dense_embedding = {k: v for k, v in dense_emb.items() if k in children_section_nodes_ids}
-
-                    if len(children_section_nodes):
-                        nodes_per_cluster = get_clusters(
-                            children_section_nodes,
-                            cur_id_to_dense_embedding
-                        )
-                        for cluster in nodes_per_cluster:
-                            current_cluster_id = str(uuid.uuid4())
-                            for cur_node in cluster:
-                                cur_node.metadata["level"] = 0
-                                cur_node.metadata["node_level"] = BaseNodeTypeEnum.CHILD.value
-                                cur_node.metadata["cluster_id"] = current_cluster_id
-                                cur_node.embedding = dense_emb[cur_node.id_]
-                                nodes_to_be_added.append(cur_node)
-                            cluster_embeddings = [np.ndarray(np.array(dense_emb[c.id_], dtype=float)) for c in cluster]
-                            dense_centroid = np.mean(cluster_embeddings, axis=0)
-                            clusters.append(NodeCluster(current_cluster_id, 
-                                                        child_ids=[c.id_ for c in cluster], 
-                                                        dense_centroid=dense_centroid, 
-                                                        sparse_centroid=None))
-
-            
-            cur_level = cur_level - 1
-        return nodes_to_be_added, clusters
-        
     def __init__(self,
                 settings: Settings):
         
         self.settings = settings
+        self.eu = EmbeddingUtil(settings)
+    
+    def tree_children_transformation(
+            self,
+            children_nodes: list[BaseNode]= [],
+            cur_children_dict: dict = {}
+        ) -> list[CurieoBaseNode]:
 
+        #call the embedding and splade embedding apis       
+        children_nodes = self.eu.calculate_dense_sparse_embeddings(children_nodes)
         
+        clusters = []
+        node_text_details = []
+        if len(children_nodes) > 0:
+            for children_section_nodes in cur_children_dict.values():                 
+                cur_id_to_dense_embedding = {node.node_id: node.get_embedding() for node in children_section_nodes}
+
+                if len(children_section_nodes):
+                    nodes_per_cluster = get_clusters(children_section_nodes, cur_id_to_dense_embedding)
+                    for cluster in nodes_per_cluster:
+                        current_cluster_id = str(uuid.uuid4())
+                        metadata = {}
+                        metadata["children_node_ids"] = [node.id_ for node in cluster]
+
+                        dense_embeddings = [np.array(node.get_embedding(), dtype=float) for node in cluster]
+                        dense_centroid = np.mean(dense_embeddings, axis=0).tolist()
+
+                        sparse_indices_embeddings = [np.array(node.get_sparse_embedding().get('indices'), dtype=int) for node in cluster]
+                        sparse_vector_embeddings = [np.array(node.get_sparse_embedding().get('vector'), dtype=float) for node in cluster]
+                        sparse_centroid = self.eu.average_sparse(sparse_indices_embeddings, sparse_vector_embeddings)
+
+                        clusters.append(
+                            CurieoBaseNode(
+                                id_=current_cluster_id,
+                                embedding=dense_centroid,
+                                sparse_embedding=sparse_centroid,
+                                metadata=metadata
+                            )
+                        )
+                        node_text_details.append([
+                            {"id": node.node_id, "node_text": node.get_content(metadata_mode="embed")}
+                            for node in cluster
+                            ])
+        return clusters, reduce(operator.add, node_text_details)

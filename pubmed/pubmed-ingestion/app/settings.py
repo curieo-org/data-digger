@@ -28,7 +28,7 @@ class DatabaseVectorsEngineSettings(BaseSettings):
     child_chunk_size: int = 512
     child_chunk_overlap: int = 30
     tree_depth: int = 2
-    s3_analytics_bucket: str = "pubmed-ingestion-analytics"
+    s3_fulltext_bucket: str = "pubmed-fulltext-parsed-details-jkhsfkjhsdfjk"
 
 
 class QdrantSettings(BaseSettings):
@@ -58,7 +58,7 @@ class PubmedDatabaseReaderSettings(BaseSettings):
     percentile_select_query: str = "SELECT citationcount from pubmed_percentiles where year = {year} and percentile = {percentile}"
     record_select_query: str = "SELECT identifier FROM public.citationcounts where year = {year} and citationcount >= {citationcount}"
     records_fetch_details: str = "SELECT identifier, record FROM public.records where year = {year} and identifier in {ids}"
-    fulltext_fetch_query: str = "SELECT pubmed, {column} FROM public.{table} where pubmed in ({ids})"
+    fulltext_fetch_query: str = "SELECT pubmed, {column} FROM public.{table} where pubmed in {ids}"
     parsed_record_abstract_key: str = "abstractText"
     parsed_record_titles_key: str = "titles"
     parsed_record_publicationdate_key: str = "publicationDate"
@@ -79,44 +79,39 @@ class PubmedDatabaseReaderSettings(BaseSettings):
             CREATE INDEX IF NOT EXISTS pubmed_parent_ingestion_log_pubmed_id ON pubmed_parent_ingestion_log (pubmed_id);
             CREATE INDEX IF NOT EXISTS pubmed_parent_ingestion_log_parent_id ON pubmed_parent_ingestion_log (parent_id);
             CREATE INDEX IF NOT EXISTS pubmed_parent_ingestion_log_status ON pubmed_parent_ingestion_log (status);
+            CREATE TABLE IF NOT EXISTS pubmed_children_ingestion_log
+            (
+                id SERIAL PRIMARY KEY,
+                pubmed_id BIGINT NOT NULL,
+                status INTEGER default 0,
+                children_nodes_count INTEGER default 0,
+                created_at timestamp default now(),
+                updated_at timestamp default now()
+                );
+            CREATE INDEX IF NOT EXISTS pubmed_children_ingestion_log_pubmed_id ON pubmed_children_ingestion_log (pubmed_id);
+            CREATE INDEX IF NOT EXISTS pubmed_children_ingestion_log_status ON pubmed_children_ingestion_log (status);
+            CREATE TABLE IF NOT EXISTS public.pubmed_text_details
+            (
+            id character varying(100) COLLATE pg_catalog."default" NOT NULL,
+            node_text text COLLATE pg_catalog."default" NOT NULL,
+            CONSTRAINT pubmed_text_details_pkey PRIMARY KEY (id)
+            )
         '''
     ]
 
-    pubmed_fetch_parent_records: str = (
+    pubmed_fetch_records: str = (
         "SELECT cc.identifier "
         "FROM public.citationcounts cc "
-        "LEFT JOIN public.pubmed_parent_ingestion_log ppil ON cc.identifier = ppil.pubmed_id "
+        "LEFT JOIN public.{table_name} ppil ON cc.identifier = ppil.pubmed_id "
         "WHERE "
         "cc.year = {year} "
-        "AND cc.citationcount IN ("
-            "SELECT pp.citationcount "
-            "FROM pubmed_percentiles pp "
-            "WHERE pp.year = {year} "
-            "AND pp.percentile BETWEEN {parent_criteria_upper} AND {parent_criteria_lower}) "
-        "AND ("
-            "ppil.pubmed_id IS NULL"
-        ");"
+        "AND ppil.pubmed_id IS NULL "
+        "AND cc.citationcount BETWEEN {citation_lower} AND {citation_upper} order by cc.citationcount desc"
     )
 
-    #TODO
-    pubmed_fetch_children_records: str = (
-        "SELECT cc.identifier"
-        "FROM public.citationcounts cc"
-        "LEFT JOIN public.pubmed_parent_ingestion_log ppil ON cc.identifier = ppil.pubmed_id"
-        "WHERE "
-        "cc.year = {year}"
-        "AND cc.citationcount IN ("
-            "SELECT pp.citationcount"
-            "FROM pubmed_percentiles pp"
-            "WHERE pp.year = {year} "
-            "AND pp.percentile IN ({children_criteria_upper}, {children_criteria_lower})"
-        ")"
-        "AND ("
-            "ppil.pubmed_id IS NULL "
-            "OR ppil.children_nodes_count = 0"
-        ");"
-    )
     pubmed_parent_ingestion_log: str = "pubmed_parent_ingestion_log"
+    pubmed_children_ingestion_log: str = "pubmed_children_ingestion_log"
+    pubmed_children_text_details: str = "pubmed_text_details"
 
     
 class PsqlSettings(BaseSettings):
