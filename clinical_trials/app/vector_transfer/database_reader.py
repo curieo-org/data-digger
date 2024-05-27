@@ -66,9 +66,9 @@ class DatabaseReader:
             ]
         )
 
-        update_condition = ''
+        update_condition = ""
         if run_ingestion_updates:
-            update_condition = 'where updated_at >= now() - interval \'1 day\''
+            update_condition = "where updated_at >= now() - interval '1 day'"
 
         query = f"""
             INSERT INTO {self.ingestion_status_table_name} ({", ".join(table_structure.primary_keys)}, status, embeddable_data, metadata, updated_at)
