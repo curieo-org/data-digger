@@ -11,7 +11,7 @@ import llama_index.core.instrumentation as instrument
 from utils.clustering import get_clusters, NodeCluster
 from settings import Settings
 from utils.utils import BaseNodeTypeEnum
-from utils.embeddings_utils import EmbeddingUtil
+from utils.embeddings_utils import EmbeddingUtil, average_sparse
 from utils.custom_basenode import CurieoBaseNode
 
 import numpy as np
@@ -48,10 +48,11 @@ class TreefyNodes:
                         metadata = {}
                         metadata["children_node_ids"] = [node.id_ for node in cluster]
                         dense_embeddings = [np.array(node.get_embedding(), dtype=float) for node in cluster]
+                        dense_centroid = np.mean(dense_embeddings, axis=0).tolist()
                         sparse_indices_embeddings = [np.array(node.get_sparse_embedding().get('indices'), dtype=int) for node in cluster]
                         sparse_vector_embeddings = [np.array(node.get_sparse_embedding().get('vector'), dtype=float) for node in cluster]
-                        dense_centroid = np.mean(dense_embeddings, axis=0).tolist()
-                        sparse_centroid = cluster[0].get_sparse_embedding() # TODO
+                        # this is a tuple of (indices, values)
+                        sparse_centroid = average_sparse(sparse_indices_embeddings, sparse_vector_embeddings)
                         clusters.append(
                             CurieoBaseNode(
                                 id_=current_cluster_id,
