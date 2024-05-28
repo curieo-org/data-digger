@@ -50,6 +50,13 @@ class TreefyNodes:
 
                         sparse_indices_embeddings = [np.array(node.get_sparse_embedding().get('indices'), dtype=int) for node in cluster]
                         sparse_vector_embeddings = [np.array(node.get_sparse_embedding().get('vector'), dtype=float) for node in cluster]
+                        # kick out empty embeddings
+                        # if *all* embeddings are empty
+                        sparse_indices_embeddings = [indices for indices in sparse_indices_embeddings if len(indices) != 0]
+                        sparse_vector_embeddings = [values for values in sparse_vector_embeddings if len(values) != 0]
+                        if len(sparse_vector_embeddings) == 0:
+                            # note sure what to do here
+                            pass
                         sparse_centroid = self.eu.average_sparse(sparse_indices_embeddings, sparse_vector_embeddings)
 
                         clusters.append(
