@@ -33,7 +33,7 @@ The pipeline consists of the following steps:
 
 ### Installation
 - Make sure `pyenv` is installed.
-- Create a new virtual environment `python -m venv .venv`
+- Create a new virtual environment `python3 -m venv .venv`
 - Activate the env `source .venv/bin/activate`
 - Install poetry `pip install poetry`
 - Install dependencies `poetry install`
