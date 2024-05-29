@@ -69,6 +69,10 @@ class ProcessChildrenNodes:
             ]
             grouped_ids[prefix].extend(paragraph_texts)
 
+        for key in grouped_ids:
+            if isinstance(grouped_ids[key], list):  # Check if the value is a list
+                grouped_ids[key] = "".join(grouped_ids[key])
+
         return grouped_ids
     
     def generate_children_nodes(
@@ -80,13 +84,14 @@ class ProcessChildrenNodes:
         parsed_fulltext = self.parse_clean_fulltext(fulltext=fulltext_content, name=file_name, split_depth=self.settings.jatsparser.split_depth)
             
         #process the retrieved data
-        for k, values in parsed_fulltext.items():
-            base_nodes: List[Document] = [Document(text=each_value) for each_value in values if each_value.strip()]
-            transformed_nodes: List[Document] = run_transformations(base_nodes, transformations=[
-                SentenceSplitter(chunk_size=self.settings.d2vengine.child_chunk_size, chunk_overlap=self.settings.d2vengine.child_chunk_overlap)
-                ],
-                in_place=False)
-            cur_children_dict[k] = [CurieoBaseNode.from_text_node(node, node_id_generate=True) for node in transformed_nodes]
+        for k, text in parsed_fulltext.items():
+            if len(text):
+                base_nodes: List[Document] = [Document(text=text.strip())]
+                transformed_nodes: List[Document] = run_transformations(base_nodes, transformations=[
+                    SentenceSplitter(chunk_size=self.settings.d2vengine.child_chunk_size, chunk_overlap=self.settings.d2vengine.child_chunk_overlap)
+                    ],
+                    in_place=False)
+                cur_children_dict[k] = [CurieoBaseNode.from_text_node(node, node_id_generate=True) for node in transformed_nodes]
         return cur_children_dict, parsed_fulltext
     
     def process_single_child_id(self, record: dict):
@@ -96,21 +101,21 @@ class ProcessChildrenNodes:
             self.log_dict.append(
                 update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.ID_ABSTRACT_BAD_DATA.value)
             )
-            return
+            return False
 
         abstract = get_abstract(record, self.settings.database_reader.parsed_record_abstract_key)
         if not abstract:
             self.log_dict.append(
                 update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.ID_ABSTRACT_BAD_DATA.value)
             )
-            return
+            return False
         
         pmc_location = "bulk/" + self.pmc_sources.get(record_id, "") 
         if not pmc_location:
             self.log_dict.append(
                 update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.PMC_RECORD_NOT_FOUND.value)
             )
-            return
+            return False
         
         fulltext_content = download_s3_file(self.settings.jatsparser.bucket_name, s3_object=pmc_location)
 
@@ -122,19 +127,24 @@ class ProcessChildrenNodes:
             self.log_dict.append(
                 update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.PMC_RECORD_PARSING_FAILED.value)
             )
-            return
+            return False
         
         if len(children_nodes) == 0 or len(cur_children_dict) == 0:
             self.log_dict.append(
                 update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.NO_PMC_RECORDS.value)
             )
-            return
+            return False 
+        try:
+            clusters, node_text_dict = self.tn.tree_children_transformation(record_id, children_nodes, cur_children_dict)
+            self.insert_nodes_into_index(record_id, clusters)
+            run_insert_sql(self.engine, self.settings.database_reader.pubmed_children_text_details, node_text_dict)
+            return True
+        except Exception as e:
+            self.log_dict.append(
+                update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.SPARSE_EMBEDDING_CALCULATION_FAILED.value)
+            )
+            return False
 
-        clusters, node_text_dict = self.tn.tree_children_transformation(children_nodes, cur_children_dict)
-        self.insert_nodes_into_index(record_id, clusters)
-
-        run_insert_sql(self.engine, self.settings.database_reader.pubmed_children_text_details, node_text_dict)
-        return True
 
     def assign_embeddings_to_nodes(self, nodes: List[Document], id_to_dense_embedding: dict):
         for node in nodes:

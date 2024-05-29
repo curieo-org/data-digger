@@ -98,6 +98,9 @@ class EmbeddingUtil:
 
         avg_vector_length = vector_length_sum/float(len(indices))
         avg_dimension_count = int(dimension_count_sum/float(len(indices)))
+
+        if len(summated) ==0:
+            print()
         
         sum_list = [(k,v) for k,v in summated.items()]
         sum_list.sort(key=lambda x : -x[1])

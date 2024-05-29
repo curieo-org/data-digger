@@ -130,6 +130,7 @@ class PubmedDatabaseReader:
             ) as result:
                 logger.info(f"collect_records_by_year: Year: {year}: Streaming Started")
                 count = 0
+                #self.process_batch_records([17187683], mode) #for dev debug
                 for partition in result.partitions():
                     logger.info(f"To be processed Processed Records: {len(partition)}")
                     ids = []

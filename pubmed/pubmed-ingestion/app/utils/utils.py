@@ -19,6 +19,7 @@ class ProcessingResultEnum(Enum):
     PMC_RECORD_NOT_FOUND = -3
     ID_ABSTRACT_BAD_DATA = -4
     NO_PMC_RECORDS = -5
+    SPARSE_EMBEDDING_CALCULATION_FAILED = -6
     SUCCESS = 1
     ONPROGRESS = 2
 

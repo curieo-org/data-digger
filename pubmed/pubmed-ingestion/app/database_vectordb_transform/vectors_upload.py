@@ -32,20 +32,26 @@ class VectorsUpload:
             timeout=60,
             embed_batch_size=self.settings.embedding.embed_batch_size)
 
-        self.client = QdrantClient(
-            url=self.settings.qdrant.api_url, 
+        self.parent_client = QdrantClient(
+            url=self.settings.qdrant.parent_api_url, 
+            port=self.settings.qdrant.api_port,
+            api_key=self.settings.qdrant.api_key.get_secret_value(),
+            https=False
+            )  
+        self.cluster_client = QdrantClient(
+            url=self.settings.qdrant.cluster_api_url, 
             port=self.settings.qdrant.api_port,
             api_key=self.settings.qdrant.api_key.get_secret_value(),
             https=False
             )   
 
         self.parent_vector_store = CurieoVectorStore(
-            client=self.client,
+            client=self.parent_client,
             collection_name=self.settings.qdrant.parent_collection_name
             )
         
         self.cluster_vector_store = CurieoVectorStore(
-            client=self.client,
+            client=self.cluster_client,
             collection_name=self.settings.qdrant.cluster_collection_name
             )
         
