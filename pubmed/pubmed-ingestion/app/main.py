@@ -11,7 +11,7 @@ logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} 
 
 def run_transform(commands: argparse.Namespace):
     dbReader = PubmedDatabaseReader(settings)
-    logger.bind(special=True).info("Starting the INGESTION Process 0.0.26!!!")
+    logger.bind(special=True).info("Starting the INGESTION Process 0.0.28!!!")
     
     if dbReader.check_pubmed_percentile_tbl():
         if commands.lowercriteria <= commands.highercriteria:
