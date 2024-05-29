@@ -34,7 +34,7 @@ spec:
           requests:
             memory: "${MEMORY}Gi"
             cpu: "${CPU}"
-        command: ["sh", "-c", "poetry install && poetry run python app/main.py --year ${YEAR} --highercriteria ${HIGHERCRITERIA} --lowercriteria ${LOWERCRITERIA}"]
+        command: ["sh", "-c", "poetry install && poetry run python app/main.py --mode ${MODE} --year ${YEAR} --highercriteria ${HIGHERCRITERIA} --lowercriteria ${LOWERCRITERIA}"]
         env:
           - name: DEBUG
             value: "true"

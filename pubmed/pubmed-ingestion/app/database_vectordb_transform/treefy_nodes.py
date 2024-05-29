@@ -25,6 +25,7 @@ class TreefyNodes:
     
     def tree_children_transformation(
             self,
+            record_id: str,
             children_nodes: list[BaseNode]= [],
             cur_children_dict: dict = {}
         ) -> list[CurieoBaseNode]:
@@ -44,12 +45,16 @@ class TreefyNodes:
                         current_cluster_id = str(uuid.uuid4())
                         metadata = {}
                         metadata["children_node_ids"] = [node.id_ for node in cluster]
+                        metadata["pubmedid"] = record_id
 
                         dense_embeddings = [np.array(node.get_embedding(), dtype=float) for node in cluster]
                         dense_centroid = np.mean(dense_embeddings, axis=0).tolist()
 
                         sparse_indices_embeddings = [np.array(node.get_sparse_embedding().get('indices'), dtype=int) for node in cluster]
                         sparse_vector_embeddings = [np.array(node.get_sparse_embedding().get('vector'), dtype=float) for node in cluster]
+
+                        sparse_indices_embeddings = [indices for indices in sparse_indices_embeddings if len(indices) != 0]
+                        sparse_vector_embeddings = [values for values in sparse_vector_embeddings if len(values) != 0]
                         sparse_centroid = self.eu.average_sparse(sparse_indices_embeddings, sparse_vector_embeddings)
 
                         clusters.append(
