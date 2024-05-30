@@ -1,7 +1,7 @@
 import asyncio
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Union
+from typing import List
 from sqlalchemy import create_engine
 from loguru import logger
 from tqdm import tqdm
@@ -110,14 +110,14 @@ class ProcessChildrenNodes:
             )
             return False
         
-        pmc_location = "bulk/" + self.pmc_sources.get(record_id, "") 
-        if not pmc_location:
+        pmc_location = self.pmc_sources.get(record_id, "") 
+        if not len(pmc_location):
             self.log_dict.append(
-                update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.PMC_RECORD_NOT_FOUND.value)
+                update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.PMC_LOCATION_NOT_FOUND.value)
             )
             return False
         
-        fulltext_content = download_s3_file(self.settings.jatsparser.bucket_name, s3_object=pmc_location)
+        fulltext_content = download_s3_file(self.settings.jatsparser.bucket_name, s3_object="bulk/" + pmc_location)
 
         if fulltext_content:
             cur_children_dict, parsed_fulltext = self.generate_children_nodes(fulltext_content, pmc_location.split("/")[-1])
@@ -125,25 +125,26 @@ class ProcessChildrenNodes:
             self.fulltext_details[record_id] = parsed_fulltext
         else:
             self.log_dict.append(
-                update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.PMC_RECORD_PARSING_FAILED.value)
+                update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.PMC_FULLTEXT_FAILED.value)
             )
             return False
         
         if len(children_nodes) == 0 or len(cur_children_dict) == 0:
             self.log_dict.append(
-                update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.NO_PMC_RECORDS.value)
+                update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.PMC_FULLTEXT_NULL.value)
             )
             return False 
         try:
             clusters, node_text_dict = self.tn.tree_children_transformation(record_id, children_nodes, cur_children_dict)
-            self.insert_nodes_into_index(record_id, clusters)
-            run_insert_sql(self.engine, self.settings.database_reader.pubmed_children_text_details, node_text_dict)
-            return True
         except Exception as e:
             self.log_dict.append(
                 update_result_status(mode="children", pubmed_id=record_id, status=ProcessingResultEnum.SPARSE_EMBEDDING_CALCULATION_FAILED.value)
             )
             return False
+        
+        self.insert_nodes_into_index(record_id, clusters)
+        run_insert_sql(self.engine, self.settings.database_reader.pubmed_children_text_details, node_text_dict)
+        return True
 
 
     def assign_embeddings_to_nodes(self, nodes: List[Document], id_to_dense_embedding: dict):
@@ -163,7 +164,7 @@ class ProcessChildrenNodes:
             )
         except Exception as e:
             logger.exception(f"VectorDb problem: {e}")
-            self.log_dict.append(update_result_status(mode="children", pubmed_id=id, status=ProcessingResultEnum.PMC_RECORD_PARSING_FAILED.value))
+            self.log_dict.append(update_result_status(mode="children", pubmed_id=id, status=ProcessingResultEnum.VECTORDB_FAILED.value))
      
     async def process_batch_children_ids(self,
                                     records: list[defaultdict]) -> None:

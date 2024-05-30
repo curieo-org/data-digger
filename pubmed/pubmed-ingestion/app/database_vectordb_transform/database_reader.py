@@ -73,7 +73,7 @@ class PubmedDatabaseReader:
                         if json_parse_required:
                             all_records[id]= json.loads(record)
                         else:
-                            all_records[id]= str(record)
+                            all_records[id]= str(record) if record is not None else ""
                     
                 except Exception as e:
                     logger.exception(f"An error occurred while fetching records: {e}")
@@ -130,7 +130,7 @@ class PubmedDatabaseReader:
             ) as result:
                 logger.info(f"collect_records_by_year: Year: {year}: Streaming Started")
                 count = 0
-                #self.process_batch_records([17187683], mode) #for dev debug
+                #self.process_batch_records(['27918548'], mode) #for dev debug
                 for partition in result.partitions():
                     logger.info(f"To be processed Processed Records: {len(partition)}")
                     ids = []

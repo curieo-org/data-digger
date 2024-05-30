@@ -35,6 +35,9 @@ class QdrantSettings(BaseSettings):
     api_port: int = 6333
     parent_api_url: str = "http://qdrant.qdrant.svc.cluster.local"
     cluster_api_url: str = "http://qdrant.qdrant-children.svc.cluster.local"
+    #parent_api_url: str = "localhost"
+    #cluster_api_url: str = "localhost"
+
     parent_collection_name: str = "pubmed_parent_hybrid"
     cluster_collection_name: str = "pubmed_cluster_hybrid"
     api_key: SecretStr
@@ -42,12 +45,15 @@ class QdrantSettings(BaseSettings):
 
 class EmbeddingSettings(BaseSettings):
     api_url: str = "http://text-embedding.dev.svc.cluster.local"
+    #api_url: str = "http://localhost:8080/"
+
     api_key: SecretStr
     embed_batch_size: int = 4
 
 
 class SpladedocSettings(BaseSettings):
     api_url: str = "http://text-splade-doc.dev.svc.cluster.local"
+    #api_url: str = "http://localhost:8082/"
     api_key: SecretStr
     embed_batch_size: int = 2
 

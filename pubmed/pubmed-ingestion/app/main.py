@@ -1,4 +1,3 @@
-import asyncio
 import argparse
 from typing import List
 from loguru import logger
@@ -11,7 +10,7 @@ logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} 
 
 def run_transform(commands: argparse.Namespace):
     dbReader = PubmedDatabaseReader(settings)
-    logger.bind(special=True).info("Starting the INGESTION Process 0.0.28!!!")
+    logger.bind(special=True).info("Starting the INGESTION Process 0.0.31!!!")
     
     if dbReader.check_pubmed_percentile_tbl():
         if commands.lowercriteria <= commands.highercriteria:
@@ -37,7 +36,7 @@ def parse_args(commands: List[str] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Process records from PubMed database for a given year.", formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("-y", "--year", type=int, help="year to process record", default=2006)
+    parser.add_argument("-y", "--year", type=int, help="year to process record", default=2016)
     parser.add_argument(
         "--mode",
         default="children",
