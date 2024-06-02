@@ -84,9 +84,16 @@ class ProcessParentNodes:
         parent_nodes = [CurieoBaseNode.from_text_node(text_node) for text_node in self.create_parent_nodes(abstract)]
         parent_nodes_with_embeddings = self.eu.calculate_dense_sparse_embeddings(parent_nodes)
 
-        parent_id = parent_nodes[0].id_
-        nodes_ready_to_be_added = self.node_metadata_transform(parent_id, record_id, parent_nodes_with_embeddings, record)
-        self.insert_nodes_into_index(record_id, parent_id, nodes_ready_to_be_added)
+        try:
+            parent_id = parent_nodes[0].id_
+            nodes_ready_to_be_added = self.node_metadata_transform(parent_id, record_id, parent_nodes_with_embeddings, record)
+            self.insert_nodes_into_index(record_id, parent_id, nodes_ready_to_be_added)
+            return
+        except Exception as e:
+            self.log_dict.append(
+                update_result_status(mode="parent", pubmed_id=record_id, status=ProcessingResultEnum.PARENT_NODE_INSERT_FAILED.value)
+            )
+            return 
 
     def create_parent_nodes(self, abstract: str) -> List[TextNode]:
         return run_transformations(

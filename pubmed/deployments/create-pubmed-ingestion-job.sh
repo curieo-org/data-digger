@@ -64,11 +64,11 @@ spec:
                 optional: false
       restartPolicy: Never
       nodeSelector:
-        role: large-workloads
+        role: non-qdrant-workloads
       tolerations:
       - key: "type"
         operator: "Equal"
-        value: "large-workloads"
+        value: "non-qdrant-workloads"
         effect: "NoSchedule"
 EOF
 
