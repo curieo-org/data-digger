@@ -12,16 +12,23 @@ spec:
         spec:
           containers:
           - name: pubmed-fulltext-xml
-            image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-fulltext-xml:2.0
+            image: 698471419283.dkr.ecr.eu-central-1.amazonaws.com/data-digger-pubmed-fulltext-xml:3.0
             resources:
               requests:
-                memory: "2Gi"
-                cpu: "1"
-              limits:
                 memory: "4Gi"
                 cpu: "2"
+              limits:
+                memory: "8Gi"
+                cpu: "4"
             command: ["bash", "/usr/local/bin/script.sh"]
             envFrom:
             - configMapRef:
                 name: pubmed-fulltext-xml-configmap
           restartPolicy: OnFailure
+          nodeSelector:
+            role: large-workloads
+          tolerations:
+          - key: "type"
+            operator: "Equal"
+            value: "large-workloads"
+            effect: "NoSchedule"

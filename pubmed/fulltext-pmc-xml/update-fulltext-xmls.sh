@@ -21,7 +21,6 @@ export PGPASSWORD=$PASSWORD
 process_ftp_files() {
     ftp_files="$1"
     job_name="$2"
-    files_to_be_updates=()
     
     for file in $ftp_files; do
         file_name=$(echo $file | awk -F'/' '{print $NF}')
@@ -34,23 +33,17 @@ process_ftp_files() {
             query="INSERT INTO pmctasks (name, state, job, timestamp) VALUES ('$file_name', $InProgress, '$job_name', now()) ON CONFLICT (name, job) DO UPDATE SET state = $InProgress, timestamp = now();"
             psql -h $HOST -p $PORT -U $USERNAME -d $DATABASE -c "$query"
 
-            files_to_be_updates=("${files_to_be_updates[@]}" "$file_name")
-
             wget --ftp-user='anonymous' --ftp-password='anonymous' --continue $file
+
+            aws s3 cp $file_name s3://pubmed-fulltext/bulk/
+            tar -zxf $file_name
+            rm $file_name
+            aws s3 cp ./ s3://pubmed-fulltext/bulk/ --recursive
+            rm -r *
+
+            query="UPDATE pmctasks SET state = $Completed, timestamp = now() WHERE name = '$file_name' AND job = '$job_name';"
+            psql -h $HOST -p $PORT -U $USERNAME -d $DATABASE -c "$query"
         fi
-    done
-
-    aws s3 cp ./ s3://pubmed-fulltext/bulk/ --recursive
-
-    for file in *.tar.gz; do tar -zxf "$file"; done
-    rm *.tar.gz
-    aws s3 cp ./ s3://pubmed-fulltext/bulk/ --recursive
-
-    rm -r *
-
-    for file in "${files_to_be_updates[@]}"; do
-        query="UPDATE pmctasks SET state = $Completed, timestamp = now() WHERE name = '$file' AND job = '$job_name';"
-        psql -h $HOST -p $PORT -U $USERNAME -d $DATABASE -c "$query"
     done
 }
 
