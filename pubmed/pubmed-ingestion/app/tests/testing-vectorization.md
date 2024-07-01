@@ -11,6 +11,7 @@ The documents are analyzed into sections, such that we get:
 * child nodes (section 1.1, section 1.2, ... section n.n)
 
 Each of these sections are submitted to two different vectorization algorithms:
+
 * dense vectorization [BAAI/bge-large-en-v1.5](https://huggingface.co/BAAI/bge-large-en-v1.5)
 * sparse vectorization (Splade)
 
@@ -62,6 +63,7 @@ This works, _all_ documents are retrieved with match scores exactly 1.0 (both de
 
 ## Learnings
 We noted a number of things along the way.
+
 1. The core idea of mediating section searches through clusters has been validated. This works.
 2. Short documents tend to be found more than necessary and this is not a good thing. Length normalization needs to be thought through. However, this effect may go away with the QDrant database - we do not know exactly how the matching logic operates in the QDrant database; perhaps QDrant has length normalization built-in. The current numpy-based matching misses length-normalization.
 3. The algorithms need proofing against _empty_ texts and other marginal conditions. The JATS parser, in some marginal cases, outputs empty text (or just 'TABLE' content) and this needs to be dealt with appropriately.
