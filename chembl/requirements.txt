@@ -1,5 +1,5 @@
 beautifulsoup4==4.12.3
-Flask==3.0.2
+Flask==3.0.3
 FPSim2==0.5.1
 psycopg2==2.9.9
 Requests==2.31.0

@@ -25,7 +25,7 @@
 	<maven-source-plugin.version>3.3.1</maven-source-plugin.version>
 	<maven-release-plugin.version>3.0.1</maven-release-plugin.version>
 	<maven.surefire.plugin.version>3.2.5</maven.surefire.plugin.version>
-	<maven-jar-plugin.version>3.4.0</maven-jar-plugin.version>
+	<maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
 	
   </properties>
 
@@ -113,7 +113,7 @@
 	<dependency>
 	    <groupId>com.fasterxml</groupId>
 	    <artifactId>aalto-xml</artifactId>
-	    <version>1.3.1</version>
+	    <version>1.3.3</version>
 	</dependency>
 	<!-- chemistry development kit -->
 	<dependency>
@@ -172,7 +172,7 @@
 				            <path>
 				                <groupId>org.projectlombok</groupId>
 				                <artifactId>lombok</artifactId>
-				                <version>1.18.30</version>
+				                <version>1.18.34</version>
 				            </path>
 				        </annotationProcessorPaths>
 					</configuration>
