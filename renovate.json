@@ -26,7 +26,6 @@
       "groupName": "all pin and digest updates"
     }
   ],
-  "schedule": ["before 5am on monday"],
   "baseBranches": ["master"],
   "labels": ["dependencies"],
   "timezone": "Europe/Amsterdam"
