@@ -1,4 +1,4 @@
-FROM maven:3.9.6 AS build
+FROM maven:3.9.8 AS build
 
 WORKDIR /usr/src/app
 
