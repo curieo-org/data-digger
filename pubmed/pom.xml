@@ -19,35 +19,35 @@
 		<maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
 		<maven-assembly-plugin.version>3.7.1</maven-assembly-plugin.version>
 		<maven-source-plugin.version>3.3.1</maven-source-plugin.version>
-		<maven-release-plugin.version>3.0.1</maven-release-plugin.version>
-		<maven.surefire.plugin.version>3.2.5</maven.surefire.plugin.version>
-		<maven-jar-plugin.version>3.4.0</maven-jar-plugin.version>
+		<maven-release-plugin.version>3.1.0</maven-release-plugin.version>
+		<maven.surefire.plugin.version>3.3.0</maven.surefire.plugin.version>
+		<maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
 		<buildnumber-maven-plugin.version>3.2.0</buildnumber-maven-plugin.version>
 		<templating-maven-plugin.version>3.0.0</templating-maven-plugin.version>
 		
 		<data-digger.version>0.0.1</data-digger.version>
 
 		<jsonassert.version>1.5.0</jsonassert.version>
-		<assertj.version>3.25.3</assertj.version>
+		<assertj.version>3.26.0</assertj.version>
 		<commons-csv.version>1.5</commons-csv.version>
-		<commons-text.version>1.11.0</commons-text.version>
+		<commons-text.version>1.12.0</commons-text.version>
 		<commons-io.version>2.16.1</commons-io.version>
 		<commons-lang3.version>3.14</commons-lang3.version>
-		<commons-collections.version>4.5.0-M1</commons-collections.version>
-		<commons-cli.version>1.6.0</commons-cli.version>
-		<commons-net.version>3.10.0</commons-net.version>
+		<commons-collections.version>4.5.0-M2</commons-collections.version>
+		<commons-cli.version>1.8.0</commons-cli.version>
+		<commons-net.version>3.11.1</commons-net.version>
 		<mockito.version>2.24.5</mockito.version>
 		<jsonld-java.version>0.13.6</jsonld-java.version>
-		<junit.jupiter.version>5.10.2</junit.jupiter.version>
+		<junit.jupiter.version>5.10.3</junit.jupiter.version>
 		<junit.platform.version>1.2.0</junit.platform.version>
-		<lombok.version>1.18.32</lombok.version>
-		<jackson.version>2.17.0</jackson.version>
+		<lombok.version>1.18.34</lombok.version>
+		<jackson.version>2.17.2</jackson.version>
 		<jewelcli.version>0.8.3</jewelcli.version>
 		<jfasttext.version>0.2</jfasttext.version>
 		<postgresql.version>42.7.3</postgresql.version>
-		<log4j.version>2.20.0</log4j.version>
+		<log4j.version>2.23.1</log4j.version>
 		<slf4j.version>2.7</slf4j.version>
-		<opennlp.version>2.3.2</opennlp.version>
+		<opennlp.version>2.3.3</opennlp.version>
 		<jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
 	</properties>
 
@@ -165,7 +165,7 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-enforcer-plugin</artifactId>
-					<version>3.4.1</version>
+					<version>3.5.0</version>
 					<executions>
 						<execution>
 						<id>enforce-maven</id>
