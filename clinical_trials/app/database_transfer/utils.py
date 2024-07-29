@@ -1,106 +1,46 @@
-from sqlalchemy import (
-    create_engine,
-    text
-)
-from typing import (
-    List,
-    Tuple
-)
-import json
-from concurrent.futures import ThreadPoolExecutor
-import asyncio
-from app.config import (
-    PG_POOL_SIZE,
-    PG_MAX_OVERFLOW
-)
+from typing import List, Tuple
 
-class PGEngine():
-    def __init__(self, database_url) -> None:
-        self.engine = create_engine(database_url, pool_size=PG_POOL_SIZE, max_overflow=PG_MAX_OVERFLOW)
-    
+from sqlalchemy import create_engine, text
+
+from app.settings import CTDatabaseReaderSettings
+
+
+class PGEngine:
+    def __init__(self, database_url, database_reader: CTDatabaseReaderSettings) -> None:
+        self.engine = create_engine(
+            database_url,
+            pool_size=database_reader.pool_size,
+            max_overflow=database_reader.max_overflow,
+        )
+
     def execute_query(self, query: str) -> List[Tuple]:
         with self.engine.connect() as connection:
             result = connection.execute(text(query))
 
         return result.fetchall()
-    
+
     def execute_query_with_params(self, query: str, params: dict) -> List[Tuple]:
         with self.engine.connect() as connection:
             connection.execute(text(query), params)
             connection.commit()
-    
+
     def execute_query_without_return(self, query: str) -> None:
         with self.engine.connect() as connection:
             connection.execute(text(query))
             connection.commit()
 
-def transfer_data_batch(
-    local_pg_engine: PGEngine,
-    prod_pg_engine: PGEngine,
-    select_query: str,
-    insert_query: str,
-    columns: List[str],
-    batch_size: int,
-    offset: int
-) -> None:
-    select_query = select_query.format(batch_size=batch_size, offset=offset)
-    rows = local_pg_engine.execute_query(select_query)
-    params = []
 
-    for row in rows:
-        params.append({field: json.dumps(row[i]) for i, field in enumerate(columns)})
-
-    prod_pg_engine.execute_query_with_params(insert_query, params)
-
-    print('Batch transfer completed: offset:', offset, 'batch_size:', batch_size)
-
-def transfer_table_data(
-    local_pg_engine: PGEngine,
-    prod_pg_engine: PGEngine,
-    table_name: str,
-    columns: List[str],
-    primary_keys: List[str],
-) -> None:
-    select_query = 'SELECT ' + ', '.join(columns) + ' FROM ' + table_name + ' ORDER BY ' + primary_keys[0] + ' ASC LIMIT {batch_size} OFFSET {offset};'
-
-    insert_query = 'INSERT INTO ' + table_name + ' (' + ', '.join(columns) + ') VALUES (' + ', '.join([f':{column}' for column in columns]) + ') ON CONFLICT (' + ', '.join([f'{column}' for column in primary_keys]) + ') DO UPDATE SET ' + ', '.join([f'{column} = EXCLUDED.{column}' for column in columns[1:]]) + ';'
-
-    count_query = f'SELECT count(*) FROM {table_name}'
-
-    try:
-        row_count = local_pg_engine.execute_query(count_query)[0][0]
-    except:
-        raise Exception(f'Error in getting the row count for the table: {table_name}')
-    print(f'Number of rows in the local {table_name}: {row_count}')
-    
-    batch_size = 10000
-
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        event_loop = asyncio.get_event_loop()
-        tasks = []
-
-        for offset in range(0, row_count, batch_size):
-            tasks.append(event_loop.run_in_executor(
-                executor,
-                transfer_data_batch,
-                local_pg_engine,
-                prod_pg_engine,
-                select_query,
-                insert_query,
-                columns,
-                batch_size,
-                offset
-            ))
-
-        asyncio.gather(*tasks)
-
-    try:
-        result = prod_pg_engine.execute_query(count_query)[0][0]
-    except:
-        raise Exception(f'Error in getting the row count for the table: {table_name}')
-    print(f'Number of rows in the production {table_name}: {result}')
-
-    if result == row_count:
-        print(f'Data transfer completed for {table_name}')
-    else:
-        print(f'Data transfer partially completed for {table_name}')
+class TableStructure:
+    def __init__(
+        self,
+        table_name: str,
+        columns: List[str],
+        primary_keys: List[str],
+        embeddable_columns: List[str] = [],
+        vector_metadata_columns: List[str] = [],
+    ) -> None:
+        self.table_name = table_name
+        self.columns = columns
+        self.primary_keys = primary_keys
+        self.embeddable_columns = embeddable_columns
+        self.vector_metadata_columns = vector_metadata_columns
