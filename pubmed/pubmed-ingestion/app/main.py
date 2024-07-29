@@ -1,4 +1,3 @@
-import asyncio
 import argparse
 from typing import List
 from loguru import logger
@@ -9,13 +8,13 @@ from settings import Settings
 settings = Settings()
 logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}")
 
-async def run_transform(commands: argparse.Namespace):
+def run_transform(commands: argparse.Namespace):
     dbReader = PubmedDatabaseReader(settings)
-    logger.bind(special=True).info("Starting the INGESTION Process 0.0.24!!!")
+    logger.bind(special=True).info("Starting the INGESTION Process 0.0.31!!!")
     
-    if await dbReader.check_pubmed_percentile_tbl():
+    if dbReader.check_pubmed_percentile_tbl():
         if commands.lowercriteria <= commands.highercriteria:
-            await dbReader.collect_records_by_year(
+            dbReader.collect_records_by_year(
                 year=commands.year,
                 lowercriteria=commands.lowercriteria,
                 highercriteria=commands.highercriteria,
@@ -37,23 +36,21 @@ def parse_args(commands: List[str] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Process records from PubMed database for a given year.", formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("-y", "--year", type=int, help="year to process record", default=2005)
+    parser.add_argument("-y", "--year", type=int, help="year to process record", default=2016)
     parser.add_argument(
         "--mode",
-        default="parent",
+        default="children",
         choices=["parent", "children"],
         help="mode to process records",
     )
     parser.add_argument("-hl", "--highercriteria", type=int, help="Higher PercentileCriteria to process", default=100)
-    parser.add_argument("-ll", "--lowercriteria", type=int, help="Lower Percentile Criteria to process", default=65)
+    parser.add_argument("-ll", "--lowercriteria", type=int, help="Lower Percentile Criteria to process", default=90)
     args, _ = parser.parse_known_args(args=commands)
     return args
     
 def entrypoint():
     args = parse_args()
-    asyncio.run(run_transform(commands=args))
-
-
+    run_transform(commands=args)
 
 if __name__ == "__main__":
     entrypoint()

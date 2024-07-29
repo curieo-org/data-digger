@@ -34,7 +34,7 @@ spec:
           requests:
             memory: "${MEMORY}Gi"
             cpu: "${CPU}"
-        command: ["sh", "-c", "poetry install && poetry run python app/main.py --year ${YEAR} --highercriteria ${HIGHERCRITERIA} --lowercriteria ${LOWERCRITERIA}"]
+        command: ["sh", "-c", "poetry install && poetry run python app/main.py --mode ${MODE} --year ${YEAR} --highercriteria ${HIGHERCRITERIA} --lowercriteria ${LOWERCRITERIA}"]
         env:
           - name: DEBUG
             value: "true"
@@ -64,11 +64,11 @@ spec:
                 optional: false
       restartPolicy: Never
       nodeSelector:
-        role: large-workloads
+        role: non-qdrant-workloads
       tolerations:
       - key: "type"
         operator: "Equal"
-        value: "large-workloads"
+        value: "non-qdrant-workloads"
         effect: "NoSchedule"
 EOF
 

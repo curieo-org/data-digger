@@ -1,6 +1,7 @@
 import asyncio
 from collections import defaultdict
-from typing import List, Union
+from concurrent.futures import ThreadPoolExecutor
+from typing import List
 from sqlalchemy import create_engine
 from loguru import logger
 from tqdm import tqdm
@@ -8,7 +9,6 @@ from tqdm.asyncio import tqdm
 import time
 
 from llama_index.core.schema import (
-    BaseNode,
     Document,
     TextNode
 )
@@ -17,11 +17,11 @@ from llama_index.core.ingestion import run_transformations
 from llama_index.embeddings.text_embeddings_inference import TextEmbeddingsInference
 
 from settings import Settings
-from database_vectordb_transform.treefy_nodes import TreefyNodes
 from database_vectordb_transform.vectors_upload import VectorsUpload
 from utils.database_utils import run_insert_sql
-from utils.utils import ProcessingResultEnum, update_result_status
-from utils.embeddings_utils import calculate_embeddings
+from utils.custom_basenode import CurieoBaseNode
+from utils.utils import ProcessingResultEnum, update_result_status, is_valid_record, get_abstract
+from utils.embeddings_utils import EmbeddingUtil
 
 logger.add("file.log", rotation="500 MB", format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}")
 
@@ -44,9 +44,10 @@ class ProcessParentNodes:
             timeout=60,
             embed_batch_size=self.settings.embedding.embed_batch_size)
         self.vu = VectorsUpload(settings)
+        self.eu = EmbeddingUtil(settings)
 
-    async def node_metadata_transform(self, parent_id, pubmedid, nodes_to_be_added, record) -> list[BaseNode]:
-        result: list[TextNode] = []
+    def node_metadata_transform(self, parent_id, pubmedid, nodes_to_be_added, record) -> list[CurieoBaseNode]:
+        result: list[CurieoBaseNode] = []
         keys_to_update = ["publicationDate", "year", "authors", "identifiers"]
         for node in nodes_to_be_added:
             for key in keys_to_update:
@@ -64,43 +65,39 @@ class ProcessParentNodes:
             result.append(node)
         return result
     
-    async def process_single_parent_record(self, record: dict):
+    def process_single_parent_record(self, record: dict):
         record_id = int(record.get('identifier'))
 
-        if not self.is_valid_record(record, record_id):
-            self.log_bad_data(record_id)
+        if not is_valid_record(record, self.settings.database_reader.parsed_record_abstract_key, record_id):
+            self.log_dict.append(
+                update_result_status(mode="parent", pubmed_id=record_id, status=ProcessingResultEnum.ID_ABSTRACT_BAD_DATA.value)
+            )
             return
 
-        abstract = self.get_abstract(record)
+        abstract = get_abstract(record, self.settings.database_reader.parsed_record_abstract_key)
         if not abstract:
-            self.log_bad_data(record_id)
+            self.log_dict.append(
+                update_result_status(mode="parent", pubmed_id=record_id, status=ProcessingResultEnum.ID_ABSTRACT_BAD_DATA.value)
+            )
             return
 
-        parent_nodes = self.create_parent_nodes(abstract)
-        parent_id = parent_nodes[0].id_
+        parent_nodes = [CurieoBaseNode.from_text_node(text_node) for text_node in self.create_parent_nodes(abstract)]
+        parent_nodes_with_embeddings = self.eu.calculate_dense_sparse_embeddings(parent_nodes)
 
-        id_to_dense_embedding = await calculate_embeddings(self.embed_model, parent_nodes)
-        self.assign_embeddings_to_nodes(parent_nodes, id_to_dense_embedding)
+        try:
+            parent_id = parent_nodes[0].id_
+            nodes_ready_to_be_added = self.node_metadata_transform(parent_id, record_id, parent_nodes_with_embeddings, record)
+            self.insert_nodes_into_index(record_id, parent_id, nodes_ready_to_be_added)
+            return
+        except Exception as e:
+            self.log_dict.append(
+                update_result_status(mode="parent", pubmed_id=record_id, status=ProcessingResultEnum.PARENT_NODE_INSERT_FAILED.value)
+            )
+            return 
 
-        nodes_ready_to_be_added = await self.node_metadata_transform(parent_id, record_id, parent_nodes, record)
-        self.insert_nodes_into_index(record_id, parent_id, nodes_ready_to_be_added)
-
-    def is_valid_record(self, record: Union[tuple, dict], record_id: int) -> bool:
-        abstract_key = self.settings.database_reader.parsed_record_abstract_key
-        return record_id > 0 and bool(record.get(abstract_key))
-
-    def log_bad_data(self, record_id: int):
-        self.log_dict.append(
-            update_result_status(pubmed_id=record_id, status=ProcessingResultEnum.ID_ABSTRACT_BAD_DATA.value)
-        )
-
-    def get_abstract(self, record: Union[tuple, dict]) -> str:
-        abstract_key = self.settings.database_reader.parsed_record_abstract_key
-        return ",".join(abstract["string"] for abstract in record.get(abstract_key, []))
-
-    def create_parent_nodes(self, abstract: str) -> List[Document]:
+    def create_parent_nodes(self, abstract: str) -> List[TextNode]:
         return run_transformations(
-            nodes=[Document(text=abstract)],
+            nodes=[TextNode(text=abstract)],
             transformations=[
                 SentenceSplitter(
                     chunk_size=self.settings.d2vengine.parent_chunk_size,
@@ -109,43 +106,39 @@ class ProcessParentNodes:
             ],
             in_place=False
         )
-
-    def assign_embeddings_to_nodes(self, nodes: List[Document], id_to_dense_embedding: dict):
-        for node in nodes:
-            node.embedding = id_to_dense_embedding[node.id_]
-
+        
     def insert_nodes_into_index(self, record_id: int, parent_id: str, nodes_to_be_added: List[Document]):
         try:
             self.vu.parent_vectordb_index.insert_nodes(nodes_to_be_added)
             self.log_dict.append(
                 update_result_status(
+                    mode="parent",
                     pubmed_id=record_id,
                     status=ProcessingResultEnum.SUCCESS.value,
-                    parent_id_nodes_count=len(nodes_to_be_added),
+                    nodes_count=len(nodes_to_be_added),
                     parent_id=parent_id,
                 )
             )
         except Exception as e:
             logger.exception(f"VectorDb problem: {e}")
             self.log_dict.append(
-                update_result_status(pubmed_id=record_id, status=ProcessingResultEnum.VECTORDB_FAILED.value)
+                update_result_status(mode="parent", pubmed_id=record_id, status=ProcessingResultEnum.VECTORDB_FAILED.value)
             )
         
     async def process_batch_parent_records(self,
                                     records: list[defaultdict]) -> None:
-        jobs = []
-        for each_record in records:           
-            jobs.append(
-                self.process_single_parent_record(each_record)
-            )
+        loop = asyncio.get_running_loop()
+        with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
+            jobs = []
+            for each_record in records:
+                job = loop.run_in_executor(executor, self.process_single_parent_record, each_record)
+                jobs.append(job)
 
-        lock = asyncio.Semaphore(self.num_workers)
-        # run the jobs while limiting the number of concurrent jobs to num_workers
-        for job in jobs:
+            lock = asyncio.Semaphore(self.num_workers)
             async with lock:
-                await job
+                await asyncio.gather(*jobs)
 
-    async def batch_process_records_to_vectors(self,
+    def batch_process_records_to_vectors(self,
                                                records: defaultdict, 
                                                batch_size:int = 100):
         keys = list(records.keys())
@@ -157,7 +150,7 @@ class ProcessParentNodes:
             batch_data = [records[key] for key in keys[start_index:end_index]]
 
             start_time = time.time()
-            await self.process_batch_parent_records(batch_data)
+            asyncio.run(self.process_batch_parent_records(batch_data))
             logger.info(f"Processed Batch size of {batch_size} in {time.time() - start_time:.2f}s")
             run_insert_sql(engine=self.engine,
                                  table_name=self.settings.database_reader.pubmed_parent_ingestion_log,

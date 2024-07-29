@@ -4,6 +4,12 @@
 
 The Framework is a powerful tool designed for extracting information from a Pubmed database, processing it, and storing the processed data in a vector format using Qdrant. It utilizes advanced NLP techniques to parse, index, and store large volumes of text data efficiently. This system is built to facilitate easy search and retrieval of complex document-based datasets for research and analysis.
 
+## Processing Pubmed 
+
+We index both Pubmed Titles/Abstract data, as well as Pubmed Central Full Text.
+This scaling challenge has been dealt with by clustering child nodes (sections) of full text documents. This has been documented in detail here [Pubmed Ingest Process](./app/tests/testing-vectorization.md).
+
+
 ## Installation
 
 Before you begin, ensure you have [Poetry](https://python-poetry.org/docs/) installed on your system. This project uses Poetry for dependency management and packaging.
