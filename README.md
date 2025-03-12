@@ -8,6 +8,9 @@ This directory contains the code and documentation for generating the AACT datab
 ### ChEMBL Folder
 This directory contains the code and documentation for converting the ChEMBL database into the nebula graph database using Docker and Python.
 
+### Pubmed Folder
+This directory contains code and documentation for ingesting all of [pubmed](https://pmc.ncbi.nlm.nih.gov/) and some of [Pubmed Central (PMC)](https://pmc.ncbi.nlm.nih.gov/) into a local, searchable database. [Detailed documentation in this folder](pubmed/README.md).
+
 ## Setup
 Requirements:
 - Docker
